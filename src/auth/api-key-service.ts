@@ -103,20 +103,20 @@ export async function listApiKeysByUser(userId: string): Promise<ApiKeySanitized
 }
 
 export async function deleteApiKey(userId: string, keyId: string): Promise<boolean> {
-  const result = await db
+  const result = db
     .delete(apiKey)
     .where(and(eq(apiKey.id, keyId), eq(apiKey.userId, userId)))
-    .run();
+    .run() as any;
 
   return result.changes > 0;
 }
 
 export async function updateApiKeyLabel(userId: string, keyId: string, label: string): Promise<boolean> {
-  const result = await db
+  const result = db
     .update(apiKey)
     .set({ label })
     .where(and(eq(apiKey.id, keyId), eq(apiKey.userId, userId)))
-    .run();
+    .run() as any;
 
   return result.changes > 0;
 }

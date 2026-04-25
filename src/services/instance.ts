@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import net from "node:net";
+import * as net from "node:net";
 import { createApiKey } from "../auth/api-key-service";
 import { getBaseUrl } from "../config";
 

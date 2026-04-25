@@ -59,14 +59,14 @@ describe("Session Service", () => {
       const resp = createSession({});
       expect(resp.id).toMatch(/^session_/);
       expect(resp.status).toBe("idle");
-      expect(resp.source).toBe("remote-control");
+      expect(resp.source).toBe("acp");
       expect(resp.environment_id).toBeNull();
       expect(resp.worker_epoch).toBe(0);
       expect(resp.created_at).toBeGreaterThan(0);
     });
 
     test("creates a session with all options", () => {
-      const env = storeCreateEnvironment({ secret: "s" });
+      const env = storeCreateEnvironment({ secret: "s", userId: "u1" });
       const resp = createSession({
         environment_id: env.id,
         title: "My Session",
@@ -175,7 +175,7 @@ describe("Session Service", () => {
 
   describe("listSessionsByEnvironment", () => {
     test("filters by environment", () => {
-      const env = storeCreateEnvironment({ secret: "s" });
+      const env = storeCreateEnvironment({ secret: "s", userId: "u1" });
       createSession({ environment_id: env.id });
       createSession({});
       expect(listSessionsByEnvironment(env.id)).toHaveLength(1);

@@ -17,6 +17,15 @@ mock.module("../config", () => ({
   getBaseUrl: () => "http://localhost:3000",
 }));
 
+// Mock db and better-auth to prevent side effects in test
+mock.module("../db", () => ({
+  db: {},
+  initDb: () => {},
+}));
+mock.module("../auth/better-auth", () => ({
+  auth: { api: { getSession: async () => null, signUpEmail: async () => ({}) } },
+}));
+
 import { Hono } from "hono";
 import { storeReset, storeCreateSession, storeCreateEnvironment, storeBindSession } from "../store";
 import { removeEventBus, getAllEventBuses, getEventBus } from "../transport/event-bus";

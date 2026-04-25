@@ -1,7 +1,9 @@
 import { describe, test, expect } from "bun:test";
 import * as fs from "node:fs";
+import { join } from "node:path";
 
-const appSrc = fs.readFileSync("src/App.tsx", "utf-8");
+const webRoot = join(import.meta.dirname, "..");
+const appSrc = fs.readFileSync(join(webRoot, "App.tsx"), "utf-8");
 
 describe("App.tsx i18n Chinese translations", () => {
     test('navItems contains Chinese label "仪表盘"', () => {

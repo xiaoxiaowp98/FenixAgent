@@ -1,10 +1,7 @@
 import type { Context, Next } from "hono";
-import { auth } from "./better-auth";
-import { validateApiKeyAndGetUser } from "./api-key-service";
 import { config } from "../config";
-import { db } from "../db";
-import { user } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { verifyWorkerJwt } from "./jwt";
+import { validateApiKey } from "./api-key";
 
 /** Extract token from Authorization header or ?token= query param */
 function extractToken(c: Context): string | undefined {
@@ -18,6 +15,7 @@ function extractToken(c: Context): string | undefined {
  * Reads better-auth session from cookies/headers and injects user into context.
  */
 export async function sessionAuth(c: Context, next: Next) {
+  const { auth } = await import("./better-auth");
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
 
   if (!session?.user) {
@@ -42,6 +40,11 @@ export async function sessionAuth(c: Context, next: Next) {
  * Find or create the system user for legacy global API key fallback.
  */
 async function ensureSystemUser(): Promise<{ id: string; email: string; name: string } | null> {
+  const { db } = await import("../db");
+  const { user } = await import("../db/schema");
+  const { eq } = await import("drizzle-orm");
+  const { auth } = await import("./better-auth");
+
   // Look for existing system user
   const rows = await db.select().from(user).where(eq(user.email, "system@rcs.local")).limit(1);
   if (rows.length > 0) {
@@ -56,7 +59,7 @@ async function ensureSystemUser(): Promise<{ id: string; email: string; name: st
 
   // No users at all — auto-create system user
   try {
-    const result = await auth.api.signUpEmail({
+    const result = await (auth.api.signUpEmail as any)({
       email: "system@rcs.local",
       password: "system",
       name: "System",
@@ -87,8 +90,12 @@ export async function apiKeyAuth(c: Context, next: Next) {
   }
 
   // 1. Try per-user API Key (SQLite)
+  const { validateApiKeyAndGetUser } = await import("./api-key-service");
   const result = await validateApiKeyAndGetUser(token);
   if (result) {
+    const { db } = await import("../db");
+    const { user } = await import("../db/schema");
+    const { eq } = await import("drizzle-orm");
     const [userRow] = await db.select().from(user).where(eq(user.id, result.userId)).limit(1);
     if (userRow) {
       c.set("user", {
@@ -130,4 +137,42 @@ export async function uuidAuth(c: Context, next: Next) {
   }
   c.set("uuid", uuid);
   await next();
+}
+
+/**
+ * Passthrough middleware that accepts CLI headers (e.g. x-cli-version).
+ * Currently a no-op — just forwards to next handler.
+ */
+export async function acceptCliHeaders(c: Context, next: Next) {
+  await next();
+}
+
+/**
+ * Session ingress auth — validates API key or worker JWT for session data routes.
+ */
+export async function sessionIngressAuth(c: Context, next: Next) {
+  const authHeader = c.req.header("Authorization");
+  const queryToken = c.req.query("token");
+  const token = authHeader?.replace("Bearer ", "") || queryToken;
+
+  // Try legacy API key
+  if (validateApiKey(token)) {
+    const systemUser = await ensureSystemUser();
+    if (systemUser) {
+      c.set("user", systemUser);
+      await next();
+      return;
+    }
+  }
+
+  // Try worker JWT
+  if (token) {
+    const payload = verifyWorkerJwt(token);
+    if (payload) {
+      await next();
+      return;
+    }
+  }
+
+  return c.json({ error: { type: "unauthorized", message: "Invalid auth" } }, 401);
 }

@@ -5,6 +5,8 @@ declare module "hono" {
   interface ContextVariableMap {
     user: { id: string; email: string; name: string } | null;
     session: { id: string; userId: string; token: string } | null;
+    uuid: string | undefined;
+    username: string | undefined;
   }
 }
 
@@ -20,6 +22,18 @@ export interface EnvironmentResponse {
   last_poll_at: number | null;
   worker_type?: string;
   capabilities?: Record<string, unknown> | null;
+}
+
+export interface RegisterEnvironmentRequest {
+  machine_name?: string;
+  directory?: string;
+  branch?: string;
+  git_repo_url?: string;
+  max_sessions?: number;
+  worker_type?: string;
+  bridge_id?: string;
+  capabilities?: Record<string, unknown>;
+  metadata?: { worker_type?: string };
 }
 
 export interface SessionSummaryResponse {
@@ -41,6 +55,41 @@ export interface SessionResponse {
   username: string | null;
   created_at: number;
   updated_at: number;
+}
+
+export interface CreateSessionRequest {
+  environment_id?: string;
+  title?: string;
+  source?: string;
+  permission_mode?: string;
+  username?: string;
+}
+
+export interface CreateCodeSessionRequest {
+  title?: string;
+  source?: string;
+  username?: string;
+  permission_mode?: string;
+}
+
+export interface WorkResponse {
+  id: string;
+  type: string;
+  environment_id: string;
+  state: string;
+  data: {
+    type: string;
+    id: string;
+  };
+  secret: string;
+  created_at: string;
+}
+
+export interface AutomationStateResponse {
+  enabled: boolean;
+  phase: "standby" | "sleeping" | null;
+  next_tick_at: number | null;
+  sleep_until: number | null;
 }
 
 // --- Error ---

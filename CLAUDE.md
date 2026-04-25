@@ -97,8 +97,10 @@ cd web && bunx vite build && cd .. && ls src/
 
 **内存存储**：`src/store.ts`
 
-- `environments` Map：Agent 注册信息（包括 offline 状态，支持重连复用）
-- `sessions` Map：会话元数据
+- `environments` Map：Agent 注册信息（断开时直接删除，不保留 offline）
+- `sessions` Map：会话元数据（environment 删除时关联 session 也会被删除）
+- `sessionWorkers` Map：Worker 状态（`storeGetSessionWorker`、`storeUpsertSessionWorker`）
+- `tokens` Map：遗留 token 存储（`storeCreateToken`、`storeGetUserByToken`）
 
 ### ACP 协议要点
 
@@ -170,9 +172,10 @@ acp-link 有两种认证方式（优先级从高到低）：
 #### 连接状态管理
 
 - **注册**：创建 `EnvironmentRecord`（`workerType="acp"`），状态为 `active`
-- **离线**：WS 断开时标记为 `offline`（**不删除记录**，支持重连复用）
-- **重连**：acp-link 重连时，相同 `machineName` + `userId` 的 offline 记录会被复用
+- **断开**：WS 断开时**直接删除记录和关联 session**（不保留 offline 状态）
+- **注销**：DELETE `/v1/environments/bridge/:id` 直接删除记录（不是标记 `deregistered`）
 - **自动会话**：注册时若无 session，自动创建一个默认 session
+- **超时清理**：`disconnect-monitor` 检测到 ACP agent 超时也会直接删除记录
 
 ### 前端架构 (React + Vite)
 
@@ -355,17 +358,58 @@ MCP (Model Context Protocol) 支持两种类型：
 
 ## 测试策略
 
+### 运行命令
+
+```bash
+# 后端全部测试
+bun test src/__tests__/
+
+# 后端单个测试文件
+bun test src/__tests__/store.test.ts
+
+# 前端全部测试（从项目根目录运行）
+bun test web/src/__tests__/
+
+# 前端单个测试文件
+bun test web/src/__tests__/app-i18n.test.ts
+```
+
+**重要**：前端测试使用 `import.meta.dirname` 解析文件路径，从项目根目录运行即可，不需要 `cd web`。
+
+### tsconfig
+
+后端 `tsconfig.json` 已配置为自包含（不依赖外部 `tsconfig.base.json`）：
+- `target: ES2022`、`module: ES2022`、`moduleResolution: bundler`
+- `downlevelIteration: true`（Map/Set 展开需要）
+- `types: ["bun"]`（依赖 `@types/bun`，已安装在 devDependencies）
+- 前端有独立的 `web/tsconfig.json`
+
 ### 后端测试 (Bun test)
 
 - 路径：`src/__tests__/*.test.ts`
 - 模式：单元测试为主，临时文件/目录用于 config 测试
-- Mock：通过重新实现函数（如 `testGetConfig`）而非 mock 框架
+- Mock：使用 `mock.module()` 模拟依赖，需在 `import` 语句之前注册
 
-### 前端测试 (Vitest)
+#### Mock 注意事项
+
+1. **mock.module 必须在 import 之前调用**：Bun test 要求 mock 在模块加载前注册
+2. **mock 隔离限制**：`mock.module()` 在同一进程中全局生效。当多个测试文件 mock 同一模块（如 `../config`）时，后加载的测试可能继承前一个测试的 mock 缓存，导致导入失败。表现为 `SyntaxError: Export named 'xxx' not found`
+3. **db/better-auth mock**：测试中若需要 mock 中间件链，必须同时 mock `../db`、`../auth/better-auth`、`../auth/api-key-service`，否则动态导入会失败
+4. **store 函数无 mock**：`src/store.ts` 是纯内存 Map，测试直接调用 `storeReset()` 清理状态
+
+#### 已知测试问题
+
+- **`middleware.test.ts` 和 `routes.test.ts`**：在 `bun test src/__tests__/` 全局运行时，因 mock 缓存污染可能无法加载 `auth/middleware.ts`（报 `Export named 'xxx' not found`）。单独运行这两个文件时正常。这是 bun test 的 mock 隔离限制，非代码 bug
+- **`routes.test.ts` Web Session Routes**：32 个测试预期 UUID-based 认证（`?uuid=` query param），但当前 `/web/sessions` 路由使用 `sessionAuth`（better-auth cookie）。需要更新测试或实现新的 API 端点
+
+### 前端测试 (Bun test)
 
 - 路径：`web/src/__tests__/*.ts` 和 `*.test.tsx`
+- 运行框架：Bun test（不是 vitest，尽管 `bun test` 兼容 vitest API）
 - i18n 测试：检查中文文本是否存在（`app-i18n.test.ts` 等）
-- 组件测试：使用 React Testing Library
+- 组件测试：使用 React Testing Library + ReactDOMServer
+- **文件读取路径**：使用 `import.meta.dirname` 或 `join(import.meta.dirname, "..")` 构建 web 根目录，不使用相对路径字符串（如 `"src/App.tsx"`），因为 CWD 可能不是 `web/`
+- **shadcn 组件导入**：使用相对路径如 `../../components/ui/skeleton`（从 `__tests__/` 出发）
 
 ## 状态字段映射
 

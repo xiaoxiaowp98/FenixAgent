@@ -56,7 +56,7 @@ async function ensureSystemUser(): Promise<{ id: string; email: string; name: st
   }
 
   try {
-    const result = await auth.api.signUpEmail({
+    const result = await (auth.api.signUpEmail as any)({
       email: "system@rcs.local",
       password: "system",
       name: "System",

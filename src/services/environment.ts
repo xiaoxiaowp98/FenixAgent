@@ -21,23 +21,22 @@ function toResponse(row: EnvironmentRecord): EnvironmentResponse {
     username: row.username,
     last_poll_at: row.lastPollAt ? row.lastPollAt.getTime() / 1000 : null,
     worker_type: row.workerType,
-    channel_group_id: row.bridgeId,
     capabilities: row.capabilities,
   };
 }
 
-export function registerEnvironment(req: RegisterEnvironmentRequest & { metadata?: { worker_type?: string }; username?: string }) {
+export function registerEnvironment(req: RegisterEnvironmentRequest & { metadata?: { worker_type?: string }; username?: string; userId?: string }) {
   const secret = config.apiKeys[0] || "";
   const workerType = req.worker_type || req.metadata?.worker_type;
   const record = storeCreateEnvironment({
     secret,
+    userId: req.userId || "system",
     machineName: req.machine_name,
     directory: req.directory,
     branch: req.branch,
     gitRepoUrl: req.git_repo_url,
     maxSessions: req.max_sessions,
     workerType,
-    bridgeId: req.bridge_id,
     username: req.username,
     capabilities: req.capabilities,
   });

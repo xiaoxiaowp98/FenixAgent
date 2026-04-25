@@ -16,7 +16,7 @@ const app = new Hono();
 /** POST /v1/sessions — Create session */
 app.post("/", acceptCliHeaders, apiKeyAuth, async (c) => {
   const body = await c.req.json();
-  const username = c.get("username");
+  const username = (c.get as any)("username") as string | undefined;
   const session = createSession({ ...body, username });
 
   // Create work item if environment is specified

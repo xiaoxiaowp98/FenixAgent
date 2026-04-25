@@ -41,24 +41,6 @@ const sessions = new Map<string, SessionRecord>();
 
 // ---------- Environment ----------
 
-/** Find an active or offline environment by machineName and userId.
- *  Includes "offline" so ACP agents can be reused on reconnect. */
-export function storeFindEnvironmentByMachineName(
-  machineName: string,
-  userId: string,
-): EnvironmentRecord | undefined {
-  for (const rec of environments.values()) {
-    if (
-      rec.machineName === machineName &&
-      rec.userId === userId &&
-      (rec.status === "active" || rec.status === "offline")
-    ) {
-      return rec;
-    }
-  }
-  return undefined;
-}
-
 export function storeCreateEnvironment(req: {
   secret: string;
   userId: string;
@@ -261,6 +243,17 @@ export function storeUpdateWorkItem(id: string, patch: Partial<Pick<WorkItemReco
   return true;
 }
 
+/** Delete an environment and its associated sessions */
+export function storeDeleteEnvironment(id: string): boolean {
+  // Delete associated sessions first
+  for (const [sid, s] of sessions) {
+    if (s.environmentId === id) {
+      sessions.delete(sid);
+    }
+  }
+  return environments.delete(id);
+}
+
 // ---------- ACP Agent (reuses EnvironmentRecord with workerType="acp") ----------
 
 /** List all ACP agents (environments with workerType="acp") */
@@ -282,31 +275,51 @@ export function storeListOnlineAcpAgents(): EnvironmentRecord[] {
   );
 }
 
-/** Mark an ACP agent as offline */
-export function storeMarkAcpAgentOffline(id: string): boolean {
-  const rec = environments.get(id);
-  if (!rec || rec.workerType !== "acp") return false;
-  Object.assign(rec, { status: "offline", updatedAt: new Date() });
-  return true;
+// ---------- Session Workers ----------
+
+export interface SessionWorkerRecord {
+  sessionId: string;
+  workerStatus: string | null;
+  externalMetadata: Record<string, unknown> | null;
+  requiresActionDetails: Record<string, unknown> | null;
+  lastHeartbeatAt: Date | null;
 }
 
-/** Mark an ACP agent as online (on reconnect) */
-export function storeMarkAcpAgentOnline(id: string): boolean {
-  const rec = environments.get(id);
-  if (!rec || rec.workerType !== "acp") return false;
-  Object.assign(rec, { status: "active", lastPollAt: new Date(), updatedAt: new Date() });
-  return true;
+const sessionWorkers = new Map<string, SessionWorkerRecord>();
+
+export function storeGetSessionWorker(sessionId: string): SessionWorkerRecord | undefined {
+  return sessionWorkers.get(sessionId);
 }
 
-/** Delete an environment and its associated sessions */
-export function storeDeleteEnvironment(id: string): boolean {
-  // Delete associated sessions first
-  for (const [sid, s] of sessions) {
-    if (s.environmentId === id) {
-      sessions.delete(sid);
-    }
+export function storeUpsertSessionWorker(
+  sessionId: string,
+  patch: Partial<Omit<SessionWorkerRecord, "sessionId">>,
+): SessionWorkerRecord {
+  let record = sessionWorkers.get(sessionId);
+  if (!record) {
+    record = {
+      sessionId,
+      workerStatus: null,
+      externalMetadata: null,
+      requiresActionDetails: null,
+      lastHeartbeatAt: null,
+    };
+    sessionWorkers.set(sessionId, record);
   }
-  return environments.delete(id);
+  Object.assign(record, patch);
+  return record;
+}
+
+// ---------- Token Store (legacy) ----------
+
+const tokens = new Map<string, { username: string; createdAt: Date }>();
+
+export function storeCreateToken(username: string, token: string): void {
+  tokens.set(token, { username, createdAt: new Date() });
+}
+
+export function storeGetUserByToken(token: string): { username: string } | undefined {
+  return tokens.get(token);
 }
 
 // ---------- Reset (for tests) ----------
@@ -314,4 +327,6 @@ export function storeDeleteEnvironment(id: string): boolean {
 export function storeReset() {
   environments.clear();
   sessions.clear();
+  sessionWorkers.clear();
+  tokens.clear();
 }

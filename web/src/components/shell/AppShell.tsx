@@ -51,7 +51,7 @@ export function AppShell({ navItems, userEmail, onLogout, children }: AppShellPr
             size="sm"
             onClick={item.onClick}
             className={cn(
-              "flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-normal whitespace-nowrap",
+              "flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-normal whitespace-nowrap cursor-pointer",
               item.active
                 ? "bg-brand/10 text-brand"
                 : "text-text-secondary hover:bg-surface-2 hover:text-text-primary",

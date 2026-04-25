@@ -13,11 +13,10 @@ import {
   storeListSessionsByEnvironment,
   storeListSessionsByUserId,
   storeDeleteSession,
+  storeDeleteEnvironment,
   storeListAcpAgents,
   storeListAcpAgentsByUserId,
   storeListOnlineAcpAgents,
-  storeMarkAcpAgentOffline,
-  storeMarkAcpAgentOnline,
 } from "../store";
 
 describe("store", () => {
@@ -187,12 +186,12 @@ describe("store", () => {
   // ---------- ACP Agent ----------
 
   describe("ACP agent lifecycle", () => {
-    test("marks agent offline and online", () => {
+    test("deletes agent and associated sessions", () => {
       const env = storeCreateEnvironment({ secret: "s", userId: "u1", workerType: "acp", machineName: "agent1" });
-      expect(storeMarkAcpAgentOffline(env.id)).toBe(true);
-      expect(storeGetEnvironment(env.id)?.status).toBe("offline");
-      expect(storeMarkAcpAgentOnline(env.id)).toBe(true);
-      expect(storeGetEnvironment(env.id)?.status).toBe("active");
+      storeCreateSession({ environmentId: env.id, title: "test session", userId: "u1" });
+      expect(storeDeleteEnvironment(env.id)).toBe(true);
+      expect(storeGetEnvironment(env.id)).toBeUndefined();
+      expect(storeListSessionsByEnvironment(env.id)).toHaveLength(0);
     });
 
     test("lists ACP agents", () => {
@@ -209,10 +208,9 @@ describe("store", () => {
     });
 
     test("lists online ACP agents", () => {
-      const env = storeCreateEnvironment({ secret: "s1", userId: "u1", workerType: "acp", machineName: "a1" });
+      storeCreateEnvironment({ secret: "s1", userId: "u1", workerType: "acp", machineName: "a1" });
       storeCreateEnvironment({ secret: "s2", userId: "u1", workerType: "acp", machineName: "a2" });
-      storeMarkAcpAgentOffline(env.id);
-      expect(storeListOnlineAcpAgents()).toHaveLength(1);
+      expect(storeListOnlineAcpAgents()).toHaveLength(2);
     });
   });
 

@@ -15,6 +15,11 @@ export const config = {
   /** Server→client keep_alive data-frame interval (seconds). Keeps reverse
    *  proxies from closing idle connections. Default 20s. */
   wsKeepaliveInterval: parseInt(process.env.RCS_WS_KEEPALIVE_INTERVAL || "20"),
+  /** Disconnect timeout (seconds). Environments/sessions with no activity for
+   *  this long are considered disconnected. Default 120s. */
+  disconnectTimeout: parseInt(process.env.RCS_DISCONNECT_TIMEOUT || "120"),
+  /** JWT expiration time in seconds for worker tokens. Default 3600s (1 hour). */
+  jwtExpiresIn: parseInt(process.env.RCS_JWT_EXPIRES_IN || "3600"),
 } as const;
 
 export function getBaseUrl(): string {

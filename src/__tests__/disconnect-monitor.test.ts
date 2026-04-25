@@ -38,7 +38,7 @@ describe("Disconnect Monitor Logic", () => {
   });
 
   test("environment times out when lastPollAt is too old", () => {
-    const env = storeCreateEnvironment({ secret: "s" });
+    const env = storeCreateEnvironment({ secret: "s", userId: "u1", workerType: "legacy" });
     const timeoutMs = 300 * 1000; // 5 minutes
 
     // Simulate lastPollAt being 6 minutes ago
@@ -52,7 +52,7 @@ describe("Disconnect Monitor Logic", () => {
   });
 
   test("environment stays active when lastPollAt is recent", () => {
-    const env = storeCreateEnvironment({ secret: "s" });
+    const env = storeCreateEnvironment({ secret: "s", userId: "u1", workerType: "legacy" });
     runDisconnectMonitorSweep();
 
     const updated = storeGetEnvironment(env.id);

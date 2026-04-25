@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { Next } from "hono";
 import { sessionAuth, uuidAuth, getUuidFromRequest } from "../../auth/middleware";
 import {
   storeGetSession,
@@ -64,7 +65,7 @@ app.get("/sessions/:id", sessionAuth, async (c) => {
 
 /** GET /web/sessions/:id/history — Session event history
  *  Supports both sessionAuth (cookie) and uuidAuth (?uuid=) */
-app.get("/sessions/:id/history", async (c, next) => {
+app.get("/sessions/:id/history", async (c, next: Next) => {
   // Try sessionAuth first, fall back to uuidAuth
   const uuid = getUuidFromRequest(c);
   if (uuid) {
@@ -81,7 +82,7 @@ app.get("/sessions/:id/history", async (c, next) => {
 
   if (uuid) {
     resolvedId = resolveOwnedWebSessionId(sessionId, uuid);
-  } else if (user) {
+  } else if (user && user.id) {
     const session = storeGetSession(sessionId);
     if (session && (!session.userId || session.userId === user.id)) {
       resolvedId = sessionId;

@@ -41,6 +41,7 @@ app.post("/sessions/:id/events", uuidAuth, async (c) => {
     const status = "reason" in ownership ? 409 : 403;
     return c.json("reason" in ownership ? closedSessionResponse(message) : { error: { type: "forbidden", message } }, status);
   }
+  if (!("sessionId" in ownership)) return c.json({ error: { type: "forbidden", message: "Not your session" } }, 403);
   const { sessionId } = ownership;
 
   const body = await c.req.json();
@@ -60,6 +61,7 @@ app.post("/sessions/:id/control", uuidAuth, async (c) => {
     const status = "reason" in ownership ? 409 : 403;
     return c.json("reason" in ownership ? closedSessionResponse(message) : { error: { type: "forbidden", message } }, status);
   }
+  if (!("sessionId" in ownership)) return c.json({ error: { type: "forbidden", message: "Not your session" } }, 403);
   const { sessionId } = ownership;
 
   const body = await c.req.json();
@@ -76,6 +78,7 @@ app.post("/sessions/:id/interrupt", uuidAuth, async (c) => {
     const status = "reason" in ownership ? 409 : 403;
     return c.json("reason" in ownership ? closedSessionResponse(message) : { error: { type: "forbidden", message } }, status);
   }
+  if (!("sessionId" in ownership)) return c.json({ error: { type: "forbidden", message: "Not your session" } }, 403);
   const { sessionId } = ownership;
 
   publishSessionEvent(sessionId, "interrupt", { action: "interrupt" }, "outbound");

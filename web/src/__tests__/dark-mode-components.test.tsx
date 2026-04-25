@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import ReactDOMServer from "react-dom/server";
 import { readFileSync } from "fs";
+import { join } from "path";
 import { Skeleton } from "../../components/ui/skeleton";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "../../components/ui/accordion";
 import { Calendar } from "../../components/ui/calendar";
@@ -27,7 +28,7 @@ const DARK_MODE_VARIABLES = [
 
 describe("Dark mode component integration", () => {
   test("index.css dark mode has all required CSS variables", () => {
-    const css = readFileSync("src/index.css", "utf-8");
+    const css = readFileSync(join(import.meta.dirname, "..", "index.css"), "utf-8");
     const darkBlockMatch = css.match(/\.dark\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/s);
     expect(darkBlockMatch).not.toBeNull();
     const darkBlock = darkBlockMatch![1];

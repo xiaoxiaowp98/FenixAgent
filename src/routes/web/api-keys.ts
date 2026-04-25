@@ -19,7 +19,7 @@ app.get("/api-keys", sessionAuth, async (c) => {
 /** POST /web/api-keys — Create a new API key */
 app.post("/api-keys", sessionAuth, async (c) => {
   const user = c.get("user")!;
-  const body = await c.req.json<{ label?: string }>().catch(() => ({}));
+  const body = await c.req.json<{ label?: string }>().catch(() => ({ label: "" }));
   const { record, fullKey } = await createApiKey(user.id, body.label || "");
   return c.json({ ...record, full_key: fullKey }, 201);
 });
@@ -39,7 +39,7 @@ app.delete("/api-keys/:id", sessionAuth, async (c) => {
 app.patch("/api-keys/:id", sessionAuth, async (c) => {
   const user = c.get("user")!;
   const keyId = c.req.param("id")!;
-  const body = await c.req.json<{ label: string }>().catch(() => ({}));
+  const body = await c.req.json<{ label: string }>().catch(() => ({ label: "" }));
   if (!body.label) {
     return c.json({ error: { type: "bad_request", message: "Label is required" } }, 400);
   }

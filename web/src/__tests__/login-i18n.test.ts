@@ -1,7 +1,9 @@
 import { describe, test, expect } from "bun:test";
 import * as fs from "node:fs";
+import { join } from "node:path";
 
-const src = fs.readFileSync("src/pages/LoginPage.tsx", "utf-8");
+const srcDir = join(import.meta.dirname, "..");
+const src = fs.readFileSync(join(srcDir, "pages/LoginPage.tsx"), "utf-8");
 
 describe("LoginPage.tsx i18n Chinese translations", () => {
   // Negative checks - English text should be removed

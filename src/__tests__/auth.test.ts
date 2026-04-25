@@ -20,7 +20,7 @@ mock.module("../config", () => ({
 import { validateApiKey, hashApiKey } from "../auth/api-key";
 import { generateWorkerJwt, verifyWorkerJwt } from "../auth/jwt";
 import { issueToken, resolveToken } from "../auth/token";
-import { storeReset, storeCreateUser } from "../store";
+import { storeReset } from "../store";
 
 // ---------- api-key ----------
 
@@ -138,7 +138,6 @@ describe("issueToken / resolveToken", () => {
   });
 
   test("issues and resolves a token", () => {
-    storeCreateUser("alice");
     const { token, expires_in } = issueToken("alice");
     expect(token).toMatch(/^rct_\d+_[0-9a-f]+$/);
     expect(expires_in).toBe(86400);
@@ -154,7 +153,6 @@ describe("issueToken / resolveToken", () => {
   });
 
   test("tokens are unique", () => {
-    storeCreateUser("alice");
     const t1 = issueToken("alice").token;
     const t2 = issueToken("alice").token;
     expect(t1).not.toBe(t2);

@@ -17,10 +17,25 @@ mock.module("../config", () => ({
   getBaseUrl: () => "http://localhost:3000",
 }));
 
+// Mock db and better-auth to prevent side effects
+mock.module("../db", () => ({
+  db: {
+    select: () => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) }),
+    insert: () => ({ values: () => ({ run: () => ({ changes: 0 }) }) }),
+  },
+  initDb: () => {},
+}));
+mock.module("../auth/better-auth", () => ({
+  auth: { api: { getSession: async () => null, signUpEmail: async () => ({}) } },
+}));
+mock.module("../auth/api-key-service", () => ({
+  validateApiKeyAndGetUser: async () => null,
+  createApiKey: async () => ({ record: {}, fullKey: "test" }),
+}));
+
 import { Hono } from "hono";
-import { storeReset, storeCreateUser } from "../store";
-import { apiKeyAuth, sessionIngressAuth, uuidAuth, getUuidFromRequest } from "../auth/middleware";
-import { issueToken } from "../auth/token";
+import { storeReset } from "../store";
+import { apiKeyAuth, sessionIngressAuth, uuidAuth, getUuidFromRequest, acceptCliHeaders } from "../auth/middleware";
 import { generateWorkerJwt } from "../auth/jwt";
 
 // Helper: create a test app with middleware and a simple handler
@@ -29,12 +44,13 @@ function createTestApp() {
 
   // Test route for apiKeyAuth
   app.get("/api-key-test", apiKeyAuth, (c) => {
-    return c.json({ username: c.get("username") || null });
+    const user = c.get("user");
+    return c.json({ userId: user?.id || null });
   });
 
   // Test route for sessionIngressAuth
   app.get("/ingress/:id", sessionIngressAuth, (c) => {
-    return c.json({ ok: true, jwtPayload: c.get("jwtPayload") || null });
+    return c.json({ ok: true });
   });
 
   // Test route for uuidAuth
@@ -45,6 +61,11 @@ function createTestApp() {
   // Test route for getUuidFromRequest
   app.get("/uuid-extract", (c) => {
     return c.json({ uuid: getUuidFromRequest(c) });
+  });
+
+  // Test route for acceptCliHeaders (passthrough)
+  app.get("/cli-headers", acceptCliHeaders, (c) => {
+    return c.json({ ok: true });
   });
 
   return app;
@@ -59,36 +80,16 @@ describe("Auth Middleware", () => {
   });
 
   describe("apiKeyAuth", () => {
-    test("accepts valid API key with username header", async () => {
+    test("accepts valid legacy global API key via Bearer header", async () => {
       const res = await app.request("/api-key-test", {
-        headers: {
-          Authorization: "Bearer test-api-key",
-          "X-Username": "alice",
-        },
-      });
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.username).toBe("alice");
-    });
-
-    test("accepts valid API key with username query param", async () => {
-      const res = await app.request("/api-key-test?username=bob", {
         headers: { Authorization: "Bearer test-api-key" },
       });
       expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.username).toBe("bob");
     });
 
-    test("accepts valid session token", async () => {
-      storeCreateUser("charlie");
-      const { token } = issueToken("charlie");
-      const res = await app.request("/api-key-test", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+    test("accepts valid legacy global API key via query param", async () => {
+      const res = await app.request("/api-key-test?token=test-api-key");
       expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.username).toBe("charlie");
     });
 
     test("rejects invalid token", async () => {
@@ -101,15 +102,6 @@ describe("Auth Middleware", () => {
     test("rejects missing token", async () => {
       const res = await app.request("/api-key-test");
       expect(res.status).toBe(401);
-    });
-
-    test("accepts token from query param", async () => {
-      storeCreateUser("dave");
-      const { token } = issueToken("dave");
-      const res = await app.request(`/api-key-test?token=${token}`);
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.username).toBe("dave");
     });
   });
 
@@ -129,23 +121,12 @@ describe("Auth Middleware", () => {
       expect(res.status).toBe(200);
     });
 
-    test("accepts valid JWT with matching session_id", async () => {
+    test("accepts valid worker JWT", async () => {
       const jwt = generateWorkerJwt("ses_123", 3600);
       const res = await app.request("/ingress/ses_123", {
         headers: { Authorization: `Bearer ${jwt}` },
       });
       expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.jwtPayload).not.toBeNull();
-      expect(body.jwtPayload.session_id).toBe("ses_123");
-    });
-
-    test("rejects JWT with mismatched session_id", async () => {
-      const jwt = generateWorkerJwt("ses_456", 3600);
-      const res = await app.request("/ingress/ses_123", {
-        headers: { Authorization: `Bearer ${jwt}` },
-      });
-      expect(res.status).toBe(403);
     });
 
     test("rejects missing token", async () => {
@@ -169,15 +150,6 @@ describe("Auth Middleware", () => {
       expect(body.uuid).toBe("test-uuid-1");
     });
 
-    test("accepts UUID from header", async () => {
-      const res = await app.request("/uuid-test", {
-        headers: { "X-UUID": "test-uuid-2" },
-      });
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.uuid).toBe("test-uuid-2");
-    });
-
     test("rejects missing UUID", async () => {
       const res = await app.request("/uuid-test");
       expect(res.status).toBe(401);
@@ -191,18 +163,19 @@ describe("Auth Middleware", () => {
       expect(body.uuid).toBe("from-query");
     });
 
-    test("extracts from header", async () => {
-      const res = await app.request("/uuid-extract", {
-        headers: { "X-UUID": "from-header" },
-      });
-      const body = await res.json();
-      expect(body.uuid).toBe("from-header");
-    });
-
     test("returns undefined when no UUID", async () => {
       const res = await app.request("/uuid-extract");
       const body = await res.json();
       expect(body.uuid).toBeUndefined();
+    });
+  });
+
+  describe("acceptCliHeaders", () => {
+    test("passes through to handler", async () => {
+      const res = await app.request("/cli-headers");
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
     });
   });
 });

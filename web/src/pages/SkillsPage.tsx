@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { DataTable, type Column } from "@/components/config/DataTable";
 import { FormDialog } from "@/components/config/FormDialog";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
@@ -61,7 +62,9 @@ export function SkillsPage() {
 
   const columns: Column<SkillInfo>[] = [
     { key: "name", header: "名称", sortable: true, filterable: true },
-    { key: "description", header: "描述" },
+    { key: "description", header: "描述", render: (row) => (
+      <span className="block max-w-[200px] truncate" title={row.description}>{row.description || "—"}</span>
+    )},
     {
       key: "enabled",
       header: "状态",
@@ -230,17 +233,7 @@ export function SkillsPage() {
               <Input value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="可选" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">许可证</label>
-              <Input value={formLicense} onChange={(e) => setFormLicense(e.target.value)} placeholder="可选" />
-            </div>
-            <div>
-              <label className="text-sm font-medium">兼容性</label>
-              <Input value={formCompatibility} onChange={(e) => setFormCompatibility(e.target.value)} placeholder="可选" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 border rounded-lg overflow-hidden min-h-[300px]">
+          <div className="border rounded-lg overflow-hidden min-h-[300px]">
             <div className="p-2 border-r">
               <label className="text-sm font-medium text-muted-foreground">编辑</label>
               <Textarea
@@ -253,7 +246,7 @@ export function SkillsPage() {
             <div className="p-2 overflow-y-auto bg-muted/30">
               <label className="text-sm font-medium text-muted-foreground">预览</label>
               <div className="prose prose-sm dark:prose-invert max-w-none mt-1">
-                <Markdown>{formContent}</Markdown>
+                <Markdown remarkPlugins={[remarkGfm]}>{formContent}</Markdown>
               </div>
             </div>
           </div>

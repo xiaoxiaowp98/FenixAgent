@@ -32,16 +32,16 @@ const RULE_TOOLS = [
 /** Select 选项: 未设置 + 三态 */
 const PERMISSION_OPTIONS = [
   { value: "", label: "未设置" },
-  { value: "ask", label: "ask" },
-  { value: "allow", label: "allow" },
-  { value: "deny", label: "deny" },
+  { value: "ask", label: "询问" },
+  { value: "allow", label: "允许" },
+  { value: "deny", label: "拒绝" },
 ] as const;
 
 /** 规则型 Select 选项（排除"未设置"，使用全局策略兜底） */
 const RULE_ACTION_OPTIONS = [
-  { value: "ask", label: "ask" },
-  { value: "allow", label: "allow" },
-  { value: "deny", label: "deny" },
+  { value: "ask", label: "询问" },
+  { value: "allow", label: "允许" },
+  { value: "deny", label: "拒绝" },
 ] as const;
 
 // ── 内部状态类型 ──

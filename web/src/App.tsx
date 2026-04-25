@@ -13,6 +13,7 @@ import {
   Cpu,
   Bot,
   Wrench,
+  Plug,
 } from "lucide-react";
 
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
@@ -20,14 +21,15 @@ const SessionDetail = lazy(() => import("./pages/SessionDetail").then((m) => ({ 
 const ModelsPage = lazy(() => import("./pages/ModelsPage").then((m) => ({ default: m.ModelsPage })));
 const AgentsPage = lazy(() => import("./pages/AgentsPage").then((m) => ({ default: m.AgentsPage })));
 const SkillsPage = lazy(() => import("./pages/SkillsPage").then((m) => ({ default: m.SkillsPage })));
+const McpPage = lazy(() => import("./pages/McpPage").then((m) => ({ default: m.McpPage })));
 
 export function parseConfigView(pathname: string): string | null {
-  const configViews = ["models", "agents", "skills"];
+  const configViews = ["models", "agents", "skills", "mcp"];
   const segment = pathname.replace(/^\/code\/?/, "").split("/")[0];
   return configViews.includes(segment) ? segment : null;
 }
 
-type ViewId = "dashboard" | "session" | "apikeys" | "login" | "models" | "agents" | "skills";
+type ViewId = "dashboard" | "session" | "apikeys" | "login" | "models" | "agents" | "skills" | "mcp";
 
 export default function App() {
   const { data: session, isPending } = useSession();
@@ -38,7 +40,7 @@ export default function App() {
   // Simple hash-based router
   const parseRoute = useCallback(() => {
     const path = window.location.pathname;
-    const configViews = ["models", "agents", "skills"];
+    const configViews = ["models", "agents", "skills", "mcp"];
     const segment = path.replace(/^\/code\/?/, "").split("/")[0];
     if (configViews.includes(segment)) {
       setConfigView(segment);
@@ -99,14 +101,14 @@ export default function App() {
   const navItems: SidebarItem[] = useMemo(() => [
     {
       id: "dashboard",
-      label: "Dashboard",
+      label: "仪表盘",
       icon: <LayoutDashboard className="h-4 w-4" />,
       active: activeView === "dashboard",
       onClick: navigateToDashboard,
     },
     ...(currentSessionId && !showApiKeys && !configView ? [{
       id: "session",
-      label: "Session",
+      label: "会话",
       icon: <MessageSquare className="h-4 w-4" />,
       active: true,
       badge: "ACP",
@@ -117,7 +119,7 @@ export default function App() {
   const footerItems: SidebarItem[] = useMemo(() => [
     {
       id: "apikeys",
-      label: "API Keys",
+      label: "API Key",
       icon: <KeyRound className="h-4 w-4" />,
       active: activeView === "apikeys",
       onClick: navigateToApiKeys,
@@ -144,6 +146,13 @@ export default function App() {
       onClick: () => navigateToConfig("skills"),
     },
     {
+      id: "mcp",
+      label: "MCP",
+      icon: <Plug className="h-4 w-4" />,
+      active: activeView === "mcp",
+      onClick: () => navigateToConfig("mcp"),
+    },
+    {
       id: "logout",
       label: userEmail,
       icon: <LogOut className="h-4 w-4" />,
@@ -152,20 +161,20 @@ export default function App() {
   ], [activeView, userEmail, navigateToApiKeys, navigateToConfig, handleLogout]);
 
   const pageTitle = useMemo(() => {
-    if (showApiKeys) return "API Keys";
+    if (showApiKeys) return "API Key";
     if (configView) {
-      const titles: Record<string, string> = { models: "模型", agents: "代理", skills: "技能" };
+      const titles: Record<string, string> = { models: "模型", agents: "代理", skills: "技能", mcp: "MCP" };
       return titles[configView] || "配置";
     }
-    if (currentSessionId) return "Session";
-    return "Dashboard";
+    if (currentSessionId) return "会话";
+    return "仪表盘";
   }, [showApiKeys, configView, currentSessionId]);
 
   // Loading session state
   if (isPending) {
     return (
       <div className="flex h-screen items-center justify-center text-text-muted">
-        Loading...
+        加载中...
       </div>
     );
   }
@@ -188,7 +197,7 @@ export default function App() {
         title={pageTitle}
       >
         <Suspense fallback={
-          <div className="flex h-full items-center justify-center text-text-muted">Loading...</div>
+          <div className="flex h-full items-center justify-center text-text-muted">加载中...</div>
         }>
           {showApiKeys ? (
             <ApiKeyManager onBack={navigateToDashboard} />
@@ -198,6 +207,8 @@ export default function App() {
             <AgentsPage />
           ) : configView === "skills" ? (
             <SkillsPage />
+          ) : configView === "mcp" ? (
+            <McpPage />
           ) : currentSessionId ? (
             <SessionDetail key={currentSessionId} sessionId={currentSessionId} />
           ) : (

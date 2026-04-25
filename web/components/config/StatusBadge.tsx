@@ -31,6 +31,18 @@ const variantMap: Record<string, "default" | "secondary" | "outline" | "destruct
   outline: "outline",
 };
 
+const labelMap: Record<string, string> = {
+  configured: "已配置",
+  enabled: "已启用",
+  unconfigured: "未配置",
+  disabled: "已禁用",
+  builtIn: "内置",
+  custom: "自定义",
+  primary: "主模型",
+  subagent: "子代理",
+  all: "全部",
+};
+
 export function StatusBadge({ status }: StatusBadgeProps) {
   const variant = getBadgeVariant(status);
   const badgeVariant = variantMap[variant] || "outline";
@@ -39,7 +51,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
       variant === "green" && "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
       variant === "blue" && "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
     )}>
-      {status}
+      {labelMap[status] || status}
     </Badge>
   );
 }

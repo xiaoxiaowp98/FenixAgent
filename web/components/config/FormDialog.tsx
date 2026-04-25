@@ -59,18 +59,18 @@ export function FormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={width}>
+      <DialogContent className={`${width} max-h-[85vh] grid-rows-[auto_1fr_auto]`}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         {formConfig ? (
           <FormProvider {...methods}>
-            <form onSubmit={handleFormSubmit} className="space-y-4">
+            <form onSubmit={handleFormSubmit} className="space-y-4 overflow-y-auto min-h-0">
               {formContent}
             </form>
           </FormProvider>
         ) : (
-          <form onSubmit={handleFormSubmit as React.FormEventHandler} className="space-y-4">
+          <form onSubmit={handleFormSubmit as React.FormEventHandler} className="space-y-4 overflow-y-auto min-h-0">
             {formContent}
           </form>
         )}

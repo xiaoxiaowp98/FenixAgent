@@ -27,7 +27,7 @@ export function ApiKeyManager({ onBack }: ApiKeyManagerProps) {
       const data = await apiFetchApiKeys();
       setKeys(data);
     } catch (err) {
-      setError("Failed to load API keys");
+      setError("加载 API Key 失败");
     } finally {
       setLoading(false);
     }
@@ -45,7 +45,7 @@ export function ApiKeyManager({ onBack }: ApiKeyManagerProps) {
       setNewLabel("");
       await loadKeys();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create key");
+      setError(err instanceof Error ? err.message : "创建 Key 失败");
     }
   };
 
@@ -54,7 +54,7 @@ export function ApiKeyManager({ onBack }: ApiKeyManagerProps) {
       await apiDeleteApiKey(id);
       await loadKeys();
     } catch {
-      setError("Failed to delete key");
+      setError("删除 Key 失败");
     }
   };
 
@@ -64,14 +64,14 @@ export function ApiKeyManager({ onBack }: ApiKeyManagerProps) {
       setEditingId(null);
       await loadKeys();
     } catch {
-      setError("Failed to update label");
+      setError("更新标签失败");
     }
   };
 
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center text-text-muted">
-        Loading...
+        加载中...
       </div>
     );
   }
@@ -81,9 +81,9 @@ export function ApiKeyManager({ onBack }: ApiKeyManagerProps) {
       <div className="mx-auto max-w-3xl px-6 py-6">
         <div className="mb-6 flex items-center gap-3">
           <button onClick={onBack} className="text-text-muted hover:text-text-primary text-sm">
-            &larr; Back
+            &larr; 返回
           </button>
-          <h1 className="text-lg font-semibold text-text-primary">API Keys</h1>
+          <h1 className="text-lg font-semibold text-text-primary">API Key</h1>
         </div>
 
         {error && (
@@ -94,9 +94,9 @@ export function ApiKeyManager({ onBack }: ApiKeyManagerProps) {
 
         {createdKey && (
           <div className="mb-4 rounded-md border border-status-warning/30 bg-status-warning/5 px-4 py-3">
-            <p className="text-sm font-medium text-text-primary">API Key Created</p>
+            <p className="text-sm font-medium text-text-primary">API Key 已创建</p>
             <p className="mt-1 text-xs text-text-muted">
-              Copy this key now. You won't be able to see it again.
+              请立即复制此 Key，之后将无法再查看。
             </p>
             <div className="mt-2 flex items-center gap-2">
               <code className="flex-1 rounded bg-surface-0 px-3 py-2 text-xs font-mono break-all">
@@ -108,34 +108,34 @@ export function ApiKeyManager({ onBack }: ApiKeyManagerProps) {
                 }}
                 className="shrink-0 rounded-md bg-surface-2 px-3 py-2 text-xs font-medium text-text-secondary hover:bg-surface-3"
               >
-                Copy
+                复制
               </button>
             </div>
             <button
               onClick={() => setCreatedKey(null)}
               className="mt-2 text-xs text-text-muted hover:text-text-primary"
             >
-              Dismiss
+              关闭
             </button>
           </div>
         )}
 
         {/* Create new key */}
         <div className="mb-6 rounded-lg border border-border bg-surface-1 p-4">
-          <h2 className="mb-3 text-sm font-medium text-text-primary">Create New Key</h2>
+          <h2 className="mb-3 text-sm font-medium text-text-primary">创建新 Key</h2>
           <div className="flex gap-2">
             <input
               type="text"
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
-              placeholder="Label (optional)"
+              placeholder="标签（可选）"
               className="flex-1 rounded-md border border-border bg-surface-0 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
             />
             <button
               onClick={handleCreate}
               className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90"
             >
-              Create
+              创建
             </button>
           </div>
         </div>
@@ -144,7 +144,7 @@ export function ApiKeyManager({ onBack }: ApiKeyManagerProps) {
         <div className="space-y-2">
           {keys.length === 0 && (
             <p className="text-center text-sm text-text-muted py-8">
-              No API keys yet. Create one above to connect your agents.
+              暂无 API Key。请在上方创建一个以连接你的 Agent。
             </p>
           )}
           {keys.map((key) => (
@@ -170,19 +170,19 @@ export function ApiKeyManager({ onBack }: ApiKeyManagerProps) {
                       onClick={() => handleUpdateLabel(key.id)}
                       className="text-xs text-brand hover:underline"
                     >
-                      Save
+                      保存
                     </button>
                     <button
                       onClick={() => setEditingId(null)}
                       className="text-xs text-text-muted hover:underline"
                     >
-                      Cancel
+                      取消
                     </button>
                   </div>
                 ) : (
                   <>
                     <p className="text-sm font-medium text-text-primary truncate">
-                      {key.label || "Unnamed"}
+                      {key.label || "未命名"}
                     </p>
                     <p className="text-xs text-text-muted font-mono">{key.keyPrefix}</p>
                   </>
@@ -195,13 +195,13 @@ export function ApiKeyManager({ onBack }: ApiKeyManagerProps) {
                       onClick={() => { setEditingId(key.id); setEditLabel(key.label); }}
                       className="text-xs text-text-muted hover:text-text-primary"
                     >
-                      Edit
+                      编辑
                     </button>
                     <button
                       onClick={() => handleDelete(key.id)}
                       className="text-xs text-status-error hover:underline"
                     >
-                      Delete
+                      删除
                     </button>
                   </>
                 )}

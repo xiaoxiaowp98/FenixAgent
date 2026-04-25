@@ -26,7 +26,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           name: name || email.split("@")[0],
         });
         if (res.error) {
-          setError(res.error.message || "Registration failed");
+          setError(res.error.message || "注册失败");
           return;
         }
       } else {
@@ -35,13 +35,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           password,
         });
         if (res.error) {
-          setError(res.error.message || "Login failed");
+          setError(res.error.message || "登录失败");
           return;
         }
       }
       onLogin();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setError(err instanceof Error ? err.message : "未知错误");
     } finally {
       setLoading(false);
     }
@@ -52,12 +52,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-surface-1 p-8">
         <div className="text-center">
           <h1 className="text-xl font-semibold text-text-primary">
-            {isSignUp ? "Create Account" : "Sign In"}
+            {isSignUp ? "创建账户" : "登录"}
           </h1>
           <p className="mt-1 text-sm text-text-muted">
             {isSignUp
-              ? "Create an account to manage your agents"
-              : "Sign in to manage your agents"}
+              ? "创建账户以管理你的 Agent"
+              : "登录以管理你的 Agent"}
           </p>
         </div>
 
@@ -65,13 +65,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           {isSignUp && (
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">
-                Name
+                名称
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
+                placeholder="你的名称"
                 className="w-full rounded-md border border-border bg-surface-0 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
               />
             </div>
@@ -79,7 +79,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1">
-              Email
+              邮箱
             </label>
             <input
               type="email"
@@ -93,7 +93,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1">
-              Password
+              密码
             </label>
             <input
               type="password"
@@ -115,29 +115,29 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             disabled={loading}
             className="w-full rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 disabled:opacity-50"
           >
-            {loading ? "Please wait..." : isSignUp ? "Create Account" : "Sign In"}
+            {loading ? "请稍候..." : isSignUp ? "创建账户" : "登录"}
           </button>
         </form>
 
         <div className="text-center text-sm text-text-muted">
           {isSignUp ? (
             <>
-              Already have an account?{" "}
+              已有账户？{" "}
               <button
                 onClick={() => { setIsSignUp(false); setError(""); }}
                 className="text-brand hover:underline"
               >
-                Sign In
+                登录
               </button>
             </>
           ) : (
             <>
-              Don't have an account?{" "}
+              没有账户？{" "}
               <button
                 onClick={() => { setIsSignUp(true); setError(""); }}
                 className="text-brand hover:underline"
               >
-                Create Account
+                创建账户
               </button>
             </>
           )}

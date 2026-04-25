@@ -18,12 +18,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
     apiListAgents,
     apiGetAgent,
     apiCreateAgent,
@@ -73,6 +67,7 @@ export function AgentsPage() {
     const [formHidden, setFormHidden] = useState(false);
     const [formDisable, setFormDisable] = useState(false);
     const [formPermission, setFormPermission] = useState<Record<string, unknown> | null>(null);
+    const [activeTab, setActiveTab] = useState<"basic" | "permission">("basic");
 
     const loadAgents = useCallback(async () => {
         setLoading(true);
@@ -364,11 +359,20 @@ export function AgentsPage() {
                 title={editingAgent ? "编辑代理" : "新建代理"}
                 onSubmit={handleSave}
                 loading={formSaving}>
-                <Accordion type="multiple" defaultValue={["basic", "permission"]} className="w-full">
-                    <AccordionItem value="basic">
-                        <AccordionTrigger className="text-sm font-medium">基础配置</AccordionTrigger>
-                        <AccordionContent>
-                        <div className="space-y-4 max-h-[55vh] overflow-y-auto pt-2">
+                <div className="flex gap-1 rounded-lg bg-surface-2 p-1 mb-4">
+                    <button
+                        type="button"
+                        className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "basic" ? "bg-surface-1 text-text-primary shadow-sm" : "text-text-muted hover:text-text-secondary"}`}
+                        onClick={() => setActiveTab("basic")}
+                    >基础配置</button>
+                    <button
+                        type="button"
+                        className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "permission" ? "bg-surface-1 text-text-primary shadow-sm" : "text-text-muted hover:text-text-secondary"}`}
+                        onClick={() => setActiveTab("permission")}
+                    >权限配置</button>
+                </div>
+                {activeTab === "basic" && (
+                <div className="space-y-4 max-h-[55vh] overflow-y-auto">
                             <div>
                                 <Label>名称</Label>
                                 <Input
@@ -393,28 +397,30 @@ export function AgentsPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div>
-                                <Label>模式</Label>
-                                <Select value={formMode} onValueChange={setFormMode}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="primary">primary</SelectItem>
-                                        <SelectItem value="subagent">subagent</SelectItem>
-                                        <SelectItem value="all">all</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label>步数 (1-200)</Label>
-                                <Input
-                                    type="number"
-                                    value={formSteps}
-                                    onChange={(e) => setFormSteps(e.target.value)}
-                                    min={1}
-                                    max={200}
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>模式</Label>
+                                    <Select value={formMode} onValueChange={setFormMode}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="primary">primary</SelectItem>
+                                            <SelectItem value="subagent">subagent</SelectItem>
+                                            <SelectItem value="all">all</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label>步数 (1-200)</Label>
+                                    <Input
+                                        type="number"
+                                        value={formSteps}
+                                        onChange={(e) => setFormSteps(e.target.value)}
+                                        min={1}
+                                        max={200}
+                                    />
+                                </div>
                             </div>
                             <div>
                                 <Label>提示词 (Prompt)</Label>
@@ -425,21 +431,23 @@ export function AgentsPage() {
                                     placeholder="可选，自定义 Agent 提示词"
                                 />
                             </div>
-                            <div>
-                                <Label>描述</Label>
-                                <Input
-                                    value={formDescription}
-                                    onChange={(e) => setFormDescription(e.target.value)}
-                                    placeholder="可选，Agent 的简短描述"
-                                />
-                            </div>
-                            <div>
-                                <Label>Variant</Label>
-                                <Input
-                                    value={formVariant}
-                                    onChange={(e) => setFormVariant(e.target.value)}
-                                    placeholder="可选，例如 thinking"
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>描述</Label>
+                                    <Input
+                                        value={formDescription}
+                                        onChange={(e) => setFormDescription(e.target.value)}
+                                        placeholder="可选，Agent 的简短描述"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Variant</Label>
+                                    <Input
+                                        value={formVariant}
+                                        onChange={(e) => setFormVariant(e.target.value)}
+                                        placeholder="可选，例如 thinking"
+                                    />
+                                </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -503,19 +511,16 @@ export function AgentsPage() {
                                 </label>
                             </div>
                         </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                    <AccordionItem value="permission">
-                        <AccordionTrigger className="text-sm font-medium">权限配置</AccordionTrigger>
-                        <AccordionContent>
-                            <PermissionTab
-                                agentName={formName}
-                                permission={formPermission}
-                                onPermissionChange={setFormPermission}
-                            />
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
+                )}
+                {activeTab === "permission" && (
+                    <div className="max-h-[55vh] overflow-y-auto">
+                        <PermissionTab
+                            agentName={formName}
+                            permission={formPermission}
+                            onPermissionChange={setFormPermission}
+                        />
+                    </div>
+                )}
             </FormDialog>
             <ConfirmDialog
                 open={confirmOpen}

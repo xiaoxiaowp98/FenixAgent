@@ -48,7 +48,7 @@ export function Sidebar({ collapsed, onToggleCollapse, items, footerItems }: Sid
                 fill="#409EFF"
               />
             </svg>
-            <span className="text-sm font-semibold text-white truncate">Remote Control</span>
+            <span className="text-sm font-semibold text-white truncate">AI Panel</span>
           </div>
         ) : (
           <div className="flex w-full justify-center">
@@ -89,14 +89,14 @@ export function Sidebar({ collapsed, onToggleCollapse, items, footerItems }: Sid
             "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sidebar-text hover:bg-sidebar-hover hover:text-white justify-start",
             collapsed && "justify-center",
           )}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "展开侧栏" : "收起侧栏"}
         >
           {collapsed ? (
             <ChevronRight className="h-4 w-4 flex-shrink-0" />
           ) : (
             <>
               <ChevronLeft className="h-4 w-4 flex-shrink-0" />
-              <span className="text-xs">Collapse</span>
+              <span className="text-xs">收起</span>
             </>
           )}
         </Button>

@@ -357,7 +357,7 @@ export function ModelsPage() {
   const columns: Column<ProviderInfo>[] = [
     { key: "id", header: "ID", sortable: true, filterable: true },
     { key: "name", header: "名称", sortable: true },
-    { key: "npm", header: "NPM 包", render: (row) => {
+    { key: "npm", header: "协议", render: (row) => {
       const opt = NPM_OPTIONS.find((o) => o.npm === row.npm);
       return opt ? opt.label : (row.npm || "—");
     }},
@@ -543,7 +543,7 @@ export function ModelsPage() {
               placeholder="例如 阿里百炼" />
           </div>
           <div>
-            <label className="text-sm font-medium">NPM 包</label>
+            <label className="text-sm font-medium">协议</label>
             <Select value={formNpm} onValueChange={setFormNpm}>
               <SelectTrigger className="mt-1">
                 <SelectValue />

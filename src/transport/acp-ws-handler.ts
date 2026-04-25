@@ -5,6 +5,7 @@ import type { SessionEvent } from "./event-bus";
 import {
   storeCreateEnvironment,
   storeCreateSession,
+  storeFindEnvironmentByMachineName,
   storeGetEnvironment,
   storeListSessionsByEnvironment,
   storeMarkAcpAgentOffline,
@@ -91,20 +92,27 @@ function handleRegister(wsId: string, msg: Record<string, unknown>): void {
   const acpLinkVersion = (msg.acp_link_version as string) || null;
   const maxSessions = typeof msg.max_sessions === "number" ? msg.max_sessions : 1;
 
-  // Create EnvironmentRecord with workerType="acp", owned by this user
-  const record = storeCreateEnvironment({
-    secret: `ws_${wsId}`,
-    userId: entry.userId,
-    machineName: agentName,
-    workerType: "acp",
-    maxSessions,
-    capabilities: capabilities || undefined,
-  });
-
-  // Store ACP-specific metadata via environment update
-  storeUpdateEnvironment(record.id, {
-    status: "active",
-  });
+  // Reuse existing offline record if available (same machineName + userId)
+  let record = storeFindEnvironmentByMachineName(agentName, entry.userId);
+  if (record && record.status === "offline") {
+    // Reuse existing record — update status and capabilities
+    storeUpdateEnvironment(record.id, {
+      status: "active",
+      capabilities: capabilities || record.capabilities || undefined,
+      maxSessions,
+    });
+    log(`[ACP-WS] Reusing offline agent: agentId=${record.id} name=${agentName}`);
+  } else {
+    // Create new EnvironmentRecord
+    record = storeCreateEnvironment({
+      secret: `ws_${wsId}`,
+      userId: entry.userId,
+      machineName: agentName,
+      workerType: "acp",
+      maxSessions,
+      capabilities: capabilities || undefined,
+    });
+  }
 
   // Auto-create session if none exists for this environment
   const existing = storeListSessionsByEnvironment(record.id);

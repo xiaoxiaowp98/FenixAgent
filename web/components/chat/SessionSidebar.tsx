@@ -1,4 +1,5 @@
 import { cn } from "../../src/lib/utils";
+import { ScrollArea } from "../ui/scroll-area";
 import { Plus, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import type { SessionListItem } from "../../src/lib/types";
@@ -66,7 +67,8 @@ export function SessionSidebar({
 
       {/* 会话列表 — 分段 */}
       {!collapsed && (
-        <nav className="flex-1 overflow-y-auto py-2" aria-label="历史会话">
+        <ScrollArea className="flex-1">
+        <nav className="py-2" aria-label="历史会话">
           {groups.map((group) => (
             <div key={group.label}>
               <div className="px-3 py-1.5">
@@ -101,6 +103,7 @@ export function SessionSidebar({
             </div>
           )}
         </nav>
+        </ScrollArea>
       )}
     </div>
   );

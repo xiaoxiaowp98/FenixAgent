@@ -1,5 +1,6 @@
 import { useMemo, useRef, useEffect, useState } from "react";
 import { cn } from "../../src/lib/utils";
+import { ScrollArea } from "../ui/scroll-area";
 import type { AvailableCommand } from "../../src/acp/types";
 
 // =============================================================================
@@ -95,43 +96,45 @@ export function CommandMenu({
         className,
       )}
     >
-      <div className="max-h-[320px] overflow-y-auto py-1">
-        {filtered.length === 0 ? (
-          <div className="text-xs text-text-muted font-display py-3 text-center">
-            没有匹配的命令
-          </div>
-        ) : (
-          filtered.map((cmd, index) => (
-            <button
-              key={cmd.name}
-              type="button"
-              data-active={index === activeIndex}
-              onClick={() => onSelect(cmd)}
-              onMouseEnter={() => setActiveIndex(index)}
-              className={cn(
-                "flex w-full items-center gap-2 px-3 py-2 cursor-pointer rounded-lg mx-1 text-left",
-                "transition-colors",
-                index === activeIndex
-                  ? "bg-brand/10 text-text-primary"
-                  : "text-text-secondary hover:bg-surface-1/50",
-              )}
-              style={{ width: "calc(100% - 8px)" }}
-            >
-              <span className="text-sm font-display font-medium text-brand">
-                /{cmd.name}
-              </span>
-              <span className="text-xs text-text-muted truncate flex-1">
-                {cmd.description}
-              </span>
-              {cmd.input?.hint && (
-                <span className="text-[10px] text-text-muted italic">
-                  {cmd.input.hint}
+      <ScrollArea className="h-[320px]">
+        <div className="py-1">
+          {filtered.length === 0 ? (
+            <div className="text-xs text-text-muted font-display py-3 text-center">
+              没有匹配的命令
+            </div>
+          ) : (
+            filtered.map((cmd, index) => (
+              <button
+                key={cmd.name}
+                type="button"
+                data-active={index === activeIndex}
+                onClick={() => onSelect(cmd)}
+                onMouseEnter={() => setActiveIndex(index)}
+                className={cn(
+                  "flex w-full items-center gap-2 px-3 py-2 cursor-pointer rounded-lg mx-1 text-left",
+                  "transition-colors",
+                  index === activeIndex
+                    ? "bg-brand/10 text-text-primary"
+                    : "text-text-secondary hover:bg-surface-1/50",
+                )}
+                style={{ width: "calc(100% - 8px)" }}
+              >
+                <span className="text-sm font-display font-medium text-brand">
+                  /{cmd.name}
                 </span>
-              )}
-            </button>
-          ))
-        )}
-      </div>
+                <span className="text-xs text-text-muted truncate flex-1">
+                  {cmd.description}
+                </span>
+                {cmd.input?.hint && (
+                  <span className="text-[10px] text-text-muted italic">
+                    {cmd.input.hint}
+                  </span>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { cn } from "../../src/lib/utils";
+import { Badge } from "../ui/badge";
 
 interface StatusBadgeProps {
   status: string;
@@ -23,18 +24,22 @@ export function getBadgeVariant(status: string): string {
   return map[status] || "outline";
 }
 
-const colorClasses: Record<string, string> = {
-  green: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-  secondary: "bg-secondary text-secondary-foreground",
-  blue: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  outline: "border border-input bg-background text-foreground",
+const variantMap: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+  green: "default",
+  secondary: "secondary",
+  blue: "default",
+  outline: "outline",
 };
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   const variant = getBadgeVariant(status);
+  const badgeVariant = variantMap[variant] || "outline";
   return (
-    <span className={cn("inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium", colorClasses[variant])}>
+    <Badge variant={badgeVariant} className={cn(
+      variant === "green" && "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+      variant === "blue" && "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+    )}>
       {status}
-    </span>
+    </Badge>
   );
 }

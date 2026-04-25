@@ -4,6 +4,7 @@ import { DataTable, type Column } from "@/components/config/DataTable";
 import { StatusBadge } from "@/components/config/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiGetModels, apiSetModels, apiRefreshModels } from "../api/client";
@@ -42,7 +43,7 @@ export function ModelsPage() {
     setSavingField(field);
     try {
       const result = await apiSetModels({ [field]: value });
-      setModelConfig((prev) => prev ? { ...prev, current: result } : prev);
+      setModelConfig((prev) => prev ? { ...prev, current: { ...prev.current, ...result } } : prev);
       toast.success("模型已更新");
     } catch (e) {
       toast.error("更新失败: " + (e instanceof Error ? e.message : "未知错误"));
@@ -90,7 +91,20 @@ export function ModelsPage() {
   ];
 
   if (loading) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">加载中...</div>;
+    return (
+      <div className="p-6 space-y-6">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="rounded-md border">
+            <Skeleton className="h-12 w-full rounded-t-md" />
+            <div className="p-4 space-y-3">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-4 w-64" />
+              <Skeleton className="h-4 w-56" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   }
 
   return (

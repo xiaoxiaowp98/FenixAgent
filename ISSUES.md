@@ -1,23 +1,4 @@
-## 支持 自定义 agent 的 skill 权限配置
-
-需要在配置弹窗中显示一个 tab 页面, skill tab 显示所有的 skill, 然后可以选择禁用启用
-
-```json
-{
-  "agent": {
-    "plan": {
-      "permission": {
-        "skill": {
-          "internal-*": "allow"
-        }
-      }
-    }
-  }
-}
-```
-
-## model 的工具配置也改为 permission 参数
-
-## 分析 <https://opencode.ai/config.json> 中的配置;文件很大, 需要筛选
-
-## skills 的存储目录改为 ~/.agents/skills 目录
+- 代理管理 -> 权限配置, 删除自定义的权限配置失效
+- skills 面板的编辑弹窗溢出了, 请修复
+- 统一分析我们的组件是不是应该使用 shadcn 提供的组件, 从 shadcn 拿去下来, 而不是自己写
+-

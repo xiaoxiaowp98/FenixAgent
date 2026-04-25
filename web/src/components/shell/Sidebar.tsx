@@ -1,5 +1,7 @@
 import { useState, useCallback } from "react";
 import { cn } from "../../lib/utils";
+import { ScrollArea } from "../../../components/ui/scroll-area";
+import { Button } from "../../../components/ui/button";
 import {
   LayoutDashboard,
   MessageSquare,
@@ -61,11 +63,13 @@ export function Sidebar({ collapsed, onToggleCollapse, items, footerItems }: Sid
       </div>
 
       {/* Navigation items */}
-      <nav className="flex-1 overflow-y-auto py-2 px-2">
-        {items.map((item) => (
-          <SidebarNavItem key={item.id} item={item} collapsed={collapsed} />
-        ))}
-      </nav>
+      <ScrollArea className="flex-1">
+        <nav className="py-2 px-2">
+          {items.map((item) => (
+            <SidebarNavItem key={item.id} item={item} collapsed={collapsed} />
+          ))}
+        </nav>
+      </ScrollArea>
 
       {/* Footer items */}
       {footerItems && footerItems.length > 0 && (
@@ -78,11 +82,11 @@ export function Sidebar({ collapsed, onToggleCollapse, items, footerItems }: Sid
 
       {/* Collapse toggle */}
       <div className="border-t border-sidebar-border p-2 flex-shrink-0">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={onToggleCollapse}
           className={cn(
-            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sidebar-text transition-colors hover:bg-sidebar-hover hover:text-white",
+            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sidebar-text hover:bg-sidebar-hover hover:text-white justify-start",
             collapsed && "justify-center",
           )}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -95,7 +99,7 @@ export function Sidebar({ collapsed, onToggleCollapse, items, footerItems }: Sid
               <span className="text-xs">Collapse</span>
             </>
           )}
-        </button>
+        </Button>
       </div>
     </aside>
   );
@@ -103,12 +107,12 @@ export function Sidebar({ collapsed, onToggleCollapse, items, footerItems }: Sid
 
 function SidebarNavItem({ item, collapsed }: { item: SidebarItem; collapsed: boolean }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       onClick={item.onClick}
       title={collapsed ? item.label : undefined}
       className={cn(
-        "flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors",
+        "flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors justify-start font-normal",
         collapsed && "justify-center",
         item.active
           ? "bg-sidebar-active text-sidebar-text-active border-l-2 border-brand"
@@ -124,6 +128,6 @@ function SidebarNavItem({ item, collapsed }: { item: SidebarItem; collapsed: boo
           {item.badge}
         </span>
       )}
-    </button>
+    </Button>
   );
 }

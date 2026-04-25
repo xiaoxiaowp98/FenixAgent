@@ -6,6 +6,7 @@ import { FormDialog } from "@/components/config/FormDialog";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
 import { BatchActionBar } from "@/components/config/BatchActionBar";
 import { StatusBadge } from "@/components/config/StatusBadge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -164,7 +165,20 @@ export function SkillsPage() {
   };
 
   if (loading) {
-    return <div className="flex h-full items-center justify-center text-muted-foreground">加载中...</div>;
+    return (
+      <div className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-9 w-24" />
+        </div>
+        <div className="rounded-md border">
+          <Skeleton className="h-10 w-full rounded-t-md" />
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-none border-t" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (

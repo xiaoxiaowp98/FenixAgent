@@ -16,7 +16,13 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
     apiListAgents,
     apiGetAgent,
@@ -281,8 +287,17 @@ export function AgentsPage() {
 
     if (loading) {
         return (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-                加载中...
+            <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                    <Skeleton className="h-7 w-32" />
+                    <Skeleton className="h-9 w-24" />
+                </div>
+                <div className="rounded-md border">
+                    <Skeleton className="h-10 w-full rounded-t-md" />
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full rounded-none border-t" />
+                    ))}
+                </div>
             </div>
         );
     }
@@ -349,12 +364,10 @@ export function AgentsPage() {
                 title={editingAgent ? "编辑代理" : "新建代理"}
                 onSubmit={handleSave}
                 loading={formSaving}>
-                <Tabs defaultValue="basic" className="w-full">
-                    <TabsList>
-                        <TabsTrigger value="basic">基础配置</TabsTrigger>
-                        <TabsTrigger value="permission">权限配置</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="basic">
+                <Accordion type="multiple" defaultValue={["basic", "permission"]} className="w-full">
+                    <AccordionItem value="basic">
+                        <AccordionTrigger className="text-sm font-medium">基础配置</AccordionTrigger>
+                        <AccordionContent>
                         <div className="space-y-4 max-h-[55vh] overflow-y-auto pt-2">
                             <div>
                                 <Label>名称</Label>
@@ -490,15 +503,19 @@ export function AgentsPage() {
                                 </label>
                             </div>
                         </div>
-                    </TabsContent>
-                    <TabsContent value="permission">
-                        <PermissionTab
-                            agentName={formName}
-                            permission={formPermission}
-                            onPermissionChange={setFormPermission}
-                        />
-                    </TabsContent>
-                </Tabs>
+                        </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="permission">
+                        <AccordionTrigger className="text-sm font-medium">权限配置</AccordionTrigger>
+                        <AccordionContent>
+                            <PermissionTab
+                                agentName={formName}
+                                permission={formPermission}
+                                onPermissionChange={setFormPermission}
+                            />
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
             </FormDialog>
             <ConfirmDialog
                 open={confirmOpen}

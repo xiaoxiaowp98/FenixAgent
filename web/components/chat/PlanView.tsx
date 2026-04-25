@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { PlanDisplayEntry } from "../../src/lib/types";
 import type { PlanEntry, PlanEntryPriority, PlanEntryStatus } from "../../src/acp/types";
 import { cn } from "../../src/lib/utils";
+import { ScrollArea } from "../ui/scroll-area";
 import { CheckCircle2, Loader2, Circle } from "lucide-react";
 
 // =============================================================================
@@ -64,14 +65,21 @@ export function PlanDisplay({ entry }: PlanDisplayProps) {
 
         {/* Entry list */}
         {!collapsed && (
-          <div className={cn(
-            "border-t border-border px-3 py-1.5 space-y-0.5",
-            total > 5 && "max-h-64 overflow-y-auto",
-          )}>
-            {entries.map((planEntry, i) => (
-              <PlanEntryRow key={i} entry={planEntry} />
-            ))}
-          </div>
+          total > 5 ? (
+            <ScrollArea className="max-h-64 border-t border-border">
+              <div className="px-3 py-1.5 space-y-0.5">
+                {entries.map((planEntry, i) => (
+                  <PlanEntryRow key={i} entry={planEntry} />
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="border-t border-border px-3 py-1.5 space-y-0.5">
+              {entries.map((planEntry, i) => (
+                <PlanEntryRow key={i} entry={planEntry} />
+              ))}
+            </div>
+          )
         )}
       </div>
     </div>

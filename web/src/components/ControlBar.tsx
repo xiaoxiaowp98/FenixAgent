@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { cn, isClosedSessionStatus } from "../lib/utils";
+import { Input } from "../../components/ui/input";
+import { Button } from "../../components/ui/button";
 import { Square, SendHorizonal } from "lucide-react";
 
 interface ControlBarProps {
@@ -47,7 +49,7 @@ export function ControlBar({
   return (
     <div className="border-t border-border bg-surface-1 px-4 py-3">
       <div className="mx-auto flex max-w-5xl items-center gap-2">
-        <input
+        <Input
           ref={inputRef}
           type="text"
           value={text}
@@ -57,11 +59,13 @@ export function ControlBar({
           disabled={closed}
           className="flex-1 rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20 disabled:opacity-50 transition-colors"
         />
-        <button
+        <Button
           onClick={working ? onInterrupt : handleSend}
           disabled={closed}
+          variant="ghost"
+          size="icon"
           className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
+            "h-10 w-10",
             working
               ? "bg-status-error/20 text-status-error hover:bg-status-error/30"
               : "bg-brand text-white hover:bg-brand-light",
@@ -75,7 +79,7 @@ export function ControlBar({
           ) : (
             <SendHorizonal className="h-5 w-5 fill-current" />
           )}
-        </button>
+        </Button>
       </div>
     </div>
   );

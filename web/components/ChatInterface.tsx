@@ -821,13 +821,14 @@ export function ChatInterface({ client, agentId }: ChatInterfaceProps) {
         <div className="mx-auto max-w-3xl w-full px-4 sm:px-8 pb-1">
           <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-3 py-2 text-sm text-red-700 dark:text-red-300 flex items-center justify-between">
             <span>{errorMessage}</span>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setErrorMessage(null)}
-              className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 flex-shrink-0"
+              className="ml-2 h-6 w-6 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 flex-shrink-0"
             >
               {"\u00D7"}
-            </button>
+            </Button>
           </div>
         </div>
       )}

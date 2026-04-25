@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Question } from "../types";
 import { esc, cn, truncate } from "../lib/utils";
+import { Input } from "../../components/ui/input";
 import { TriangleAlert, Check } from "lucide-react";
 
 // ============================================================
@@ -138,7 +139,7 @@ export function AskUserPanelView({
             );
           })}
           <div className="flex gap-2">
-            <input
+            <Input
               type="text"
               value={otherTexts[0] || ""}
               onChange={(e) => setOtherTexts({ ...otherTexts, [0]: e.target.value })}
@@ -241,7 +242,7 @@ function QuestionTab({
           );
         })}
         <div className="flex gap-2">
-          <input
+          <Input
             type="text"
             value={otherTexts[qIdx] || ""}
             onChange={(e) => onOtherTextChange(qIdx, e.target.value)}

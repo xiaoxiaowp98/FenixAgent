@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ToolCallEntry, ToolCallData } from "../../src/lib/types";
 import { cn } from "../../src/lib/utils";
 import { ToolPermissionButtons } from "../ai-elements/permission-request";
+import { Button } from "../ui/button";
 
 // =============================================================================
 // 工具调用折叠组 — Anthropic: subtle card, left-border accent, compact layout
@@ -37,9 +38,9 @@ export function ToolCallGroup({ entries, onPermissionRespond }: ToolCallGroupPro
     <div className="pl-10">
       <div className="rounded-lg border border-border bg-surface-2/50 overflow-hidden">
         {/* 折叠头 */}
-        <button
-          type="button"
-          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-surface-1/50 transition-colors"
+        <Button
+          variant="ghost"
+          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:bg-surface-1/50 justify-start font-normal"
           onClick={() => setExpanded(!expanded)}
         >
           <svg
@@ -52,7 +53,7 @@ export function ToolCallGroup({ entries, onPermissionRespond }: ToolCallGroupPro
             <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" fill="none" />
           </svg>
           <span className="text-xs text-text-muted font-display">{summary}</span>
-        </button>
+        </Button>
 
         {/* 展开内容 */}
         {expanded && (
@@ -109,9 +110,9 @@ function SingleToolCard({ tool, compact, onPermissionRespond }: SingleToolCardPr
   return (
     <div className={cn("px-3 py-2", compact && "py-1.5")}>
       {/* 标题行 — 单行紧凑 */}
-      <button
-        type="button"
-        className="flex w-full items-center gap-1.5 text-left group"
+      <Button
+        variant="ghost"
+        className="flex w-full items-center gap-1.5 text-left justify-start font-normal p-0 h-auto"
         onClick={() => setExpanded(!expanded)}
       >
         {statusIcon}
@@ -121,7 +122,7 @@ function SingleToolCard({ tool, compact, onPermissionRespond }: SingleToolCardPr
         {tool.status === "running" && (
           <span className="text-[10px] text-status-running animate-pulse">running</span>
         )}
-      </button>
+      </Button>
 
       {/* 权限请求按钮 */}
       {tool.status === "waiting_for_confirmation" && tool.permissionRequest && (

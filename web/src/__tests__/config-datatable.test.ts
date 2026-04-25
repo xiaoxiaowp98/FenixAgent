@@ -62,3 +62,43 @@ describe("DataTable pure functions", () => {
     expect(result.total).toBe(5);
   });
 });
+
+describe("DataTable TanStack integration helpers", () => {
+  test("filterData and TanStack globalFilterFn produce consistent results", () => {
+    const filtered = filterData(data, columns, "ali");
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].name).toBe("alice");
+  });
+
+  test("sortData handles mixed types gracefully", () => {
+    interface Mixed { val: string | number }
+    const mixedCols: Column<Mixed>[] = [{ key: "val", header: "Val", sortable: true }];
+    const mixedData: Mixed[] = [
+      { val: 42 },
+      { val: "alpha" },
+      { val: 10 },
+      { val: "beta" },
+    ];
+    const sorted = sortData(mixedData, "val", "asc");
+    expect(sorted[0].val).toBe(10);
+    expect(sorted[3].val).toBe("beta");
+  });
+
+  test("paginateData returns correct slice for last page", () => {
+    const result = paginateData(data, 3, 2);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].name).toBe("eve");
+    expect(result.total).toBe(5);
+  });
+
+  test("paginateData handles out-of-range page gracefully", () => {
+    const result = paginateData(data, 10, 2);
+    expect(result.items).toHaveLength(0);
+    expect(result.total).toBe(5);
+  });
+
+  test("filterData with non-filterable column ignores that column", () => {
+    const result = filterData(data, columns, "30");
+    expect(result).toHaveLength(0);
+  });
+});

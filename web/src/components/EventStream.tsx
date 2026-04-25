@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { SessionEvent, EventPayload } from "../types";
 import { esc, truncate, cn, extractEventText, isConversationClearedStatus } from "../lib/utils";
+import { Input } from "../../components/ui/input";
 
 // ============================================================
 // Tool Trace State
@@ -489,7 +490,7 @@ function AskUserPanel({
             );
           })}
           <div className="flex gap-2">
-            <input
+            <Input
               type="text"
               value={otherTexts[0] || ""}
               onChange={(e) => setOtherTexts({ ...otherTexts, [0]: e.target.value })}
@@ -621,7 +622,7 @@ function QuestionTab({
           );
         })}
         <div className="flex gap-2">
-          <input
+          <Input
             type="text"
             value={otherTexts[qIdx] || ""}
             onChange={(e) => onOtherTextChange(qIdx, e.target.value)}

@@ -101,6 +101,7 @@ export interface ProviderModel {
     modalities: unknown;
     limit: unknown;
     cost: unknown;
+    options?: Record<string, unknown>;
 }
 
 export interface ProviderDetail {

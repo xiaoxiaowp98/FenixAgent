@@ -264,17 +264,16 @@ export function ThreadHistory({ client, onSelectSession }: ThreadHistoryProps) {
                 const date = session.updatedAt ? new Date(session.updatedAt) : null;
 
                 return (
-                  <button
+                  <Button
                     key={session.sessionId}
+                    variant="ghost"
                     disabled={isAnyLoading}
                     onClick={() => {
                       setSelectedIndex(globalIdx);
                       handleSelectSession(session);
                     }}
                     className={cn(
-                      // min-w-0 is required for truncate to work in flex containers
-                      "w-full min-w-0 flex items-center gap-2 px-3 py-2 rounded-md text-left transition-colors",
-                      "hover:bg-accent",
+                      "w-full min-w-0 flex items-center gap-2 px-3 py-2 rounded-md justify-start font-normal",
                       isSelected && "bg-accent",
                       isAnyLoading && !isLoadingThis && "opacity-50 cursor-not-allowed",
                       isLoadingThis && "bg-accent"
@@ -291,7 +290,7 @@ export function ThreadHistory({ client, onSelectSession }: ThreadHistoryProps) {
                         formatRelativeTime(date)
                       )}
                     </span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>

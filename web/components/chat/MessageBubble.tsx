@@ -3,6 +3,7 @@ import type { UserMessageEntry, AssistantMessageEntry, UserMessageImage } from "
 import { cn, esc } from "../../src/lib/utils";
 import { MessageResponse } from "../ai-elements/message";
 import { Reasoning, ReasoningTrigger, ReasoningContent } from "../ai-elements/reasoning";
+import { Button } from "../ui/button";
 import { ChevronDown } from "lucide-react";
 
 // 用户消息折叠最大高度（px）
@@ -58,14 +59,15 @@ export function UserBubble({ entry }: UserBubbleProps) {
             {/* 折叠渐变遮罩 + 展开按钮 */}
             {!expanded && overflowing && (
               <div className="absolute bottom-0 inset-x-0 flex flex-col items-center pt-8 bg-gradient-to-t from-user-bubble via-user-bubble/80 to-transparent">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setExpanded(true)}
-                  className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-display font-medium text-white/90 hover:bg-white/15 transition-colors"
+                  className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-display font-medium text-white/90 hover:bg-white/15 h-auto"
                 >
                   <span>展开</span>
                   <ChevronDown className="h-3 w-3" />
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -131,9 +133,9 @@ export function AssistantBubble({ entry, isStreaming }: AssistantBubbleProps) {
 function ImageThumbnail({ image }: { image: UserMessageImage }) {
   const dataUrl = `data:${image.mimeType};base64,${image.data}`;
   return (
-    <button
-      type="button"
-      className="rounded-lg overflow-hidden border border-border hover:border-brand/40 transition-colors cursor-pointer"
+    <Button
+      variant="ghost"
+      className="rounded-lg overflow-hidden border border-border hover:border-brand/40 p-0 h-auto"
       onClick={() => {
         const w = window.open("");
         if (w) {
@@ -146,6 +148,6 @@ function ImageThumbnail({ image }: { image: UserMessageImage }) {
         alt="Uploaded image"
         className="h-20 w-20 object-cover"
       />
-    </button>
+    </Button>
   );
 }

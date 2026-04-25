@@ -7,7 +7,25 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../../components/ui/dialog";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "../../components/ui/form";
 import { Check, Copy, Eye, EyeOff, Pencil, Plus, Trash2, X } from "lucide-react";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+const addTokenSchema = z.object({
+  token: z.string().min(1, "Token is required"),
+  label: z.string(),
+});
+type AddTokenFormValues = z.infer<typeof addTokenSchema>;
 
 interface TokenManagerDialogProps {
   open: boolean;
@@ -30,9 +48,10 @@ export function TokenManagerDialog({
   onRemove,
   onUpdate,
 }: TokenManagerDialogProps) {
-  const [newToken, setNewToken] = useState("");
-  const [newLabel, setNewLabel] = useState("");
-  const [addError, setAddError] = useState("");
+  const addForm = useForm<AddTokenFormValues>({
+    resolver: zodResolver(addTokenSchema),
+    defaultValues: { token: "", label: "" },
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [visibleTokenId, setVisibleTokenId] = useState<string | null>(null);
@@ -45,16 +64,14 @@ export function TokenManagerDialog({
     });
   };
 
-  const handleAdd = () => {
-    const error = onAdd(newToken, newLabel);
+  const handleAdd = addForm.handleSubmit((values) => {
+    const error = onAdd(values.token, values.label);
     if (error) {
-      setAddError(error);
+      addForm.setError("token", { message: error });
       return;
     }
-    setNewToken("");
-    setNewLabel("");
-    setAddError("");
-  };
+    addForm.reset();
+  });
 
   const handleStartEdit = (entry: TokenEntry) => {
     setEditingId(entry.id);
@@ -89,7 +106,7 @@ export function TokenManagerDialog({
             <div key={entry.id} className="group flex items-center gap-1">
               {editingId === entry.id ? (
                 <div className="flex flex-1 items-center gap-2 rounded-lg bg-surface-2 px-3 py-1.5">
-                  <input
+                  <Input
                     value={editLabel}
                     onChange={(e) => setEditLabel(e.target.value)}
                     onKeyDown={(e) => {
@@ -99,22 +116,17 @@ export function TokenManagerDialog({
                     className="flex-1 rounded border border-border bg-surface-1 px-2 py-1 text-sm text-text-primary focus:border-brand focus:outline-none"
                     autoFocus
                   />
-                  <button
-                    onClick={() => handleSaveEdit(entry.id)}
-                    className="text-brand hover:text-brand-light transition-colors"
-                  >
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-brand hover:text-brand-light" onClick={() => handleSaveEdit(entry.id)}>
                     <Check className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setEditingId(null)}
-                    className="text-text-muted hover:text-text-primary transition-colors"
-                  >
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-text-muted hover:text-text-primary" onClick={() => setEditingId(null)}>
                     <X className="h-4 w-4" />
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <>
-                  <button
+                  <Button
+                    variant="ghost"
                     onClick={() => handleSwitch(entry.id)}
                     className={`flex flex-1 items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
                       activeTokenId === entry.id
@@ -131,35 +143,43 @@ export function TokenManagerDialog({
                       </span>
                     </div>
                     {activeTokenId === entry.id && <Check className="h-4 w-4 flex-shrink-0" />}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded p-1 text-text-muted opacity-0 group-hover:opacity-100 hover:text-text-primary transition-all"
                     onClick={() => setVisibleTokenId(visibleTokenId === entry.id ? null : entry.id)}
-                    className="rounded p-1 text-text-muted opacity-0 group-hover:opacity-100 hover:text-text-primary transition-all"
                     title="Toggle token visibility"
                   >
                     {visibleTokenId === entry.id ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded p-1 text-text-muted opacity-0 group-hover:opacity-100 hover:text-text-primary transition-all"
                     onClick={() => handleCopy(entry.id, entry.token)}
-                    className="rounded p-1 text-text-muted opacity-0 group-hover:opacity-100 hover:text-text-primary transition-all"
                     title="Copy token"
                   >
                     {copiedId === entry.id ? <Check className="h-3.5 w-3.5 text-status-active" /> : <Copy className="h-3.5 w-3.5" />}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded p-1 text-text-muted opacity-0 group-hover:opacity-100 hover:text-text-primary transition-all"
                     onClick={() => handleStartEdit(entry)}
-                    className="rounded p-1 text-text-muted opacity-0 group-hover:opacity-100 hover:text-text-primary transition-all"
                     title="Edit label"
                   >
                     <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded p-1 text-text-muted opacity-0 group-hover:opacity-100 hover:text-status-error transition-all"
                     onClick={() => onRemove(entry.id)}
-                    className="rounded p-1 text-text-muted opacity-0 group-hover:opacity-100 hover:text-status-error transition-all"
                     title="Delete token"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  </Button>
                 </>
               )}
             </div>
@@ -175,41 +195,59 @@ export function TokenManagerDialog({
         {/* Add form */}
         <div className="border-t border-border pt-4 space-y-3">
           <div className="text-sm font-medium text-text-secondary">Add Token</div>
-          <div className="space-y-2">
-            <input
-              type="text"
-              value={newToken}
-              onChange={(e) => {
-                setNewToken(e.target.value);
-                setAddError("");
-              }}
-              placeholder="API Token"
-              className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none font-mono"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleAdd();
-              }}
-            />
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newLabel}
-                onChange={(e) => setNewLabel(e.target.value)}
-                placeholder="Label (optional)"
-                className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAdd();
-                }}
+          <Form {...addForm}>
+            <form onSubmit={handleAdd} className="space-y-2">
+              <FormField
+                control={addForm.control}
+                name="token"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        placeholder="API Token"
+                        className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted font-mono"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleAdd();
+                        }}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs text-status-error" />
+                  </FormItem>
+                )}
               />
-              <button
-                onClick={handleAdd}
-                disabled={!newToken.trim()}
-                className="rounded-lg bg-brand px-3 py-2 text-white hover:bg-brand-light disabled:opacity-50 transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-          {addError && <div className="text-xs text-status-error">{addError}</div>}
+              <div className="flex gap-2">
+                <FormField
+                  control={addForm.control}
+                  name="label"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormControl>
+                        <Input
+                          type="text"
+                          placeholder="Label (optional)"
+                          className="w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleAdd();
+                          }}
+                          {...field}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={!addForm.watch("token")?.trim()}
+                  className="rounded-lg bg-brand px-3 py-2 text-white hover:bg-brand-light disabled:opacity-50 transition-colors flex-shrink-0"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </form>
+          </Form>
         </div>
       </DialogContent>
     </Dialog>

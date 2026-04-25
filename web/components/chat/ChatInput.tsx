@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, type KeyboardEvent, type ClipboardEvent } from "react";
 import { cn } from "../../src/lib/utils";
+import { Button } from "../ui/button";
 import { Send, Square, Paperclip, Slash } from "lucide-react";
 import type { ChatInputMessage, UserMessageImage } from "../../src/lib/types";
 import type { AvailableCommand } from "../../src/acp/types";
@@ -194,14 +195,16 @@ export function ChatInput({
                   alt={`Attached image ${i + 1}`}
                   className="h-14 w-14 object-cover rounded-lg border border-border"
                 />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => removeImage(i)}
-                  className="absolute -top-1.5 -right-1.5 min-h-[32px] min-w-[32px] h-5 w-5 rounded-full bg-surface-2 border border-border flex items-center justify-center text-text-muted hover:text-text-primary text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -top-1.5 -right-1.5 h-5 w-5 min-h-[32px] min-w-[32px] rounded-full bg-surface-2 border border-border text-text-muted hover:text-text-primary text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                   aria-label={`Remove image ${i + 1}`}
                 >
                   {"\u00D7"}
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -212,15 +215,17 @@ export function ChatInput({
           {/* 左侧附件按钮 */}
           {supportsImages && (
             <>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-lg text-text-muted hover:text-text-secondary hover:bg-surface-1/50 transition-colors"
+                className="flex-shrink-0 h-8 w-8 text-text-muted hover:text-text-secondary hover:bg-surface-1/50"
                 disabled={disabled}
               >
                 <Paperclip className="h-4 w-4" />
                 <span className="sr-only">Attach file</span>
-              </button>
+              </Button>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -234,11 +239,13 @@ export function ChatInput({
 
           {/* Slash 命令按钮 */}
           {commands && commands.length > 0 && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={toggleCommandMenu}
               className={cn(
-                "flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-lg transition-colors",
+                "flex-shrink-0 h-8 w-8",
                 showCommandMenu
                   ? "bg-brand/15 text-brand"
                   : "text-text-muted hover:text-text-secondary hover:bg-surface-1/50",
@@ -247,7 +254,7 @@ export function ChatInput({
               title="命令列表"
             >
               <Slash className="h-4 w-4" />
-            </button>
+            </Button>
           )}
 
           {/* Textarea — Poppins font */}
@@ -268,12 +275,14 @@ export function ChatInput({
           />
 
           {/* 右侧发送/取消按钮 */}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={isLoading ? onInterrupt : handleSubmit}
             disabled={!isLoading && !canSend}
             className={cn(
-              "flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-lg transition-all",
+              "flex-shrink-0 h-8 w-8",
               isLoading
                 ? "bg-text-primary text-surface-2 hover:bg-text-secondary"
                 : canSend
@@ -286,7 +295,7 @@ export function ChatInput({
             ) : (
               <Send className="h-4 w-4" />
             )}
-          </button>
+          </Button>
         </div>
       </div>
       </div>{/* end relative */}

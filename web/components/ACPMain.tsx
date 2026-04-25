@@ -4,6 +4,8 @@ import type { AgentSessionInfo } from "../src/acp/types";
 import { ChatInterface } from "./ChatInterface";
 import { cn } from "../src/lib/utils";
 import { MessageSquare, Plus, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Button } from "./ui/button";
+import { ScrollArea } from "./ui/scroll-area";
 
 interface ACPMainProps {
   client: ACPClient;
@@ -48,36 +50,38 @@ export function ACPMain({ client, agentId }: ACPMainProps) {
           )}
           <div className={cn("flex items-center gap-0.5", sidebarCollapsed && "mx-auto")}>
             {!sidebarCollapsed && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => {
                   // ChatInterface handles new session internally
                 }}
-                className="h-7 w-7 flex items-center justify-center rounded-lg text-text-muted hover:text-brand hover:bg-brand/10 transition-colors"
+                className="h-7 w-7 text-text-muted hover:text-brand hover:bg-brand/10"
                 title="新会话"
               >
                 <Plus className="h-4 w-4" />
-              </button>
+              </Button>
             )}
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="h-7 w-7 flex items-center justify-center rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-2 transition-colors"
+              className="h-7 w-7 text-text-muted hover:text-text-primary hover:bg-surface-2"
             >
               {sidebarCollapsed ? (
                 <PanelLeft className="h-4 w-4" />
               ) : (
                 <PanelLeftClose className="h-4 w-4" />
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* 会话列表 */}
         {!sidebarCollapsed && (
-          <div className="flex-1 overflow-y-auto">
+          <ScrollArea className="flex-1">
             <SidebarSessionList client={client} onSelectSession={handleSelectSession} />
-          </div>
+          </ScrollArea>
         )}
       </div>
 
@@ -181,17 +185,17 @@ function SidebarSessionList({
             </span>
           </div>
           {group.sessions.map((session) => (
-            <button
+            <Button
               key={session.sessionId}
-              type="button"
+              variant="ghost"
               onClick={() => {
                 setActiveId(session.sessionId);
                 onSelectSession(session);
               }}
               className={cn(
-                "w-full flex items-center gap-2.5 px-4 py-2 text-left transition-colors rounded-none",
+                "w-full flex items-center gap-2.5 px-4 py-2 text-left justify-start rounded-none",
                 session.sessionId === activeId
-                  ? "bg-brand/8 text-text-primary"
+                  ? "bg-brand/8 text-text-primary hover:bg-brand/8"
                   : "text-text-secondary hover:bg-surface-2/60 hover:text-text-primary",
               )}
               title={session.title || session.sessionId}
@@ -200,7 +204,7 @@ function SidebarSessionList({
               <span className="text-[13px] font-display truncate leading-snug">
                 {session.title && session.title.trim() ? session.title : "新会话"}
               </span>
-            </button>
+            </Button>
           ))}
         </div>
       ))}

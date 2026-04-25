@@ -272,9 +272,10 @@ export function ACPConnect({
     <div className="bg-background/80 backdrop-blur-sm">
       <div className="max-w-md mx-auto border-b">
       {/* Status Bar - Always visible */}
-      <button
+      <Button
+        variant="ghost"
         onClick={() => onExpandedChange(!expanded)}
-        className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2 rounded-none"
       >
         <div className="flex items-center gap-2">
           <StatusDot state={connectionState} />
@@ -293,7 +294,7 @@ export function ACPConnect({
             }`}
           />
         </div>
-      </button>
+      </Button>
 
       {/* Expandable Settings Panel */}
       <div

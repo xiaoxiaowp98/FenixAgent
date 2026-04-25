@@ -81,7 +81,7 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
   }, [permission]);
   useEffect(() => {
     if (!permission || typeof permission === "string") {
-      setGlobalStrategy((permission as ToggleValue) ?? "");
+      setGlobalStrategy((permission as unknown as ToggleValue) ?? "");
       setToggleTools(Object.fromEntries(TOGGLE_TOOLS.map(t => [t, ""])));
       setRuleTools(Object.fromEntries(RULE_TOOLS.map(t => [t, { global: "", rules: [] }])));
       setSkillPerm({ global: "", rules: [] });
@@ -254,15 +254,15 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
   // ── 规则型工具: 添加规则 ──
   const handleAddRule = (tool: string) => {
     setRuleTools(prev => {
-      const next = {
+      const updated: Record<string, RuleToolState> = {
         ...prev,
         [tool]: {
           ...prev[tool],
           rules: [...prev[tool].rules, { pattern: "", action: "deny" }],
         },
       };
-      notifyParent(toggleTools, next, skillPerm, skillValues, globalStrategy);
-      return next;
+      notifyParent(toggleTools, updated, skillPerm, skillValues, globalStrategy);
+      return updated;
     });
     setExpandedTools(prev => new Set(prev).add(tool));
   };
@@ -320,7 +320,7 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
   // ── Skill 自定义规则: 添加 ──
   const handleAddSkillRule = () => {
     setSkillPerm(prev => {
-      const next = {
+      const next: SkillPermState = {
         ...prev,
         rules: [...prev.rules, { pattern: "", action: "deny" }],
       };

@@ -1,10 +1,15 @@
 import { describe, test, expect, mock } from "bun:test";
 
-// Mock auth middleware — bypass session check for all config routes
-mock.module("../auth/middleware", () => ({
-  sessionAuth: async (c: any, next: any) => {
-    c.set("user", { id: "test-user", email: "test@test.com", name: "Test" });
-    await next();
+// Mock auth — bypass session check for all config routes
+mock.module("../auth/better-auth", () => ({
+  auth: {
+    api: {
+      getSession: async () => ({
+        user: { id: "test-user", email: "test@test.com", name: "Test" },
+        session: { id: "sess_test", userId: "test-user", token: "tok" },
+      }),
+      signUpEmail: async () => ({}),
+    },
   },
 }));
 

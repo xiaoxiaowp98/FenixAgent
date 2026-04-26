@@ -18,11 +18,16 @@ async function createSkill(dir: string, name: string, description: string, conte
   await writeFile(join(skillDir, "SKILL.md"), `---\n${frontmatter}\n---\n${content}`, "utf-8");
 }
 
-// Mock middleware
-mock.module("../auth/middleware", () => ({
-  sessionAuth: async (c: any, next: any) => {
-    c.set("user", { id: "test-user", email: "test@test.com", name: "Test" });
-    await next();
+// Mock auth
+mock.module("../auth/better-auth", () => ({
+  auth: {
+    api: {
+      getSession: async () => ({
+        user: { id: "test-user", email: "test@test.com", name: "Test" },
+        session: { id: "sess_test", userId: "test-user", token: "tok" },
+      }),
+      signUpEmail: async () => ({}),
+    },
   },
 }));
 

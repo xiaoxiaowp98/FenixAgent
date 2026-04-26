@@ -1,4 +1,7 @@
-import { describe, it, expect, mock } from "bun:test";
+import { describe, it, expect, mock, beforeEach, afterAll } from "bun:test";
+import { db } from "../db";
+import { user, scheduledTask } from "../db/schema";
+import { eq } from "drizzle-orm";
 
 // Mock node-schedule
 const mockCancel = mock(() => {});
@@ -12,33 +15,31 @@ mock.module("node-schedule", () => ({
   default: { scheduleJob: mockScheduleJob },
 }));
 
-// Mock db with proper chaining
-const mockUpdateWhere = mock(() => ({
-  then: mock((cb: any) => { cb(); return { catch: mock(() => {}) }; }),
-  catch: mock(() => {}),
-}));
-const mockUpdateSet = mock(() => ({ where: mockUpdateWhere }));
-const mockDbUpdate = mock(() => ({ set: mockUpdateSet }));
-
-const mockWhere = mock<() => Promise<Array<{ id: string; cron: string; enabled: boolean; timezone: string }>>>(() => Promise.resolve([]));
-const mockFrom = mock(() => ({ where: mockWhere }));
-const mockSelect = mock(() => ({ from: mockFrom }));
-
-mock.module("../db", () => ({
-  db: { select: mockSelect, update: mockDbUpdate },
-}));
-
-// Mock task service
-mock.module("../services/task", () => ({
-  getTaskById: mock(() => Promise.resolve(null)),
-  createExecutionLog: mock(() => Promise.resolve("log_xxx")),
-}));
-
 // Mock logger
 mock.module("../logger", () => ({
   log: mock(() => {}),
   error: mock(() => {}),
 }));
+
+// Restore mocks after all tests to prevent pollution
+afterAll(() => mock.restore());
+
+// Ensure test user exists
+function ensureUser() {
+  const existing = db.select().from(user).where(eq(user.email, "scheduler-test@rcs.local")).limit(1).all();
+  if (existing.length > 0) return existing[0].id;
+  const id = "user_scheduler_test";
+  const now = new Date();
+  try {
+    db.insert(user).values({
+      id, name: "Scheduler Test", email: "scheduler-test@rcs.local",
+      emailVerified: false, createdAt: now, updatedAt: now,
+    }).run();
+  } catch {}
+  return id;
+}
+
+const testUserId = ensureUser();
 
 // Dynamic import for fresh module
 const scheduler = await import("../services/scheduler");
@@ -115,34 +116,45 @@ describe("Scheduler", () => {
   });
 
   describe("startScheduler", () => {
+    beforeEach(() => {
+      // Insert test tasks into real db
+      const now = new Date();
+      try {
+        db.insert(scheduledTask).values({
+          id: "task_s1", userId: testUserId, name: "Test 1", cron: "* * * * *",
+          url: "http://localhost", enabled: true, createdAt: now, updatedAt: now,
+        }).run();
+      } catch {}
+      try {
+        db.insert(scheduledTask).values({
+          id: "task_s2", userId: testUserId, name: "Test 2", cron: "*/10 * * * *",
+          url: "http://localhost", enabled: true, createdAt: now, updatedAt: now,
+        }).run();
+      } catch {}
+    });
+
     it("should schedule all enabled tasks from db", async () => {
       cleanup();
-      mockSelect.mockImplementationOnce(() => ({
-        from: mock(() => ({
-          where: mock(() => Promise.resolve([
-            { id: "task_1", cron: "* * * * *", enabled: true, timezone: "UTC" },
-            { id: "task_2", cron: "*/10 * * * *", enabled: true, timezone: "UTC" },
-            { id: "task_3", cron: "0 * * * *", enabled: true, timezone: "UTC" },
-          ])),
-        })),
-      }));
-
       await scheduler.startScheduler();
-      expect(mockScheduleJob.mock.calls.length).toBeGreaterThanOrEqual(3);
+      expect(mockScheduleJob.mock.calls.length).toBeGreaterThanOrEqual(2);
       cleanup();
     });
 
     it("should handle no tasks without error", async () => {
       cleanup();
-      mockSelect.mockImplementationOnce(() => ({
-        from: mock(() => ({
-          where: mock(() => Promise.resolve([])),
-        })),
-      }));
+      // Delete our test tasks temporarily
+      try { db.delete(scheduledTask).where(eq(scheduledTask.id, "task_s1")).run(); } catch {}
+      try { db.delete(scheduledTask).where(eq(scheduledTask.id, "task_s2")).run(); } catch {}
 
       await scheduler.startScheduler();
       expect(true).toBe(true); // No error = pass
       cleanup();
+    });
+
+    afterAll(() => {
+      // Clean up test tasks
+      try { db.delete(scheduledTask).where(eq(scheduledTask.id, "task_s1")).run(); } catch {}
+      try { db.delete(scheduledTask).where(eq(scheduledTask.id, "task_s2")).run(); } catch {}
     });
   });
 

@@ -26,11 +26,33 @@ import {
   storeGetEnvironment,
   storeGetSession,
 } from "../store";
+import { db } from "../db";
+import { user } from "../db/schema";
+import { eq } from "drizzle-orm";
 import { getEventBus, getAllEventBuses, removeEventBus } from "../transport/event-bus";
 import { runDisconnectMonitorSweep } from "../services/disconnect-monitor";
 
+function ensureUser(userId: string) {
+  const existing = db.select().from(user).where(eq(user.id, userId)).limit(1).all();
+  if (existing.length > 0) return;
+  const now = new Date();
+  try {
+    db.insert(user).values({
+      id: userId,
+      name: userId,
+      email: `${userId}@disconnect-monitor-test.com`,
+      emailVerified: false,
+      createdAt: now,
+      updatedAt: now,
+    }).run();
+  } catch {
+    // User might already exist
+  }
+}
+
 describe("Disconnect Monitor Logic", () => {
   beforeEach(() => {
+    ensureUser("u1");
     storeReset();
     for (const [key] of getAllEventBuses()) {
       removeEventBus(key);

@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, mock, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
-import * as schema from "../db/schema";
+import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { db } from "../db";
+import { user, scheduledTask, taskExecutionLog } from "../db/schema";
+import { eq, and } from "drizzle-orm";
 import {
   createTask,
   listTasks,
@@ -15,82 +15,36 @@ import {
   createExecutionLog,
 } from "../services/task";
 
-let testDb: ReturnType<typeof drizzle<typeof schema>>;
-let sqlite: Database;
+const USER_A = "user_task_a";
+const USER_B = "user_task_b";
 
-const TEST_SQL = `
-CREATE TABLE IF NOT EXISTS user (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE,
-  email_verified INTEGER NOT NULL DEFAULT 0,
-  image TEXT,
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
-);
+function ensureUser(id: string, name: string, email: string) {
+  const existing = db.select().from(user).where(eq(user.id, id)).limit(1).all();
+  if (existing.length > 0) return;
+  const now = new Date();
+  try {
+    db.insert(user).values({
+      id, name, email, emailVerified: false, createdAt: now, updatedAt: now,
+    }).run();
+  } catch {}
+}
 
-CREATE TABLE IF NOT EXISTS scheduled_task (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  description TEXT,
-  cron TEXT NOT NULL,
-  timezone TEXT NOT NULL DEFAULT 'UTC',
-  enabled INTEGER NOT NULL DEFAULT 1,
-  url TEXT NOT NULL,
-  method TEXT NOT NULL DEFAULT 'GET',
-  headers TEXT,
-  body TEXT,
-  timeout INTEGER NOT NULL DEFAULT 30000,
-  retry_enabled INTEGER NOT NULL DEFAULT 0,
-  retry_count INTEGER NOT NULL DEFAULT 3,
-  retry_interval INTEGER NOT NULL DEFAULT 60,
-  last_run_at INTEGER,
-  next_run_at INTEGER,
-  last_status TEXT,
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
-);
+// Ensure test users exist
+ensureUser(USER_A, "Alice Task", "alice-task@test.com");
+ensureUser(USER_B, "Bob Task", "bob-task@test.com");
 
-CREATE TABLE IF NOT EXISTS task_execution_log (
-  id TEXT PRIMARY KEY,
-  task_id TEXT NOT NULL REFERENCES scheduled_task(id) ON DELETE CASCADE,
-  status TEXT NOT NULL,
-  status_code INTEGER,
-  response_body TEXT,
-  error TEXT,
-  duration INTEGER,
-  attempt INTEGER NOT NULL DEFAULT 1,
-  triggered_by TEXT NOT NULL DEFAULT 'cron',
-  created_at INTEGER NOT NULL
-);
-`;
-
-const USER_A = "user_a";
-const USER_B = "user_b";
-
-// We need to mock the db import from "../db"
-const originalModule = await import("../db");
+function cleanupTasks() {
+  try { db.delete(taskExecutionLog).run(); } catch {}
+  try { db.delete(scheduledTask).where(eq(scheduledTask.userId, USER_A)).run(); } catch {}
+  try { db.delete(scheduledTask).where(eq(scheduledTask.userId, USER_B)).run(); } catch {}
+}
 
 beforeEach(() => {
-  sqlite = new Database(":memory:");
-  sqlite.exec("PRAGMA foreign_keys = ON");
-  sqlite.exec(TEST_SQL);
-  testDb = drizzle(sqlite, { schema });
-
-  // Insert test users
-  sqlite.run(`INSERT INTO user VALUES ('${USER_A}', 'Alice', 'alice@test.com', 0, NULL, 1, 1)`);
-  sqlite.run(`INSERT INTO user VALUES ('${USER_B}', 'Bob', 'bob@test.com', 0, NULL, 1, 1)`);
-
-  // Mock the db module
-  mock.module("../db", () => ({
-    db: testDb,
-  }));
+  cleanupTasks();
 });
 
 afterEach(() => {
-  sqlite.close();
-  mock.restore();
+  cleanupTasks();
 });
 
 function getValidInput() {

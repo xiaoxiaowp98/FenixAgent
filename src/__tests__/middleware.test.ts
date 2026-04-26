@@ -1,69 +1,63 @@
 import { describe, test, expect, beforeEach, afterAll, mock } from "bun:test";
 
-// Mock config before imports
-const mockConfig = {
-  port: 3000,
-  host: "0.0.0.0",
-  apiKeys: ["test-api-key"],
-  baseUrl: "http://localhost:3000",
-  pollTimeout: 8,
-  heartbeatInterval: 20,
-  jwtExpiresIn: 3600,
-  disconnectTimeout: 300,
-};
-
+// Mock config before imports — this is the only mock needed
 mock.module("../config", () => ({
-  config: mockConfig,
+  config: {
+    port: 3000,
+    host: "0.0.0.0",
+    apiKeys: ["test-api-key"],
+    baseUrl: "http://localhost:3000",
+    pollTimeout: 8,
+    heartbeatInterval: 20,
+    jwtExpiresIn: 3600,
+    disconnectTimeout: 300,
+  },
   getBaseUrl: () => "http://localhost:3000",
 }));
 
-// Mock db and better-auth to prevent side effects
-mock.module("../db", () => ({
-  db: {
-    select: () => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) }),
-    insert: () => ({ values: () => ({ run: () => ({ changes: 0 }) }) }),
-  },
-  initDb: () => {},
-}));
-mock.module("../auth/better-auth", () => ({
-  auth: { api: { getSession: async () => null, signUpEmail: async () => ({}) } },
-}));
-mock.module("../auth/api-key-service", () => ({
-  validateApiKeyAndGetUser: async () => null,
-  createApiKey: async () => ({ record: {}, fullKey: "test" }),
-}));
-
 import { Hono } from "hono";
+import { db } from "../db";
+import { user as userTable } from "../db/schema";
+import { eq } from "drizzle-orm";
 import { storeReset } from "../store";
 import { apiKeyAuth, sessionIngressAuth, uuidAuth, getUuidFromRequest, acceptCliHeaders } from "../auth/middleware";
 import { generateWorkerJwt } from "../auth/jwt";
+
+// Ensure system user exists for apiKeyAuth's ensureSystemUser fallback
+function ensureSystemUser() {
+  const existing = db.select().from(userTable).where(eq(userTable.email, "system@rcs.local")).limit(1).all();
+  if (existing.length > 0) return;
+  const now = new Date();
+  try {
+    db.insert(userTable).values({
+      id: "system", name: "System", email: "system@rcs.local",
+      emailVerified: false, createdAt: now, updatedAt: now,
+    }).run();
+  } catch {}
+}
+ensureSystemUser();
 
 // Helper: create a test app with middleware and a simple handler
 function createTestApp() {
   const app = new Hono();
 
-  // Test route for apiKeyAuth
   app.get("/api-key-test", apiKeyAuth, (c) => {
     const user = c.get("user");
     return c.json({ userId: user?.id || null });
   });
 
-  // Test route for sessionIngressAuth
   app.get("/ingress/:id", sessionIngressAuth, (c) => {
     return c.json({ ok: true });
   });
 
-  // Test route for uuidAuth
   app.get("/uuid-test", uuidAuth, (c) => {
     return c.json({ uuid: c.get("uuid") });
   });
 
-  // Test route for getUuidFromRequest
   app.get("/uuid-extract", (c) => {
     return c.json({ uuid: getUuidFromRequest(c) });
   });
 
-  // Test route for acceptCliHeaders (passthrough)
   app.get("/cli-headers", acceptCliHeaders, (c) => {
     return c.json({ ok: true });
   });

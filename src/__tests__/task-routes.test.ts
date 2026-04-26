@@ -1,53 +1,22 @@
-import { describe, it, expect, mock } from "bun:test";
+import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test";
+import { db } from "../db";
+import { user, scheduledTask, taskExecutionLog } from "../db/schema";
+import { eq } from "drizzle-orm";
 
-type TaskRouteResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: { code: string; message: string } };
-
-// Mock auth middleware — pass-through
-mock.module("../auth/middleware", () => ({
-  sessionAuth: mock(async (c: any, next: any) => {
-    c.set("user", { id: "test_user" });
-    await next();
-  }),
+// Mock better-auth so sessionAuth passes with a test user.
+mock.module("../auth/better-auth", () => ({
+  auth: {
+    api: {
+      getSession: async () => ({
+        user: { id: "test_user", email: "task-routes@test.com", name: "Test" },
+        session: { id: "sess_test", userId: "test_user", token: "tok" },
+      }),
+      signUpEmail: async () => ({}),
+    },
+  },
 }));
 
-// Mock task service functions
-const mockListTasks = mock<() => Promise<TaskRouteResult<any[]>>>(() => Promise.resolve({ success: true, data: [] }));
-const mockCreateTask = mock<() => Promise<TaskRouteResult<{ id: string; cron: string; timezone?: string; enabled?: boolean }>>>(() =>
-  Promise.resolve({ success: true, data: { id: "task_xxx", cron: "*/5 * * * *" } }),
-);
-const mockGetTask = mock<() => Promise<TaskRouteResult<{ id: string; cron?: string; timezone?: string; enabled?: boolean }>>>(() =>
-  Promise.resolve({ success: true, data: { id: "task_xxx" } }),
-);
-const mockUpdateTask = mock<() => Promise<TaskRouteResult<{ id: string; cron?: string; timezone?: string; enabled?: boolean }>>>(() =>
-  Promise.resolve({ success: true, data: { id: "task_xxx" } }),
-);
-const mockDeleteTask = mock<() => Promise<TaskRouteResult<undefined>>>(() => Promise.resolve({ success: true, data: undefined }));
-const mockToggleTask = mock<() => Promise<TaskRouteResult<{ id: string; enabled: boolean }>>>(() =>
-  Promise.resolve({ success: true, data: { id: "task_xxx", enabled: true } }),
-);
-const mockTriggerTask = mock<() => Promise<TaskRouteResult<{ id: string; status: string; duration: number }>>>(() =>
-  Promise.resolve({ success: true, data: { id: "log_xxx", status: "success", duration: 150 } }),
-);
-const mockListExecutionLogs = mock<() => Promise<TaskRouteResult<{ total: number; items: any[] }>>>(() =>
-  Promise.resolve({ success: true, data: { total: 0, items: [] } }),
-);
-const mockClearExecutionLogs = mock<() => Promise<TaskRouteResult<undefined>>>(() => Promise.resolve({ success: true, data: undefined }));
-
-mock.module("../services/task", () => ({
-  listTasks: mockListTasks,
-  createTask: mockCreateTask,
-  getTask: mockGetTask,
-  updateTask: mockUpdateTask,
-  deleteTask: mockDeleteTask,
-  toggleTask: mockToggleTask,
-  triggerTask: mockTriggerTask,
-  listExecutionLogs: mockListExecutionLogs,
-  clearExecutionLogs: mockClearExecutionLogs,
-}));
-
-// Mock scheduler functions
+// Mock scheduler functions only — real task service used
 const mockScheduleTask = mock(() => {});
 const mockUnscheduleTask = mock(() => {});
 const mockRescheduleTask = mock(() => {});
@@ -56,7 +25,29 @@ mock.module("../services/scheduler", () => ({
   scheduleTask: mockScheduleTask,
   unscheduleTask: mockUnscheduleTask,
   rescheduleTask: mockRescheduleTask,
+  startScheduler: mock(() => Promise.resolve()),
+  stopScheduler: mock(() => {}),
 }));
+
+// Ensure test user exists
+const TEST_USER_ID = "test_user";
+function ensureUser() {
+  const existing = db.select().from(user).where(eq(user.id, TEST_USER_ID)).limit(1).all();
+  if (existing.length > 0) return;
+  const now = new Date();
+  try {
+    db.insert(user).values({
+      id: TEST_USER_ID, name: "Test", email: "task-routes@test.com",
+      emailVerified: false, createdAt: now, updatedAt: now,
+    }).run();
+  } catch {}
+}
+ensureUser();
+
+function cleanup() {
+  try { db.delete(taskExecutionLog).run(); } catch {}
+  try { db.delete(scheduledTask).where(eq(scheduledTask.userId, TEST_USER_ID)).run(); } catch {}
+}
 
 const app = (await import("../routes/web/tasks")).default;
 
@@ -64,7 +55,34 @@ async function fetch(path: string, options: any = {}) {
   return app.fetch(new Request(`http://localhost${path}`, options));
 }
 
+/** Helper: create a task via the route and return its id */
+async function createTaskViaRoute(overrides: Record<string, any> = {}) {
+  const res = await fetch("/tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Route Test",
+      cron: "*/5 * * * *",
+      url: "http://localhost:1",
+      ...overrides,
+    }),
+  });
+  const body: any = await res.json();
+  return body.data?.id as string | undefined;
+}
+
 describe("Task Routes", () => {
+  beforeEach(() => {
+    cleanup();
+    mockScheduleTask.mockClear();
+    mockUnscheduleTask.mockClear();
+    mockRescheduleTask.mockClear();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
   describe("GET /web/tasks", () => {
     it("should return task list", async () => {
       const res = await fetch("/tasks");
@@ -82,14 +100,13 @@ describe("Task Routes", () => {
         body: JSON.stringify({ name: "Test", cron: "*/5 * * * *", url: "https://example.com" }),
       });
       expect(res.status).toBe(201);
+      const body: any = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.id).toMatch(/^task_/);
       expect(mockScheduleTask).toHaveBeenCalled();
     });
 
     it("should return 400 on validation error", async () => {
-      mockCreateTask.mockImplementationOnce(() => Promise.resolve({
-        success: false,
-        error: { code: "VALIDATION_ERROR", message: "cron 表达式必须为 5 字段" },
-      }));
       const res = await fetch("/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -101,17 +118,16 @@ describe("Task Routes", () => {
 
   describe("GET /web/tasks/:id", () => {
     it("should return task detail", async () => {
-      const res = await fetch("/tasks/task_xxx");
+      const id = await createTaskViaRoute();
+      expect(id).toBeTruthy();
+      const res = await fetch(`/tasks/${id}`);
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body: any = await res.json();
       expect(body.success).toBe(true);
+      expect(body.data.id).toBe(id);
     });
 
     it("should return 404 for not found", async () => {
-      mockGetTask.mockImplementationOnce(() => Promise.resolve({
-        success: false,
-        error: { code: "NOT_FOUND", message: "任务不存在" },
-      }));
       const res = await fetch("/tasks/task_nonexistent");
       expect(res.status).toBe(404);
     });
@@ -119,7 +135,9 @@ describe("Task Routes", () => {
 
   describe("PUT /web/tasks/:id", () => {
     it("should update a task and reschedule", async () => {
-      const res = await fetch("/tasks/task_xxx", {
+      const id = await createTaskViaRoute();
+      expect(id).toBeTruthy();
+      const res = await fetch(`/tasks/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: "Updated" }),
@@ -129,10 +147,6 @@ describe("Task Routes", () => {
     });
 
     it("should return 404 for not found", async () => {
-      mockUpdateTask.mockImplementationOnce(() => Promise.resolve({
-        success: false,
-        error: { code: "NOT_FOUND", message: "任务不存在" },
-      }));
       const res = await fetch("/tasks/task_nonexistent", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -142,11 +156,9 @@ describe("Task Routes", () => {
     });
 
     it("should return 400 on validation error", async () => {
-      mockUpdateTask.mockImplementationOnce(() => Promise.resolve({
-        success: false,
-        error: { code: "VALIDATION_ERROR", message: "URL 格式错误" },
-      }));
-      const res = await fetch("/tasks/task_xxx", {
+      const id = await createTaskViaRoute();
+      expect(id).toBeTruthy();
+      const res = await fetch(`/tasks/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: "ftp://bad" }),
@@ -157,47 +169,42 @@ describe("Task Routes", () => {
 
   describe("DELETE /web/tasks/:id", () => {
     it("should delete a task and unschedule", async () => {
-      const res = await fetch("/tasks/task_xxx", { method: "DELETE" });
+      const id = await createTaskViaRoute();
+      expect(id).toBeTruthy();
+      const res = await fetch(`/tasks/${id}`, { method: "DELETE" });
       expect(res.status).toBe(200);
       expect(mockUnscheduleTask).toHaveBeenCalled();
     });
 
     it("should return 404 for not found", async () => {
-      mockDeleteTask.mockImplementationOnce(() => Promise.resolve({
-        success: false,
-        error: { code: "NOT_FOUND", message: "任务不存在" },
-      }));
       const res = await fetch("/tasks/task_nonexistent", { method: "DELETE" });
       expect(res.status).toBe(404);
     });
   });
 
   describe("POST /web/tasks/:id/toggle", () => {
-    it("should enable task and schedule", async () => {
-      mockToggleTask.mockImplementationOnce(() => Promise.resolve({
-        success: true,
-        data: { id: "task_xxx", enabled: true },
-      }));
-      const res = await fetch("/tasks/task_xxx/toggle", { method: "POST" });
-      expect(res.status).toBe(200);
-      expect(mockScheduleTask).toHaveBeenCalled();
-    });
-
     it("should disable task and unschedule", async () => {
-      mockToggleTask.mockImplementationOnce(() => Promise.resolve({
-        success: true,
-        data: { id: "task_xxx", enabled: false },
-      }));
-      const res = await fetch("/tasks/task_xxx/toggle", { method: "POST" });
+      const id = await createTaskViaRoute();
+      expect(id).toBeTruthy();
+      // Task is enabled by default → toggle disables it
+      const res = await fetch(`/tasks/${id}/toggle`, { method: "POST" });
       expect(res.status).toBe(200);
       expect(mockUnscheduleTask).toHaveBeenCalled();
     });
 
+    it("should enable task and schedule", async () => {
+      const id = await createTaskViaRoute();
+      expect(id).toBeTruthy();
+      // Toggle once to disable
+      await fetch(`/tasks/${id}/toggle`, { method: "POST" });
+      mockScheduleTask.mockClear();
+      // Toggle again to enable
+      const res = await fetch(`/tasks/${id}/toggle`, { method: "POST" });
+      expect(res.status).toBe(200);
+      expect(mockScheduleTask).toHaveBeenCalled();
+    });
+
     it("should return 404 for not found", async () => {
-      mockToggleTask.mockImplementationOnce(() => Promise.resolve({
-        success: false,
-        error: { code: "NOT_FOUND", message: "任务不存在" },
-      }));
       const res = await fetch("/tasks/task_nonexistent/toggle", { method: "POST" });
       expect(res.status).toBe(404);
     });
@@ -205,17 +212,15 @@ describe("Task Routes", () => {
 
   describe("POST /web/tasks/:id/trigger", () => {
     it("should trigger task and return result", async () => {
-      const res = await fetch("/tasks/task_xxx/trigger", { method: "POST" });
+      const id = await createTaskViaRoute({ url: "http://localhost:1" });
+      expect(id).toBeTruthy();
+      const res = await fetch(`/tasks/${id}/trigger`, { method: "POST" });
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body: any = await res.json();
       expect(body.success).toBe(true);
     });
 
     it("should return 404 for not found", async () => {
-      mockTriggerTask.mockImplementationOnce(() => Promise.resolve({
-        success: false,
-        error: { code: "NOT_FOUND", message: "任务不存在" },
-      }));
       const res = await fetch("/tasks/task_nonexistent/trigger", { method: "POST" });
       expect(res.status).toBe(404);
     });
@@ -223,17 +228,15 @@ describe("Task Routes", () => {
 
   describe("GET /web/tasks/:id/logs", () => {
     it("should return paginated logs", async () => {
-      const res = await fetch("/tasks/task_xxx/logs");
+      const id = await createTaskViaRoute();
+      expect(id).toBeTruthy();
+      const res = await fetch(`/tasks/${id}/logs`);
       expect(res.status).toBe(200);
-      const body = await res.json();
+      const body: any = await res.json();
       expect(body.success).toBe(true);
     });
 
     it("should return 404 for non-owned task", async () => {
-      mockGetTask.mockImplementationOnce(() => Promise.resolve({
-        success: false,
-        error: { code: "NOT_FOUND", message: "任务不存在" },
-      }));
       const res = await fetch("/tasks/task_nonexistent/logs");
       expect(res.status).toBe(404);
     });
@@ -241,16 +244,15 @@ describe("Task Routes", () => {
 
   describe("DELETE /web/tasks/:id/logs", () => {
     it("should clear logs", async () => {
-      const res = await fetch("/tasks/task_xxx/logs", { method: "DELETE" });
+      const id = await createTaskViaRoute();
+      expect(id).toBeTruthy();
+      const res = await fetch(`/tasks/${id}/logs`, { method: "DELETE" });
       expect(res.status).toBe(200);
-      expect(mockClearExecutionLogs).toHaveBeenCalled();
+      const body: any = await res.json();
+      expect(body.success).toBe(true);
     });
 
     it("should return 404 for non-owned task", async () => {
-      mockGetTask.mockImplementationOnce(() => Promise.resolve({
-        success: false,
-        error: { code: "NOT_FOUND", message: "任务不存在" },
-      }));
       const res = await fetch("/tasks/task_nonexistent/logs", { method: "DELETE" });
       expect(res.status).toBe(404);
     });

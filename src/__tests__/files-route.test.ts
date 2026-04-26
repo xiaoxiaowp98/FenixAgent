@@ -1,38 +1,43 @@
 import { describe, test, expect, beforeEach, afterAll, mock } from "bun:test";
 import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const srcDir = resolve(__dirname, "..");
-
-// Mock db to prevent side effects
-mock.module(resolve(srcDir, "db"), () => ({
-  db: {},
-  initDb: () => {},
-}));
-
-// Mock auth middleware using the path that the route file uses (relative to its own location)
-const middlewarePath = resolve(srcDir, "auth", "middleware");
-mock.module(middlewarePath, () => ({
-  sessionAuth: async (c: any, next: any) => {
-    c.set("user", { id: "test-user", email: "test@test.com", name: "Test" });
-    await next();
+// Mock better-auth so sessionAuth passes with a test user.
+// Only mock this one module — use real middleware and real store.
+mock.module("../auth/better-auth", () => ({
+  auth: {
+    api: {
+      getSession: async () => ({
+        user: { id: "test-user", email: "test@test.com", name: "Test" },
+        session: { id: "sess_test", userId: "test-user", token: "tok" },
+      }),
+      signUpEmail: async () => ({}),
+    },
   },
 }));
 
-// Mock better-auth to prevent side effects
-mock.module(resolve(srcDir, "auth", "better-auth"), () => ({
-  auth: { api: { getSession: async () => ({ user: { id: "u", name: "T", email: "t@t" }, session: { id: "s" } }) } },
-}));
-
-const storePath = resolve(srcDir, "store");
-
 import { Hono } from "hono";
+import { db } from "../db";
+import { user as userTable } from "../db/schema";
+import { eq } from "drizzle-orm";
+import { storeReset, storeCreateSession, storeCreateEnvironment } from "../store";
+
+// Ensure test user exists in DB
+function ensureUser() {
+  const existing = db.select().from(userTable).where(eq(userTable.id, "test-user")).limit(1).all();
+  if (existing.length > 0) return;
+  const now = new Date();
+  try {
+    db.insert(userTable).values({
+      id: "test-user", name: "Test", email: "test@test.com",
+      emailVerified: false, createdAt: now, updatedAt: now,
+    }).run();
+  } catch {}
+}
+ensureUser();
 
 let workspaceDir: string;
-let mockStoreModule: any;
 
 describe("Files Route", () => {
   let app: Hono;
@@ -42,20 +47,27 @@ describe("Files Route", () => {
     workspaceDir = await mkdtemp(join(tmpdir(), "rcs-files-test-"));
     await mkdir(join(workspaceDir, "user"), { recursive: true });
 
-    // Mock store with fresh workspaceDir
-    mock.module(storePath, () => ({
-      storeGetSession: () => ({ id: sessionId, environmentId: "env_test" }),
-      storeGetEnvironment: () => ({ id: "env_test", workspacePath: workspaceDir }),
-    }));
+    storeReset();
 
-    // Re-import to pick up fresh mock
+    // Create real environment and session with test workspace
+    storeCreateEnvironment({
+      secret: "test-secret",
+      userId: "test-user",
+      workspacePath: workspaceDir,
+      status: "active",
+    });
+    storeCreateSession({ environmentId: "env_test", idPrefix: "session_" });
+
+    // Dynamically import to get fresh module each time
     const mod = await import("../routes/web/files");
     app = new Hono();
     app.route("/web/sessions", mod.default);
   });
 
   afterAll(async () => {
-    await rm(workspaceDir, { recursive: true, force: true });
+    if (workspaceDir) {
+      await rm(workspaceDir, { recursive: true, force: true });
+    }
   });
 
   test("GET /:sessionId/files — lists files in directory", async () => {
@@ -72,16 +84,10 @@ describe("Files Route", () => {
     expect(helloFile.type).toBe("file");
   });
 
-  test("GET /:sessionId/files — 404 for invalid session", async () => {
-    mock.module(storePath, () => ({
-      storeGetSession: () => undefined,
-      storeGetEnvironment: () => undefined,
-    }));
-    const mod = await import("../routes/web/files");
-    const testApp = new Hono();
-    testApp.route("/web/sessions", mod.default);
-
-    const res = await testApp.request(`/web/sessions/invalid-session/files`, {
+  test("GET /:sessionId/files — 404 for invalid session without environment", async () => {
+    // Use a session ID that doesn't exist in the store and won't have a fallback environment
+    storeReset(); // Clear the environment we created
+    const res = await app.request(`/web/sessions/invalid-session/files`, {
       headers: { "Content-Type": "application/json" },
     });
     expect(res.status).toBe(404);

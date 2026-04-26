@@ -6,12 +6,16 @@ mock.module("../config", () => ({
   getBaseUrl: () => "http://localhost:3000",
 }));
 
-// Mock sessionAuth to bypass authentication
-mock.module("../auth/middleware", () => ({
-  sessionAuth: async (c: any, next: any) => {
-    c.set("user", { id: "test-user-1", email: "test@test.com", name: "TestUser" });
-    c.set("session", { id: "sess-1", userId: "test-user-1", token: "tok-1" });
-    await next();
+// Mock auth to bypass authentication
+mock.module("../auth/better-auth", () => ({
+  auth: {
+    api: {
+      getSession: async () => ({
+        user: { id: "test-user-1", email: "test@test.com", name: "TestUser" },
+        session: { id: "sess-1", userId: "test-user-1", token: "tok-1" },
+      }),
+      signUpEmail: async () => ({}),
+    },
   },
 }));
 

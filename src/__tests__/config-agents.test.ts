@@ -3,10 +3,15 @@ import { describe, test, expect, beforeEach, mock } from "bun:test";
 let _agentStore: Record<string, any> = {};
 let _topLevelFields: Record<string, any> = {};
 
-mock.module("../auth/middleware", () => ({
-  sessionAuth: async (c: any, next: any) => {
-    c.set("user", { id: "test-user", email: "test@test.com", name: "Test" });
-    await next();
+mock.module("../auth/better-auth", () => ({
+  auth: {
+    api: {
+      getSession: async () => ({
+        user: { id: "test-user", email: "test@test.com", name: "Test" },
+        session: { id: "sess_test", userId: "test-user", token: "tok" },
+      }),
+      signUpEmail: async () => ({}),
+    },
   },
 }));
 

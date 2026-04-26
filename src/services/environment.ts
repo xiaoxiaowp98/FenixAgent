@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { config } from "../config";
 import {
   storeCreateEnvironment,
@@ -26,7 +27,7 @@ function toResponse(row: EnvironmentRecord): EnvironmentResponse {
 }
 
 export function registerEnvironment(req: RegisterEnvironmentRequest & { metadata?: { worker_type?: string }; username?: string; userId?: string }) {
-  const secret = config.apiKeys[0] || "";
+  const secret = `env_${randomBytes(24).toString("hex")}`;
   const workerType = req.worker_type || req.metadata?.worker_type;
   const record = storeCreateEnvironment({
     secret,

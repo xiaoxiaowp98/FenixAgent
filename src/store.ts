@@ -386,7 +386,11 @@ export function storeGetUserByToken(token: string): { username: string } | undef
 // ---------- Reset (for tests) ----------
 
 export function storeReset() {
-  db.delete(environment).run();
+  try {
+    db.delete(environment).run();
+  } catch {
+    // db may be mocked in test environment
+  }
   sessions.clear();
   sessionWorkers.clear();
   tokens.clear();

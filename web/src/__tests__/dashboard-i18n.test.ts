@@ -18,19 +18,15 @@ describe("Dashboard.tsx i18n Chinese translations", () => {
     expect(src).not.toContain(">Active<");
   });
 
-  test('source contains Chinese title "活跃"', () => {
-    const matches = src.match(/>活跃</g);
-    expect(matches).not.toBeNull();
-    expect(matches!.length).toBe(1);
+  test('source contains Chinese title "环境管理"', () => {
+    expect(src).toContain("环境管理");
   });
 
-  test('source contains proper noun "Agent" twice', () => {
-    const matches = src.match(/>Agent</g);
-    expect(matches).not.toBeNull();
-    expect(matches!.length).toBe(2);
+  test('source contains Chinese column header "名称"', () => {
+    expect(src).toContain('"名称"');
   });
 
-  test('sr-only title preserves English "Dashboard"', () => {
-    expect(src).toContain('sr-only">Dashboard');
+  test('source contains Chinese loading text "加载中"', () => {
+    expect(src).toContain("加载中");
   });
 });

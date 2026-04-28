@@ -56,7 +56,7 @@ export function FilePickerDialog({ open, sessionId, onClose, onSelect }: FilePic
   }, [open, loadDirectory]);
 
   const handleEnterDir = useCallback((dir: FileInfo) => {
-    const relativePath = dir.path.startsWith("user/") ? dir.path.slice(5) : dir.path;
+    const relativePath = dir.path.endsWith("/") ? dir.path.slice(0, -1) : dir.path;
     setDirStack((prev) => [...prev, currentDir]);
     loadDirectory(relativePath);
   }, [currentDir, loadDirectory]);

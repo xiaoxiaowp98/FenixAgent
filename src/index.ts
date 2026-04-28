@@ -64,17 +64,18 @@ const webDir = existsSync(resolve(distDir, "index.html")) ? distDir : resolve(__
 
 const stripCodePrefix = (p: string) => p.replace(/^\/code/, "");
 
-// /code/:sessionId/files/* → redirect to file preview API (for iframe embedding)
-app.get("/code/:sessionId/files/:filePath{.+}", (c) => {
+// /code/:sessionId/user/* → redirect to file preview API (for iframe embedding)
+app.get("/code/:sessionId/user/:filePath{.+}", (c) => {
   const sessionId = c.req.param("sessionId");
   const filePath = c.req.param("filePath");
-  return c.redirect(`/web/sessions/${sessionId}/files/user/${filePath}?preview=true`);
+  return c.redirect(`/web/sessions/${sessionId}/user/${filePath}?preview=true`);
 });
 
 app.use("/code/*", serveStatic({ root: webDir, rewriteRequestPath: stripCodePrefix }));
 app.get("/code", serveStatic({ root: webDir, path: "index.html" }));
 app.get("/code/", serveStatic({ root: webDir, path: "index.html" }));
 app.get("/code/:sessionId", serveStatic({ root: webDir, path: "index.html" }));
+app.get("/code/:sessionId/", serveStatic({ root: webDir, path: "index.html" }));
 
 // v1 compatibility routes (acp-link REST registration)
 app.route("/v1/environments", v1Environments);

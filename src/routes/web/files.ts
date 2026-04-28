@@ -71,15 +71,7 @@ async function resolveUserPath(sessionId: string, relativePath: string, userId?:
   const userDir = join(env.workspacePath, "user");
   await mkdir(userDir, { recursive: true });
 
-  // Strip leading "user/" since userDir already contains the "user" segment
-  let cleanPath = relativePath;
-  if (cleanPath.startsWith("user/")) {
-    cleanPath = cleanPath.slice(5);
-  } else if (cleanPath === "user") {
-    cleanPath = "";
-  }
-
-  const resolved = resolve(userDir, cleanPath);
+  const resolved = resolve(userDir, relativePath);
   if (!resolved.startsWith(userDir + "/") && resolved !== userDir) return null;
   return { userDir, resolved };
 }
@@ -99,8 +91,8 @@ async function isTextFile(filePath: string): Promise<boolean> {
 
 const app = new Hono();
 
-// GET /:sessionId/files — list directory
-app.get("/:sessionId/files", sessionAuth, async (c) => {
+// GET /:sessionId/user — list directory
+app.get("/:sessionId/user", sessionAuth, async (c) => {
   const user = c.get("user")!;
   const sessionId = c.req.param("sessionId")!;
   const queryPath = c.req.query("path") || "";
@@ -118,7 +110,7 @@ app.get("/:sessionId/files", sessionAuth, async (c) => {
     const relPath = relative(userDir, entryPath);
     return {
       name: entry.name,
-      path: entry.isDirectory() ? `user/${relPath}/` : `user/${relPath}`,
+      path: entry.isDirectory() ? `${relPath}/` : relPath,
       type: entry.isDirectory() ? "dir" : "file",
       size: entry.isFile() ? statInfo.size : 0,
       modifiedAt: statInfo.mtimeMs,
@@ -127,8 +119,8 @@ app.get("/:sessionId/files", sessionAuth, async (c) => {
   return c.json({ entries: items });
 });
 
-// GET /:sessionId/files/* — read file (?preview=true returns raw content for iframe)
-app.get("/:sessionId/files/:filePath{.+}", sessionAuth, async (c) => {
+// GET /:sessionId/user/* — read file (?preview=true returns raw content for iframe)
+app.get("/:sessionId/user/:filePath{.+}", sessionAuth, async (c) => {
   const user = c.get("user")!;
   const sessionId = c.req.param("sessionId")!;
   const filePath = c.req.param("filePath")!;
@@ -159,7 +151,7 @@ app.get("/:sessionId/files/:filePath{.+}", sessionAuth, async (c) => {
   if (isText) {
     const content = await readFile(resolved, "utf-8");
     const fileName = filePath.substring(filePath.lastIndexOf("/") + 1);
-    const relPath = `user/${filePath}`;
+    const relPath = filePath;
     return c.json({ name: fileName, path: relPath, content, size: info.size, encoding: "utf-8" });
   } else {
     const fileName = filePath.substring(filePath.lastIndexOf("/") + 1);
@@ -169,8 +161,8 @@ app.get("/:sessionId/files/:filePath{.+}", sessionAuth, async (c) => {
   }
 });
 
-// POST /:sessionId/files/* — upload files
-app.post("/:sessionId/files/:dirPath{.*}", sessionAuth, async (c) => {
+// POST /:sessionId/user/* — upload files
+app.post("/:sessionId/user/:dirPath{.*}", sessionAuth, async (c) => {
   const user = c.get("user")!;
   const sessionId = c.req.param("sessionId")!;
   const dirPath = c.req.param("dirPath") || "";
@@ -193,13 +185,13 @@ app.post("/:sessionId/files/:dirPath{.*}", sessionAuth, async (c) => {
     }
     const destPath = join(resolved, file.name);
     await writeFile(destPath, buffer);
-    uploaded.push({ name: file.name, path: `user/${dirPath ? dirPath + "/" : ""}${file.name}`, size: buffer.length });
+    uploaded.push({ name: file.name, path: `${dirPath ? dirPath + "/" : ""}${file.name}`, size: buffer.length });
   }
   return c.json({ files: uploaded });
 });
 
-// PUT /:sessionId/files/* — write file content
-app.put("/:sessionId/files/:filePath{.+}", sessionAuth, async (c) => {
+// PUT /:sessionId/user/* — write file content
+app.put("/:sessionId/user/:filePath{.+}", sessionAuth, async (c) => {
   const user = c.get("user")!;
   const sessionId = c.req.param("sessionId")!;
   const filePath = c.req.param("filePath")!;
@@ -219,11 +211,11 @@ app.put("/:sessionId/files/:filePath{.+}", sessionAuth, async (c) => {
   const content = body.content;
   await writeFile(resolved, content, "utf-8");
   const fileName = filePath.substring(filePath.lastIndexOf("/") + 1);
-  return c.json({ name: fileName, path: `user/${filePath}`, size: Buffer.byteLength(content) });
+  return c.json({ name: fileName, path: filePath, size: Buffer.byteLength(content) });
 });
 
-// DELETE /:sessionId/files/* — delete file
-app.delete("/:sessionId/files/:filePath{.+}", sessionAuth, async (c) => {
+// DELETE /:sessionId/user/* — delete file
+app.delete("/:sessionId/user/:filePath{.+}", sessionAuth, async (c) => {
   const user = c.get("user")!;
   const sessionId = c.req.param("sessionId")!;
   const filePath = c.req.param("filePath")!;

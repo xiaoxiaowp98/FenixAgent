@@ -70,9 +70,9 @@ describe("Files Route", () => {
     }
   });
 
-  test("GET /:sessionId/files — lists files in directory", async () => {
+  test("GET /:sessionId/user — lists files in directory", async () => {
     await writeFile(join(workspaceDir, "user", "hello.txt"), "Hello World");
-    const res = await app.request(`/web/sessions/${sessionId}/files`, {
+    const res = await app.request(`/web/sessions/${sessionId}/user`, {
       headers: { "Content-Type": "application/json" },
     });
     expect(res.status).toBe(200);
@@ -84,17 +84,17 @@ describe("Files Route", () => {
     expect(helloFile.type).toBe("file");
   });
 
-  test("GET /:sessionId/files — 404 for invalid session without environment", async () => {
+  test("GET /:sessionId/user — 404 for invalid session without environment", async () => {
     // Use a session ID that doesn't exist in the store and won't have a fallback environment
     storeReset(); // Clear the environment we created
-    const res = await app.request(`/web/sessions/invalid-session/files`, {
+    const res = await app.request(`/web/sessions/invalid-session/user`, {
       headers: { "Content-Type": "application/json" },
     });
     expect(res.status).toBe(404);
   });
 
-  test("PUT /:sessionId/files/* — writes file content", async () => {
-    const res = await app.request(`/web/sessions/${sessionId}/files/notes.txt`, {
+  test("PUT /:sessionId/user/* — writes file content", async () => {
+    const res = await app.request(`/web/sessions/${sessionId}/user/notes.txt`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: "Test content" }),
@@ -102,16 +102,16 @@ describe("Files Route", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.name).toBe("notes.txt");
-    expect(body.path).toBe("user/notes.txt");
+    expect(body.path).toBe("notes.txt");
 
     const { readFile } = await import("node:fs/promises");
     const content = await readFile(join(workspaceDir, "user", "notes.txt"), "utf-8");
     expect(content).toBe("Test content");
   });
 
-  test("GET /:sessionId/files/* — reads written file", async () => {
+  test("GET /:sessionId/user/* — reads written file", async () => {
     await writeFile(join(workspaceDir, "user", "readme.md"), "# Readme");
-    const res = await app.request(`/web/sessions/${sessionId}/files/readme.md`, {
+    const res = await app.request(`/web/sessions/${sessionId}/user/readme.md`, {
       headers: { "Content-Type": "application/json" },
     });
     expect(res.status).toBe(200);
@@ -121,9 +121,9 @@ describe("Files Route", () => {
     expect(body.encoding).toBe("utf-8");
   });
 
-  test("DELETE /:sessionId/files/* — deletes a file", async () => {
+  test("DELETE /:sessionId/user/* — deletes a file", async () => {
     await writeFile(join(workspaceDir, "user", "temp.txt"), "to delete");
-    const res = await app.request(`/web/sessions/${sessionId}/files/temp.txt`, {
+    const res = await app.request(`/web/sessions/${sessionId}/user/temp.txt`, {
       method: "DELETE",
     });
     expect(res.status).toBe(200);
@@ -134,9 +134,9 @@ describe("Files Route", () => {
     await expect(stat(join(workspaceDir, "user", "temp.txt"))).rejects.toThrow();
   });
 
-  test("DELETE /:sessionId/files/* — 400 when trying to delete directory", async () => {
+  test("DELETE /:sessionId/user/* — 400 when trying to delete directory", async () => {
     await mkdir(join(workspaceDir, "user", "subdir"), { recursive: true });
-    const res = await app.request(`/web/sessions/${sessionId}/files/subdir`, {
+    const res = await app.request(`/web/sessions/${sessionId}/user/subdir`, {
       method: "DELETE",
     });
     expect(res.status).toBe(400);
@@ -145,14 +145,14 @@ describe("Files Route", () => {
   });
 
   test("path traversal — GET with ../ returns 404", async () => {
-    const res = await app.request(`/web/sessions/${sessionId}/files?path=../../../etc`, {
+    const res = await app.request(`/web/sessions/${sessionId}/user?path=../../../etc`, {
       headers: { "Content-Type": "application/json" },
     });
     expect(res.status).toBe(404);
   });
 
   test("path traversal — PUT with ../ returns 404", async () => {
-    const res = await app.request(`/web/sessions/${sessionId}/files/../../../etc/evil.txt`, {
+    const res = await app.request(`/web/sessions/${sessionId}/user/../../../etc/evil.txt`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: "hack" }),
@@ -161,16 +161,16 @@ describe("Files Route", () => {
   });
 
   test("path traversal — DELETE with ../ returns 404", async () => {
-    const res = await app.request(`/web/sessions/${sessionId}/files/../../../etc/passwd`, {
+    const res = await app.request(`/web/sessions/${sessionId}/user/../../../etc/passwd`, {
       method: "DELETE",
     });
     expect(res.status).toBe(404);
   });
 
-  test("POST /:sessionId/files/* — uploads files", async () => {
+  test("POST /:sessionId/user/* — uploads files", async () => {
     const formData = new FormData();
     formData.append("files", new File(["file content"], "upload.txt"));
-    const res = await app.request(`/web/sessions/${sessionId}/files/`, {
+    const res = await app.request(`/web/sessions/${sessionId}/user/`, {
       method: "POST",
       body: formData,
     });

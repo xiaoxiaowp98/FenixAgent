@@ -386,19 +386,19 @@ export function apiClearTaskLogs(id: string) {
 
 export function apiListFiles(sessionId: string, dirPath?: string) {
   const query = dirPath ? `?path=${encodeURIComponent(dirPath)}` : "";
-  return api<FileListResponse>("GET", `/web/sessions/${sessionId}/files${query}`);
+  return api<FileListResponse>("GET", `/web/sessions/${sessionId}/user${query}`);
 }
 
 export function apiReadFile(sessionId: string, filePath: string) {
   const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
-  return api<FileContent>("GET", `/web/sessions/${sessionId}/files/${encodedPath}`);
+  return api<FileContent>("GET", `/web/sessions/${sessionId}/user/${encodedPath}`);
 }
 
 export async function apiUploadFile(sessionId: string, dirPath: string, files: File[]) {
   const formData = new FormData();
   files.forEach((f) => formData.append("files", f));
   const encodedDir = dirPath.split("/").map(encodeURIComponent).join("/");
-  const res = await fetch(`/web/sessions/${sessionId}/files/${encodedDir}`, {
+  const res = await fetch(`/web/sessions/${sessionId}/user/${encodedDir}`, {
     method: "POST",
     credentials: "include",
     body: formData,
@@ -413,10 +413,10 @@ export async function apiUploadFile(sessionId: string, dirPath: string, files: F
 
 export function apiWriteFile(sessionId: string, filePath: string, content: string) {
   const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
-  return api<FileWriteResult>("PUT", `/web/sessions/${sessionId}/files/${encodedPath}`, { content });
+  return api<FileWriteResult>("PUT", `/web/sessions/${sessionId}/user/${encodedPath}`, { content });
 }
 
 export function apiDeleteFile(sessionId: string, filePath: string) {
   const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
-  return api<{ ok: boolean }>("DELETE", `/web/sessions/${sessionId}/files/${encodedPath}`);
+  return api<{ ok: boolean }>("DELETE", `/web/sessions/${sessionId}/user/${encodedPath}`);
 }

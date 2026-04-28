@@ -83,7 +83,7 @@ export default function App() {
             setCurrentSessionId(null);
         } else {
             setConfigView(null);
-            const match = path.match(/^\/code\/([^/]+)/);
+            const match = path.match(/^\/code\/([^/]+)$/);
             if (
                 match &&
                 match[1] &&
@@ -92,8 +92,20 @@ export default function App() {
                 !configViews.includes(match[1])
             ) {
                 setCurrentSessionId(match[1]);
+                window.history.replaceState(null, "", `/code/${match[1]}/`);
             } else {
-                setCurrentSessionId(null);
+                const pathMatch = path.match(/^\/code\/([^/]+)/);
+                if (
+                    pathMatch &&
+                    pathMatch[1] &&
+                    pathMatch[1] !== "login" &&
+                    pathMatch[1] !== "api-keys" &&
+                    !configViews.includes(pathMatch[1])
+                ) {
+                    setCurrentSessionId(pathMatch[1]);
+                } else {
+                    setCurrentSessionId(null);
+                }
             }
         }
     }, []);

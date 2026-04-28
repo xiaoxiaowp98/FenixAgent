@@ -11,6 +11,8 @@ for port in 3000 8888 8889 8890; do
   fi
 done
 
+bun run build:web
+
 echo ""
 echo "Starting server..."
 bun run dev &

@@ -107,11 +107,12 @@ function openInstanceRelay(ws: WSContext, relayWsId: string, agentId: string, us
           // Filter out keep_alive and errors caused by keep_alive
           const msg = JSON.parse(line);
           if (msg.type === "keep_alive") continue;
-          if (
-            msg.type === "error"
-            && typeof msg.message === "string"
-            && msg.message.includes("keep_alive")
-          ) continue;
+          const errMsg = typeof msg.message === "string"
+            ? msg.message
+            : typeof msg.payload?.message === "string"
+              ? msg.payload.message
+              : null;
+          if (msg.type === "error" && errMsg?.includes("keep_alive")) continue;
           ws.send(line);
         } catch (err) {
           logError("[ACP-Relay] Error forwarding to frontend:", err);
@@ -175,11 +176,12 @@ function openInstanceRelay(ws: WSContext, relayWsId: string, agentId: string, us
         // Filter out keep_alive and errors caused by keep_alive
         const msg = JSON.parse(line);
         if (msg.type === "keep_alive") continue;
-        if (
-          msg.type === "error"
-          && typeof msg.message === "string"
-          && msg.message.includes("keep_alive")
-        ) continue;
+        const errMsg = typeof msg.message === "string"
+          ? msg.message
+          : typeof msg.payload?.message === "string"
+            ? msg.payload.message
+            : null;
+        if (msg.type === "error" && errMsg?.includes("keep_alive")) continue;
         ws.send(line);
       } catch (err) {
         logError("[ACP-Relay] Error forwarding to frontend:", err);

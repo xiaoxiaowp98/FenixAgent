@@ -302,6 +302,8 @@ export class ACPClient {
           if (this.ws !== ws) return;
           try {
             const response: ProxyResponse = JSON.parse(event.data);
+            // Ignore keep_alive messages from relay
+            if ((response as Record<string, unknown>).type === "keep_alive") return;
             this.handleResponse(response);
           } catch (error) {
             console.error("[ACPClient] Failed to parse message:", error);

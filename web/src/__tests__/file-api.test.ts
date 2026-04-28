@@ -63,7 +63,7 @@ describe("File API Functions", () => {
     const { apiListFiles } = await import("../api/client");
     await apiListFiles("s1");
     expect(mockFetchCalls.length).toBe(1);
-    expect(mockFetchCalls[0].url).toBe("/web/sessions/s1/files");
+    expect(mockFetchCalls[0].url).toBe("/web/sessions/s1/user");
     expect(mockFetchCalls[0].method).toBe("GET");
   });
 
@@ -71,7 +71,7 @@ describe("File API Functions", () => {
     const { apiListFiles } = await import("../api/client");
     await apiListFiles("s1", "docs/");
     expect(mockFetchCalls.length).toBe(1);
-    expect(mockFetchCalls[0].url).toContain("/web/sessions/s1/files?path=");
+    expect(mockFetchCalls[0].url).toContain("/web/sessions/s1/user?path=");
     expect(mockFetchCalls[0].url).toContain(encodeURIComponent("docs/"));
   });
 
@@ -79,7 +79,7 @@ describe("File API Functions", () => {
     const { apiReadFile } = await import("../api/client");
     await apiReadFile("s1", "readme.md");
     expect(mockFetchCalls.length).toBe(1);
-    expect(mockFetchCalls[0].url).toContain("/web/sessions/s1/files/readme.md");
+    expect(mockFetchCalls[0].url).toContain("/web/sessions/s1/user/readme.md");
     expect(mockFetchCalls[0].method).toBe("GET");
   });
 
@@ -90,9 +90,7 @@ describe("File API Functions", () => {
     expect(mockFetchCalls.length).toBe(1);
     expect(mockFetchCalls[0].method).toBe("POST");
     expect(mockFetchCalls[0].body).toBeInstanceOf(FormData);
-    expect(mockFetchCalls[0].url).toContain("/web/sessions/s1/files/");
-    // Verify credentials: "include" is set
-    // (We can't easily inspect this from the mock, but the URL and method are correct)
+    expect(mockFetchCalls[0].url).toContain("/web/sessions/s1/user/");
   });
 
   test("apiWriteFile", async () => {
@@ -100,7 +98,7 @@ describe("File API Functions", () => {
     await apiWriteFile("s1", "notes.txt", "hello");
     expect(mockFetchCalls.length).toBe(1);
     expect(mockFetchCalls[0].method).toBe("PUT");
-    expect(mockFetchCalls[0].url).toContain("/web/sessions/s1/files/notes.txt");
+    expect(mockFetchCalls[0].url).toContain("/web/sessions/s1/user/notes.txt");
   });
 
   test("apiDeleteFile", async () => {
@@ -108,6 +106,6 @@ describe("File API Functions", () => {
     await apiDeleteFile("s1", "old.txt");
     expect(mockFetchCalls.length).toBe(1);
     expect(mockFetchCalls[0].method).toBe("DELETE");
-    expect(mockFetchCalls[0].url).toContain("/web/sessions/s1/files/old.txt");
+    expect(mockFetchCalls[0].url).toContain("/web/sessions/s1/user/old.txt");
   });
 });

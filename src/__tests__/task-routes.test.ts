@@ -3,8 +3,8 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { environment, scheduledTask, taskExecutionLog, user } from "../db/schema";
 
-const mockRunAgentTask = mock(() => Promise.resolve({
-  status: "success",
+const mockRunAgentTask = mock((): Promise<import("../services/agent-task-runner").AgentTaskRunResult> => Promise.resolve({
+  status: "success" as const,
   workspacePath: "/tmp/route-env/.scheduled-runs/task/log",
   workspaceName: "20260427-130000-log",
   resultSummary: "route summary",

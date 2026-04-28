@@ -67,7 +67,7 @@ describe("InstanceService", () => {
     mkdirSync(localBinDir, { recursive: true });
     writeFileSync(localAcpLink, "#!/bin/sh\nexit 0\n");
     chmodSync(localAcpLink, 0o755);
-    setInstanceSpawnForTesting(mockSpawn as typeof import("node:child_process").spawn);
+    setInstanceSpawnForTesting(mockSpawn as unknown as typeof import("node:child_process").spawn);
   });
 
   afterEach(async () => {

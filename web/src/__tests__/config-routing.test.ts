@@ -2,31 +2,31 @@ import { describe, test, expect } from "bun:test";
 import { parseConfigView } from "../App";
 
 describe("parseConfigView", () => {
-  test("/code/providers → null (已移除)", () => {
-    expect(parseConfigView("/code/providers")).toBeNull();
+  test("/ctrl/providers → null (已移除)", () => {
+    expect(parseConfigView("/ctrl/providers")).toBeNull();
   });
 
-  test("/code/models → models", () => {
-    expect(parseConfigView("/code/models")).toBe("models");
+  test("/ctrl/models → models", () => {
+    expect(parseConfigView("/ctrl/models")).toBe("models");
   });
 
-  test("/code/agents → agents", () => {
-    expect(parseConfigView("/code/agents")).toBe("agents");
+  test("/ctrl/agents → agents", () => {
+    expect(parseConfigView("/ctrl/agents")).toBe("agents");
   });
 
-  test("/code/skills → skills", () => {
-    expect(parseConfigView("/code/skills")).toBe("skills");
+  test("/ctrl/skills → skills", () => {
+    expect(parseConfigView("/ctrl/skills")).toBe("skills");
   });
 
-  test("/code/channels → channels", () => {
-    expect(parseConfigView("/code/channels")).toBe("channels");
+  test("/ctrl/channels → channels", () => {
+    expect(parseConfigView("/ctrl/channels")).toBe("channels");
   });
 
-  test("/code/ → null", () => {
-    expect(parseConfigView("/code/")).toBeNull();
+  test("/ctrl/ → null", () => {
+    expect(parseConfigView("/ctrl/")).toBeNull();
   });
 
-  test("/code/some-session-id → null", () => {
-    expect(parseConfigView("/code/some-session-id")).toBeNull();
+  test("/ctrl/some-session-id → null", () => {
+    expect(parseConfigView("/ctrl/some-session-id")).toBeNull();
   });
 });

@@ -78,8 +78,8 @@ cd web && bunx vite build && cd .. && ls src/
 **入口**：`src/index.ts`
 
 - 挂载所有路由：`/v1/*`（兼容）、`/web/*`（控制面板 API）、`/acp/*`（ACP 协议）
-- 静态文件服务：`/code/*` → `web/dist/`（构建后的前端）
-- iframe 预览重定向：`/code/:sessionId/user/*` → `/web/sessions/:id/user/*?preview=true`
+- 静态文件服务：`/ctrl/*` → `web/dist/`（构建后的前端）
+- iframe 预览重定向：`/ctrl/:sessionId/user/*` → `/web/sessions/:id/user/*?preview=true`
 - 启动时初始化：skills 目录迁移（`migrateSkillsDir`）、定时任务调度器（`startScheduler`）
 - 优雅关闭：清理 WebSocket 连接、instances、调度器
 
@@ -200,7 +200,7 @@ acp-link 有两种认证方式（优先级从高到低）：
 **构建配置**：`web/vite.config.ts`
 
 - Tailwind CSS v4 使用 `@tailwindcss/vite` 插件（**不是** tailwind.config.js）
-- base path: `/code/`
+- base path: `/ctrl/`
 - 路径别名：`@/src` → `web/src`，`@/components` → `web/components`
 
 **样式系统**：`web/src/index.css`
@@ -457,7 +457,7 @@ Permission 选项（`web/src/components/PermissionTab.tsx`）：
 ## 常见陷阱
 
 1. **前端修改未生效**：后端直接挂载 `web/dist/`，修改前端代码后必须 `bun run build:web` 重新构建
-2. **前端构建后路径错误**：Vite base 设为 `/code/`，部署时需确保反向Agent匹配
+2. **前端构建后路径错误**：Vite base 设为 `/ctrl/`，部署时需确保反向Agent匹配
 3. **配置写入竞争**：多请求同时修改配置可能损坏，`services/config.ts` 有锁机制但非分布式
 4. **WebSocket 断连**：反向Agent timeout 需 > 30s（Bun idleTimeout 默认）
 5. **状态 Badge 混淆**：两个不同文件中的 StatusBadge，状态值不同

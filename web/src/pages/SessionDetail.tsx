@@ -223,7 +223,7 @@ export function SessionDetail({ sessionId, initialCwd }: SessionDetailProps) {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <p className="text-status-error">{error}</p>
-          <a href="/code/" className="mt-4 inline-block text-brand hover:underline">
+          <a href="/ctrl/" className="mt-4 inline-block text-brand hover:underline">
             &larr; Back to Dashboard
           </a>
         </div>
@@ -253,7 +253,7 @@ export function SessionDetail({ sessionId, initialCwd }: SessionDetailProps) {
           <div className="mx-auto max-w-5xl">
             <div className="mb-1">
               <a
-                href="/code/"
+                href="/ctrl/"
                 className="text-sm text-text-muted hover:text-text-secondary transition-colors no-underline"
               >
                 &larr; Dashboard
@@ -461,7 +461,7 @@ function ACPSessionDetail({ sessionId, agentId, initialCwd }: { sessionId: strin
                 {error || "Agent 尚未上线，请确保 acp-link 已启动并连接到服务器"}
               </p>
               <a
-                href="/code/"
+                href="/ctrl/"
                 className="inline-block rounded-md bg-brand px-4 py-2 text-sm text-white hover:bg-brand/90 transition-colors no-underline"
               >
                 返回仪表盘

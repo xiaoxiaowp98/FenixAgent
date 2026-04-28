@@ -35,7 +35,7 @@ export function IdentityPanel({ open, onClose }: IdentityPanelProps) {
     // Defer one frame so Radix Dialog Portal has finished mounting the canvas
     const rafId = requestAnimationFrame(() => {
       if (!canvasRef.current) return;
-      const qrUrl = `${window.location.origin}/code?uuid=${encodeURIComponent(uuid)}`;
+      const qrUrl = `${window.location.origin}/ctrl?uuid=${encodeURIComponent(uuid)}`;
       QRCode.toCanvas(canvasRef.current, qrUrl, {
         width: 200,
         margin: 1,
@@ -102,7 +102,7 @@ export function IdentityPanel({ open, onClose }: IdentityPanelProps) {
         stopCamera();
         onClose();
         sessionStorage.setItem("acp_connection", JSON.stringify({ url: parsed.url, token: parsed.token }));
-        window.location.href = "/code/?acp=1";
+        window.location.href = "/ctrl/?acp=1";
         return;
       }
     } catch {

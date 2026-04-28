@@ -50,7 +50,7 @@ const ChannelsPage = lazy(() =>
 
 export function parseConfigView(pathname: string): string | null {
     const configViews = ["models", "agents", "skills", "mcp", "tasks", "channels"];
-    const segment = pathname.replace(/^\/code\/?/, "").split("/")[0];
+    const segment = pathname.replace(/^\/ctrl\/?/, "").split("/")[0];
     return configViews.includes(segment) ? segment : null;
 }
 
@@ -79,14 +79,14 @@ export default function App() {
         const path = window.location.pathname;
         const params = new URLSearchParams(window.location.search);
         const configViews = ["models", "agents", "skills", "mcp", "tasks", "channels"];
-        const segment = path.replace(/^\/code\/?/, "").split("/")[0];
+        const segment = path.replace(/^\/ctrl\/?/, "").split("/")[0];
         if (configViews.includes(segment)) {
             setConfigView(segment);
             setCurrentSessionId(null);
             setCurrentSessionCwd(null);
         } else {
             setConfigView(null);
-            const match = path.match(/^\/code\/([^/]+)$/);
+            const match = path.match(/^\/ctrl\/([^/]+)$/);
             if (
                 match &&
                 match[1] &&
@@ -96,9 +96,9 @@ export default function App() {
             ) {
                 setCurrentSessionId(match[1]);
                 setCurrentSessionCwd(params.get("cwd"));
-                window.history.replaceState(null, "", `/code/${match[1]}/`);
+                window.history.replaceState(null, "", `/ctrl/${match[1]}/`);
             } else {
-                const pathMatch = path.match(/^\/code\/([^/]+)/);
+                const pathMatch = path.match(/^\/ctrl\/([^/]+)/);
                 if (
                     pathMatch &&
                     pathMatch[1] &&
@@ -128,13 +128,13 @@ export default function App() {
             params.set("cwd", options.cwd);
         }
         const query = params.toString();
-        window.history.pushState(null, "", `/code/${sessionId}/${query ? `?${query}` : ""}`);
+        window.history.pushState(null, "", `/ctrl/${sessionId}/${query ? `?${query}` : ""}`);
         setCurrentSessionId(sessionId);
         setCurrentSessionCwd(options?.cwd ?? null);
     }, []);
 
     const navigateToDashboard = useCallback(() => {
-        window.history.pushState(null, "", "/code/");
+        window.history.pushState(null, "", "/ctrl/");
         setCurrentSessionId(null);
         setCurrentSessionCwd(null);
         setShowApiKeys(false);
@@ -149,7 +149,7 @@ export default function App() {
     }, []);
 
     const navigateToConfig = useCallback((view: string) => {
-        window.history.pushState(null, "", `/code/${view}`);
+        window.history.pushState(null, "", `/ctrl/${view}`);
         setConfigView(view);
         setShowApiKeys(false);
         setCurrentSessionId(null);

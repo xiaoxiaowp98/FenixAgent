@@ -53,29 +53,30 @@ app.use("/api/auth/*", cors({
 
 // Health check
 app.get("/health", (c) => c.json({ status: "ok", version: config.version }));
+app.get("/", (c) => c.redirect("/ctrl/"));
 
 // better-auth handler
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
-// Static files — serve built web UI under /code path
+// Static files — serve built web UI under /ctrl path
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const distDir = resolve(__dirname, "../web/dist");
 const webDir = existsSync(resolve(distDir, "index.html")) ? distDir : resolve(__dirname, "../web");
 
-const stripCodePrefix = (p: string) => p.replace(/^\/code/, "");
+const stripCtrlPrefix = (p: string) => p.replace(/^\/ctrl/, "");
 
-// /code/:sessionId/user/* → redirect to file preview API (for iframe embedding)
-app.get("/code/:sessionId/user/:filePath{.+}", (c) => {
+// /ctrl/:sessionId/user/* → redirect to file preview API (for iframe embedding)
+app.get("/ctrl/:sessionId/user/:filePath{.+}", (c) => {
   const sessionId = c.req.param("sessionId");
   const filePath = c.req.param("filePath");
   return c.redirect(`/web/sessions/${sessionId}/user/${filePath}?preview=true`);
 });
 
-app.use("/code/*", serveStatic({ root: webDir, rewriteRequestPath: stripCodePrefix }));
-app.get("/code", serveStatic({ root: webDir, path: "index.html" }));
-app.get("/code/", serveStatic({ root: webDir, path: "index.html" }));
-app.get("/code/:sessionId", serveStatic({ root: webDir, path: "index.html" }));
-app.get("/code/:sessionId/", serveStatic({ root: webDir, path: "index.html" }));
+app.use("/ctrl/*", serveStatic({ root: webDir, rewriteRequestPath: stripCtrlPrefix }));
+app.get("/ctrl", serveStatic({ root: webDir, path: "index.html" }));
+app.get("/ctrl/", serveStatic({ root: webDir, path: "index.html" }));
+app.get("/ctrl/:sessionId", serveStatic({ root: webDir, path: "index.html" }));
+app.get("/ctrl/:sessionId/", serveStatic({ root: webDir, path: "index.html" }));
 
 // v1 compatibility routes (acp-link REST registration)
 app.route("/v1/environments", v1Environments);

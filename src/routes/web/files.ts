@@ -207,7 +207,7 @@ app.get("/:sessionId/user/:filePath{.+}", sessionAuth, async (c) => {
   if (preview) {
     const mimeType = MIME_TYPES[ext] || "application/octet-stream";
     c.header("Content-Type", mimeType);
-    c.header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'");
+    c.header("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob:");
     return c.body(createReadStream(resolved) as any);
   }
 

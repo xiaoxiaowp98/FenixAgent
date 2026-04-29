@@ -144,6 +144,7 @@ export function initDb() {
       capabilities TEXT,
       secret TEXT NOT NULL,
       user_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+      auto_start INTEGER NOT NULL DEFAULT 0,
       last_poll_at INTEGER,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
@@ -153,6 +154,13 @@ export function initDb() {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_environment_secret ON environment(secret);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_environment_name ON environment(name);
   `);
+
+  // Migrate: add auto_start column to existing environment table
+  try {
+    sqlite.exec(`ALTER TABLE environment ADD COLUMN auto_start INTEGER NOT NULL DEFAULT 0`);
+  } catch {
+    // Column already exists — ignore
+  }
 
   ensureScheduledTaskSchema();
 

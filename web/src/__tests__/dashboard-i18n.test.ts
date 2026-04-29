@@ -18,12 +18,12 @@ describe("Dashboard.tsx i18n Chinese translations", () => {
     expect(src).not.toContain(">Active<");
   });
 
-  test('source contains Chinese title "环境管理"', () => {
-    expect(src).toContain("环境管理");
+  test('source contains Chinese title "智能体"', () => {
+    expect(src).toContain("智能体");
   });
 
-  test('source contains Chinese column header "名称"', () => {
-    expect(src).toContain('"名称"');
+  test('source contains Chinese label "名称"', () => {
+    expect(src).toContain("名称");
   });
 
   test('source contains Chinese loading text "加载中"', () => {

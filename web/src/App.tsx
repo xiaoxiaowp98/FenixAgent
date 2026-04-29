@@ -13,7 +13,6 @@ import { authClient, useSession } from "./lib/auth-client";
 import { LoginPage } from "./pages/LoginPage";
 import { ApiKeyManager } from "./pages/ApiKeyManager";
 import {
-    LayoutDashboard,
     Cpu,
     Bot,
     Wrench,
@@ -174,8 +173,8 @@ export default function App() {
         () => [
             {
                 id: "dashboard",
-                label: "仪表盘",
-                icon: <LayoutDashboard className="h-4 w-4" />,
+                label: "智能体",
+                icon: <Bot className="h-4 w-4" />,
                 active: activeView === "dashboard" || activeView === "session",
                 onClick: navigateToDashboard,
             },

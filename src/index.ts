@@ -20,14 +20,46 @@ import webInstances from "./routes/web/instances";
 import webTasks from "./routes/web/tasks";
 import webChannels from "./routes/web/channels";
 import fileRoutes from "./routes/web/files";
-import { stopAllInstances } from "./services/instance";
+import { stopAllInstances, spawnInstanceFromEnvironment, findRunningInstanceByEnvironment } from "./services/instance";
+import { storeListAllEnvironments } from "./store";
 import { migrateSkillsDir } from "./services/skill";
 import { startScheduler, stopScheduler } from "./services/scheduler";
+import { execSync } from "node:child_process";
 
 console.log("[RCS] Database initialized (SQLite + better-auth)");
 
 await migrateSkillsDir();
 await startScheduler();
+
+// Kill stale acp-link processes from previous runs
+try {
+  execSync("pkill -f 'acp-link.*opencode' || true", { stdio: "ignore" });
+  console.log("[RCS] Cleaned up stale acp-link processes");
+} catch {
+  // pkill not available or no matching processes — ignore
+}
+
+// Auto-start instances for all environments on server boot
+(async () => {
+  const envs = storeListAllEnvironments();
+  for (const env of envs) {
+    if (!env.userId) continue;
+    if (!env.autoStart) continue;
+    const cwd = env.workspacePath || env.directory;
+    if (!cwd || !existsSync(cwd)) {
+      console.log(`[RCS] Skipping environment ${env.name}: workspace directory does not exist (${cwd})`);
+      continue;
+    }
+    const existing = findRunningInstanceByEnvironment(env.id);
+    if (existing) continue;
+    try {
+      await spawnInstanceFromEnvironment(env.userId, env.id);
+      console.log(`[RCS] Auto-started instance for environment: ${env.name} (${env.id})`);
+    } catch (err: any) {
+      console.error(`[RCS] Failed to auto-start instance for ${env.name}: ${err.message}`);
+    }
+  }
+})();
 
 const app = new Hono();
 

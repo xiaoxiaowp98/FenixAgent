@@ -64,6 +64,17 @@ export function apiDeleteEnvironment(id: string) {
   return api<{ ok: boolean }>("DELETE", `/web/environments/${id}`);
 }
 
+export interface EnterEnvironmentResponse {
+  session_id: string;
+  instance_id: string;
+  instance_status: string;
+  environment_id: string;
+}
+
+export function apiEnterEnvironment(environmentId: string) {
+  return api<EnterEnvironmentResponse>("POST", `/web/environments/${environmentId}/enter`);
+}
+
 // --- Control ---
 
 /** @deprecated Legacy — used by RCS chat adapter for non-ACP sessions */

@@ -22,6 +22,7 @@ export interface EnvironmentRecord {
   status: string;
   username: string | null;
   userId: string | null;
+  autoStart: boolean;
   lastPollAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -66,6 +67,7 @@ function rowToRecord(row: typeof environment.$inferSelect): EnvironmentRecord {
     status: row.status,
     username: null,
     userId: row.userId,
+    autoStart: row.autoStart ?? false,
     lastPollAt: row.lastPollAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -88,6 +90,7 @@ export function storeCreateEnvironment(req: {
   workerType?: string;
   username?: string;
   capabilities?: Record<string, unknown>;
+  autoStart?: boolean;
 }): EnvironmentRecord {
   const id = `env_${uuid().replace(/-/g, "")}`;
   const now = new Date();
@@ -110,6 +113,7 @@ export function storeCreateEnvironment(req: {
     capabilities: req.capabilities ? JSON.stringify(req.capabilities) : null,
     status,
     userId: req.userId,
+    autoStart: req.autoStart ?? false,
     lastPollAt: now,
     createdAt: now,
     updatedAt: now,
@@ -122,6 +126,7 @@ export function storeCreateEnvironment(req: {
     maxSessions: req.maxSessions ?? 1, workerType: req.workerType ?? "acp",
     capabilities: req.capabilities ?? null, status,
     username: req.username ?? null, userId: req.userId,
+    autoStart: req.autoStart ?? false,
     lastPollAt: now, createdAt: now, updatedAt: now,
   };
 }
@@ -136,7 +141,7 @@ export function storeGetEnvironmentBySecret(secret: string): EnvironmentRecord |
   return rows[0] ? rowToRecord(rows[0]) : undefined;
 }
 
-export function storeUpdateEnvironment(id: string, patch: Partial<Pick<EnvironmentRecord, "status" | "lastPollAt" | "updatedAt" | "capabilities" | "machineName" | "maxSessions" | "name" | "description" | "workspacePath" | "agentName" | "branch" | "gitRepoUrl">>): boolean {
+export function storeUpdateEnvironment(id: string, patch: Partial<Pick<EnvironmentRecord, "status" | "lastPollAt" | "updatedAt" | "capabilities" | "machineName" | "maxSessions" | "name" | "description" | "workspacePath" | "agentName" | "branch" | "gitRepoUrl" | "autoStart">>): boolean {
   const set: Record<string, unknown> = { updatedAt: new Date() };
   if (patch.status !== undefined) set.status = patch.status;
   if (patch.lastPollAt !== undefined) set.lastPollAt = patch.lastPollAt;
@@ -149,6 +154,7 @@ export function storeUpdateEnvironment(id: string, patch: Partial<Pick<Environme
   if (patch.agentName !== undefined) set.agentName = patch.agentName;
   if (patch.branch !== undefined) set.branch = patch.branch;
   if (patch.gitRepoUrl !== undefined) set.gitRepoUrl = patch.gitRepoUrl;
+  if (patch.autoStart !== undefined) set.autoStart = patch.autoStart;
   db.update(environment).set(set).where(eq(environment.id, id)).run();
   const changes = (sqlite.query("SELECT changes() as c").get() as { c: number }).c;
   return changes > 0;
@@ -156,6 +162,10 @@ export function storeUpdateEnvironment(id: string, patch: Partial<Pick<Environme
 
 export function storeListActiveEnvironments(): EnvironmentRecord[] {
   return db.select().from(environment).where(eq(environment.status, "active")).all().map(rowToRecord);
+}
+
+export function storeListAllEnvironments(): EnvironmentRecord[] {
+  return db.select().from(environment).all().map(rowToRecord);
 }
 
 export function storeListEnvironmentsByUserId(userId: string): EnvironmentRecord[] {

@@ -10,6 +10,10 @@ import {
     storeCreateSession,
 } from "../../store";
 import { getSection } from "../../services/config";
+import {
+    findRunningInstanceByEnvironment,
+    spawnInstanceFromEnvironment,
+} from "../../services/instance";
 import { mkdirSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { randomBytes } from "node:crypto";
@@ -56,6 +60,7 @@ function sanitizeResponse(row: any) {
         status: row.status,
         machine_name: row.machineName ?? null,
         branch: row.branch ?? null,
+        auto_start: row.autoStart ?? false,
         last_poll_at: row.lastPollAt
             ? Math.floor(new Date(row.lastPollAt).getTime() / 1000)
             : null,
@@ -82,7 +87,14 @@ app.get("/environments", sessionAuth, async (c) => {
         });
         sessions = [session];
       }
-      return { ...sanitizeResponse(env), session_id: sessions[0].id };
+      // Check for running instance
+      const runningInst = findRunningInstanceByEnvironment(env.id);
+      return {
+        ...sanitizeResponse(env),
+        session_id: sessions[0].id,
+        instance_status: runningInst ? runningInst.status : null,
+        instance_id: runningInst ? runningInst.id : null,
+      };
     }), 200);
 });
 
@@ -90,7 +102,7 @@ app.get("/environments", sessionAuth, async (c) => {
 app.post("/environments", sessionAuth, async (c) => {
     const user = c.get("user")!;
     const body = await c.req.json();
-    const { name, description, workspacePath, agentName } = body;
+    const { name, description, workspacePath, agentName, autoStart } = body;
 
     if (!name || !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(name)) {
         return c.json(
@@ -165,6 +177,7 @@ app.post("/environments", sessionAuth, async (c) => {
             status: "idle",
             secret,
             userId: user.id,
+            autoStart: autoStart === true,
         });
     } catch (err: any) {
         if (err.message?.includes("UNIQUE constraint failed")) {
@@ -179,6 +192,13 @@ app.post("/environments", sessionAuth, async (c) => {
             );
         }
         throw err;
+    }
+
+    // Auto-start instance in background if requested
+    if (autoStart && record.userId) {
+        spawnInstanceFromEnvironment(record.userId, record.id)
+            .then(() => console.log(`[RCS] Auto-started instance for new environment: ${record.name}`))
+            .catch((err: any) => console.error(`[RCS] Failed to auto-start instance for ${record.name}: ${err.message}`));
     }
 
     return c.json(
@@ -265,10 +285,75 @@ app.put("/environments/:id", sessionAuth, async (c) => {
     if (body.description !== undefined) {
         patch.description = body.description;
     }
+    if (body.autoStart !== undefined) {
+        patch.autoStart = !!body.autoStart;
+    }
 
     storeUpdateEnvironment(envId, patch);
     const updated = storeGetEnvironment(envId);
     return c.json(sanitizeResponse(updated), 200);
+});
+
+/** POST /web/environments/:id/enter — Enter an environment (auto-spawn instance if needed) */
+app.post("/environments/:id/enter", sessionAuth, async (c) => {
+    const user = c.get("user")!;
+    const envId = c.req.param("id")!;
+    const env = storeGetEnvironment(envId);
+    if (!env || env.userId !== user.id) {
+        return c.json(
+            { error: { type: "NOT_FOUND", message: "环境不存在" } },
+            404,
+        );
+    }
+
+    // Check for existing running instance
+    let inst = findRunningInstanceByEnvironment(envId);
+    if (!inst) {
+        // Spawn a new instance
+        try {
+            inst = await spawnInstanceFromEnvironment(user.id, envId);
+        } catch (err: any) {
+            // Race condition: another request may have spawned one
+            if (err.message?.includes("already has a running instance")) {
+                inst = findRunningInstanceByEnvironment(envId);
+            } else {
+                return c.json(
+                    { error: { type: "CONFIG_WRITE_ERROR", message: err.message } },
+                    500,
+                );
+            }
+        }
+    }
+
+    if (!inst) {
+        return c.json(
+            { error: { type: "CONFIG_WRITE_ERROR", message: "无法创建实例" } },
+            500,
+        );
+    }
+
+    // Ensure session exists
+    let sessionId = inst.sessionId;
+    if (!sessionId) {
+        const sessions = storeListSessionsByEnvironment(envId);
+        sessionId = sessions.length > 0 ? sessions[0].id : undefined;
+    }
+    if (!sessionId) {
+        const session = storeCreateSession({
+            environmentId: envId,
+            title: env.agentName || env.name,
+            source: "acp",
+            userId: user.id,
+        });
+        sessionId = session.id;
+    }
+
+    return c.json({
+        session_id: sessionId,
+        instance_id: inst.id,
+        instance_status: inst.status,
+        environment_id: envId,
+    }, 200);
 });
 
 /** DELETE /web/environments/:id — Delete environment */

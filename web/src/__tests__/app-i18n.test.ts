@@ -6,8 +6,8 @@ const webRoot = join(import.meta.dirname, "..");
 const appSrc = fs.readFileSync(join(webRoot, "App.tsx"), "utf-8");
 
 describe("App.tsx i18n Chinese translations", () => {
-    test('navItems contains Chinese label "仪表盘"', () => {
-        expect(appSrc).toContain('label: "仪表盘"');
+    test('navItems contains Chinese label "智能体"', () => {
+        expect(appSrc).toContain('label: "智能体"');
     });
 
     test('navItems contains Chinese label "模型"', () => {
@@ -43,8 +43,8 @@ describe("App.tsx i18n Chinese translations", () => {
         expect(appSrc).toContain("加载中...");
     });
 
-    test('source contains "仪表盘" at least once', () => {
-        const matches = appSrc.match(/仪表盘/g);
+    test('source contains "智能体" at least once', () => {
+        const matches = appSrc.match(/智能体/g);
         expect(matches).not.toBeNull();
         expect(matches!.length).toBeGreaterThanOrEqual(1);
     });

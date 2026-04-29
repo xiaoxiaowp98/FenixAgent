@@ -115,6 +115,7 @@ export const environment = sqliteTable("environment", {
   secret: text("secret").notNull(),
   userId: text("user_id").notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  autoStart: integer("auto_start", { mode: "boolean" }).notNull().default(false),
   lastPollAt: integer("last_poll_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),

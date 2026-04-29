@@ -7,10 +7,13 @@ export interface Environment {
   status: string;
   machine_name: string | null;
   branch: string | null;
+  auto_start: boolean;
   last_poll_at: number | null;
   created_at: number;
   updated_at: number;
   session_id?: string;
+  instance_status?: string | null;
+  instance_id?: string | null;
 }
 
 export interface EnvironmentDetail extends Environment {
@@ -40,6 +43,7 @@ export interface CreateEnvironmentRequest {
   description?: string;
   workspacePath: string;
   agentName?: string;
+  autoStart?: boolean;
 }
 
 export interface UpdateEnvironmentRequest {
@@ -47,6 +51,7 @@ export interface UpdateEnvironmentRequest {
   description?: string;
   workspacePath?: string;
   agentName?: string;
+  autoStart?: boolean;
 }
 
 export interface Session {

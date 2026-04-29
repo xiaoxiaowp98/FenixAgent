@@ -44,6 +44,7 @@ COPY --from=build /app/web/dist ./web/dist
 # - /root/.local/share/opencode: OpenCode runtime/auth data
 # - /workspaces: container-internal agent workspaces
 RUN mkdir -p /app/data /root/.config/opencode /root/.agents/skills /root/.local/share/opencode /workspaces
+COPY .agent/skills/ /root/.agents/skills/
 
 VOLUME ["/app/data", "/root/.config/opencode", "/root/.agents/skills", "/root/.local/share/opencode", "/workspaces"]
 

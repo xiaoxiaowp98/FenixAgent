@@ -472,6 +472,10 @@ Permission 选项（`web/src/components/PermissionTab.tsx`）：
 13. **API 响应兼容**：改造 API 响应格式时，必须保留旧字段（如 `instance_status`、`instance_id`）直到前端所有引用处都已迁移，否则 `isOnline` 等检查会失效
 14. **多实例 relay 路由**：`agentLocalWsMap` 按 instanceId 做 key，不是 agentId。relay URL 须携带 `?sessionId=` 参数才能路由到正确实例，否则所有实例消息混入同一信道
 15. **Split Button 可见性**：多实例下拉按钮应在环境在线时就显示（而非仅在多实例时），用户需要随时能"新建实例"
+16. **ACP vs RCS session ID**：ACP agent 返回 `ses_xxx` 格式 session ID，RCS 内部用 `session_xxx`/`cse_xxx`。文件 API、FilePickerDialog 等需要 workspace 的操作必须用 RCS session ID（通过 `resolveExistingSessionId` 转换）。前端 `ChatInterface` 的 `activeSessionId` 是 ACP session ID，不能直接用于文件 API；需通过 `rcsSessionId` prop 从 `ACPSessionDetail` → `ACPMain` → `ChatInterface` 透传
+17. **resolveWorkspacePath 不做 fallback**：当 session 找不到时不能 fallback 到用户第一个 environment（几乎总是 `/tmp`），应直接返回 404。session ID 必须通过 `resolveExistingSessionId`（session↔cse 格式转换）查找
+18. **ChatInterface 有两处 ChatInput**：消息列表区域的 ChatInput 和底部发送栏的 ChatInput 是两个独立组件实例，修改 sessionId 传递时必须两处都改
+19. **FilePickerDialog 上传始终到 user/**：不管当前浏览哪个目录，上传操作应始终写入 workspace 的 `user/` 子目录
 
 ## 代码风格
 

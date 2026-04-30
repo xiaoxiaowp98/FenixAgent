@@ -201,7 +201,7 @@ export function ChatInput({
 
   const handleFilePickerSelect = useCallback((file: FileInfo) => {
     setText((prev) => prev.replace(/@$/, ""));
-    setText((prev) => prev + `@${file.name} `);
+    setText((prev) => prev + `@./${file.path} `);
     setAttachments((prev) => {
       if (prev.some((a) => a.path === file.path)) return prev;
       return [...prev, { name: file.name, path: file.path }];
@@ -281,50 +281,8 @@ export function ChatInput({
           </div>
         )}
 
-        {/* 文件附件预览 */}
-        {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-3 pt-2">
-            {attachments.map((att, i) => (
-              <div key={i} className="flex items-center gap-1.5 rounded-md bg-brand/10 px-2.5 py-1 text-xs text-brand">
-                <span className="truncate max-w-[120px]">{att.name}</span>
-                <button
-                  type="button"
-                  onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
-                  className="text-text-muted hover:text-text-primary"
-                >
-                  {"\u00D7"}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* 输入区域 — Anthropic 单行紧凑布局 */}
         <div className="flex items-end gap-2 px-3 py-2.5">
-          {/* 左侧附件按钮 */}
-          {sessionId && (
-            <>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex-shrink-0 h-8 w-8 text-text-muted hover:text-text-secondary hover:bg-surface-1/50"
-                disabled={disabled}
-              >
-                <Paperclip className="h-4 w-4" />
-                <span className="sr-only">Attach file</span>
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={handleFileSelect}
-              />
-            </>
-          )}
-
           {/* Slash 命令按钮 */}
           {commands && commands.length > 0 && (
             <Button

@@ -13,13 +13,14 @@ interface ACPMainProps {
   agentId?: string;
   initialCwd?: string;
   readonly?: boolean;
+  rcsSessionId?: string;
 }
 
 /**
  * Main container — Anthropic sidebar + chat layout.
  * Sidebar: sectioned by recency, orange active state, warm raised bg.
  */
-export function ACPMain({ client, agentId, initialCwd, readonly }: ACPMainProps) {
+export function ACPMain({ client, agentId, initialCwd, readonly, rcsSessionId }: ACPMainProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [cwd, setCwd] = useState<string | undefined>(initialCwd?.replace(/\/+$/, ""));
   const [cwdReady, setCwdReady] = useState(!agentId || !!initialCwd);
@@ -193,7 +194,7 @@ export function ACPMain({ client, agentId, initialCwd, readonly }: ACPMainProps)
 
       {/* 聊天区域 */}
       <div className="flex-1 flex flex-col min-w-0">
-        <ChatInterface ref={chatRef} client={client} agentId={agentId} cwd={cwd} cwdReady={cwdReady} readonly={readonly} />
+        <ChatInterface ref={chatRef} client={client} agentId={agentId} cwd={cwd} cwdReady={cwdReady} readonly={readonly} rcsSessionId={rcsSessionId} />
       </div>
     </div>
   );

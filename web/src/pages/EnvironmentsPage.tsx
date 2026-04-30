@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Bot, Plus, Pencil, Trash2, Loader2, Power, ChevronDown } from "lucide-react";
+import { Bot, Plus, Pencil, Trash2, Loader2, Power, ChevronDown, RotateCw } from "lucide-react";
 
 interface EnvironmentsPageProps {
   onNavigateToSession?: (sessionId: string, options?: { cwd?: string }) => void;
@@ -34,6 +34,7 @@ export function EnvironmentsPage({ onNavigateToSession }: EnvironmentsPageProps)
   const [instancesMap, setInstancesMap] = useState<Record<string, EnvironmentInstance[]>>({});
   const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
   const [stopTarget, setStopTarget] = useState<{ instanceId: string; envName: string } | null>(null);
+  const [refreshingEnvId, setRefreshingEnvId] = useState<string | null>(null);
 
   const loadEnvs = useCallback(async () => {
     try {
@@ -200,6 +201,23 @@ export function EnvironmentsPage({ onNavigateToSession }: EnvironmentsPageProps)
     }
   }, [stopTarget, loadEnvs]);
 
+  const handleRefresh = useCallback(async (env: Environment) => {
+    const instances = instancesMap[env.id] ?? [];
+    const active = instances.find(i => i.status === "running" || i.status === "starting");
+    const instanceId = active?.id ?? env.instance_id;
+    if (!instanceId) return;
+    setRefreshingEnvId(env.id);
+    try {
+      await apiDeleteInstance(instanceId);
+      await new Promise((r) => setTimeout(r, 500));
+      await handleEnterAgent(env);
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setRefreshingEnvId(null);
+    }
+  }, [instancesMap, handleEnterAgent]);
+
   const handleViewSecret = useCallback(async (id: string) => {
     try {
       const detail = await apiGetEnvironment(id);
@@ -297,6 +315,18 @@ export function EnvironmentsPage({ onNavigateToSession }: EnvironmentsPageProps)
                       >
                         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                       </Button>
+                      {env.instance_id && online && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-brand hover:text-brand/80"
+                          disabled={refreshingEnvId === env.id}
+                          onClick={() => handleRefresh(env)}
+                          title="重启实例"
+                        >
+                          <RotateCw className={`h-3.5 w-3.5 ${refreshingEnvId === env.id ? "animate-spin" : ""}`} />
+                        </Button>
+                      )}
                       {env.instance_id && online && (
                         <Button
                           variant="ghost"

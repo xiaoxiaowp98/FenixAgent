@@ -14,7 +14,6 @@ import { sessionAuth } from "../../auth/middleware";
 import {
     storeGetEnvironment,
     storeGetSession,
-    storeListEnvironmentsByUserId,
 } from "../../store";
 import { resolveExistingSessionId } from "../../services/session";
 
@@ -108,18 +107,10 @@ function normalizeUserRoutePath(path: string): string {
 async function resolveWorkspacePath(
     sessionId: string,
     relativePath: string,
-    userId?: string,
 ): Promise<ResolvedWorkspacePath | null> {
     const internalId = resolveExistingSessionId(sessionId);
     const session = internalId ? storeGetSession(internalId) : undefined;
-    let envId = session?.environmentId;
-
-    if (!envId && userId) {
-        const environments = storeListEnvironmentsByUserId(userId);
-        if (environments.length > 0) {
-            envId = environments[0].id;
-        }
-    }
+    const envId = session?.environmentId;
 
     if (!envId) {
         return null;
@@ -192,7 +183,7 @@ app.get("/:sessionId/user", sessionAuth, async (c) => {
     const user = c.get("user")!;
     const sessionId = c.req.param("sessionId")!;
     const queryPath = c.req.query("path") || "";
-    const result = await resolveWorkspacePath(sessionId, queryPath, user.id);
+    const result = await resolveWorkspacePath(sessionId, queryPath);
     if (!result)
         return c.json(
             {
@@ -253,7 +244,7 @@ app.get("/:sessionId/user/:filePath{.+}", sessionAuth, async (c) => {
     const filePath = normalizeUserRoutePath(c.req.param("filePath")!);
     const preview = c.req.query("preview") === "true";
 
-    const result = await resolveWorkspacePath(sessionId, filePath, user.id);
+    const result = await resolveWorkspacePath(sessionId, filePath);
     if (!result)
         return c.json(
             {
@@ -337,7 +328,7 @@ app.post("/:sessionId/user/:dirPath{.*}", sessionAuth, async (c) => {
         );
     }
 
-    const result = await resolveWorkspacePath(sessionId, dirPath, user.id);
+    const result = await resolveWorkspacePath(sessionId, dirPath);
     if (!result)
         return c.json(
             {
@@ -434,7 +425,7 @@ app.put("/:sessionId/user/:filePath{.+}", sessionAuth, async (c) => {
         );
     }
 
-    const result = await resolveWorkspacePath(sessionId, filePath, user.id);
+    const result = await resolveWorkspacePath(sessionId, filePath);
     if (!result)
         return c.json(
             {
@@ -478,7 +469,7 @@ app.delete("/:sessionId/user/:filePath{.+}", sessionAuth, async (c) => {
         );
     }
 
-    const result = await resolveWorkspacePath(sessionId, filePath, user.id);
+    const result = await resolveWorkspacePath(sessionId, filePath);
     if (!result)
         return c.json(
             {

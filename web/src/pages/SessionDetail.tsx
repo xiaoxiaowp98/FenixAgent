@@ -449,7 +449,7 @@ function ACPSessionDetail({ sessionId, agentId, initialCwd }: { sessionId: strin
 
         {connectionState === "connected" && client && (
           <div className="flex-1 min-h-0">
-            <ACPMain client={client} agentId={agentId} initialCwd={initialCwd} />
+            <ACPMain client={client} agentId={agentId} initialCwd={initialCwd} rcsSessionId={sessionId} />
           </div>
         )}
 

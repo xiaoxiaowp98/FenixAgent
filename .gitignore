@@ -48,3 +48,4 @@ user
 !bun.lock
 *.tar
 *.tar.gz
+.opencode

@@ -63,6 +63,7 @@ interface ChatInterfaceProps {
   cwd?: string;
   cwdReady?: boolean;
   readonly?: boolean;
+  rcsSessionId?: string;
 }
 
 // =============================================================================
@@ -160,7 +161,7 @@ export interface ChatInterfaceHandle {
   newSession: () => void;
 }
 
-export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(function ChatInterface({ client, agentId, cwd, cwdReady = true, readonly }, ref) {
+export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(function ChatInterface({ client, agentId, cwd, cwdReady = true, readonly, rcsSessionId }, ref) {
   // Flat list of entries (like Zed's entries: Vec<AgentThreadEntry>)
   const [entries, setEntries] = useState<ThreadEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -808,7 +809,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
         }}
         emptyTitle={sessionReady ? "开始对话" : undefined}
         emptyDescription={sessionReady ? "输入消息开始与 ACP agent 聊天" : undefined}
-        sessionId={activeSessionId ?? undefined}
+        sessionId={rcsSessionId ?? activeSessionId ?? undefined}
       />
 
       {/* Permission panel — fixed above input */}
@@ -867,7 +868,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
           placeholder={sessionReady ? "给智能体发送消息…" : "等待会话..."}
           supportsImages={supportsImages}
           commands={availableCommands.length > 0 ? availableCommands : undefined}
-          sessionId={activeSessionId}
+          sessionId={rcsSessionId ?? activeSessionId}
         />
       </div>
       )}

@@ -173,7 +173,6 @@ export const ConversationScrollButtons = ({
       )}
       {...props}
     >
-      {hasUserMessages && <ConversationScrollToLastUserMessageButton />}
       <ConversationScrollButton />
     </div>
   );

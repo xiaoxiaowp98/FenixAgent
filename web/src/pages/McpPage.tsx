@@ -195,14 +195,28 @@ export function McpPage() {
   useEffect(() => { loadServers(); }, [loadServers]);
 
   const columns: Column<McpServerInfo>[] = [
-    { key: "name", header: "名称", sortable: true, filterable: true },
+    { key: "name", header: "名称", sortable: true, filterable: true, render: (row) => (
+      <span className="font-mono text-sm text-text-bright">{row.name}</span>
+    )},
     {
       key: "type",
       header: "类型",
       filterable: true,
-      render: (row) => (
-        <StatusBadge status={row.type === "local" ? "local" : row.type === "remote" ? "remote" : "disabled"} />
-      ),
+      render: (row) => {
+        const isLocal = row.type === "local";
+        const isRemote = row.type === "remote";
+        return (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
+            isLocal
+              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+              : isRemote
+                ? "bg-cyan-subtle text-cyan dark:text-cyan"
+                : "bg-surface-2 text-text-muted"
+          }`}>
+            {isLocal ? "Local" : isRemote ? "Remote" : "已禁用"}
+          </span>
+        );
+      },
     },
     {
       key: "enabled",
@@ -210,21 +224,28 @@ export function McpPage() {
       filterable: true,
       render: (row) => <StatusBadge status={row.enabled ? "enabled" : "disabled"} />,
     },
-    { key: "summary", header: "简要描述" },
     {
-      key: "timeout",
-      header: "超时(ms)",
-      render: (row) => row.timeout != null ? `${row.timeout}ms` : "默认",
+      key: "summary",
+      header: "命令/URL",
+      render: (row) => (
+        <span className="block max-w-[220px] truncate text-xs font-mono text-text-secondary" title={row.summary}>
+          {row.summary || "—"}
+        </span>
+      ),
     },
     {
       key: "toolsCount",
       header: "Tools",
       render: (row) => {
         const count = row.toolsCount ?? 0;
-        return count > 0 ? (
-          <span className="text-xs bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded">{count} 个工具</span>
-        ) : (
-          <span className="text-xs text-muted-foreground">未检测</span>
+        return (
+          <span className={`inline-flex items-center justify-center min-w-[24px] h-5 px-1.5 rounded-full text-xs font-medium ${
+            count > 0
+              ? "bg-brand-subtle text-brand dark:text-brand-light"
+              : "bg-surface-2 text-text-muted"
+          }`}>
+            {count > 0 ? count : "—"}
+          </span>
         );
       },
     },
@@ -454,8 +475,11 @@ export function McpPage() {
   return (
     <div className="h-full overflow-y-auto p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-text-bright">MCP 服务器管理</h2>
-        <Button onClick={handleOpenCreate}>新建 MCP 服务器</Button>
+        <div>
+          <h2 className="text-xl font-semibold text-text-bright">MCP 服务器</h2>
+          <p className="text-sm text-text-muted mt-0.5">管理 Model Context Protocol 服务器连接</p>
+        </div>
+        <Button onClick={handleOpenCreate}>新建服务器</Button>
       </div>
       <DataTable<McpServerInfo>
         columns={columns}
@@ -469,58 +493,55 @@ export function McpPage() {
           const tools = toolsCache[row.name];
           if (!tools || tools.length === 0) {
             return (
-              <div className="text-sm text-muted-foreground py-1">
+              <div className="py-4 text-center text-sm text-text-muted">
                 暂无已发现的工具，点击"检测"按钮发现工具
               </div>
             );
           }
           return (
-            <div className="max-h-72 overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-muted/30">
-                  <tr className="border-b">
-                    <th className="px-2 py-1 text-left text-muted-foreground">工具名称</th>
-                    <th className="px-2 py-1 text-left text-muted-foreground">描述</th>
-                    <th className="px-2 py-1 text-left text-muted-foreground">输入参数</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tools.map((tool) => (
-                    <tr key={tool.id} className="border-b last:border-0 hover:bg-muted/20">
-                      <td className="px-2 py-1 font-mono text-xs text-indigo-700 whitespace-nowrap">{tool.toolName}</td>
-                      <td className="px-2 py-1 text-xs max-w-xs truncate" title={tool.description ?? undefined}>{tool.description || "—"}</td>
-                      <td className="px-2 py-1">
-                        {tool.inputSchema ? (
-                          <details>
-                            <summary className="text-xs text-muted-foreground cursor-pointer">查看参数</summary>
-                            <pre className="text-xs mt-1 p-2 bg-muted rounded overflow-x-auto max-h-40">
-                              {(() => {
-                                try { return JSON.stringify(JSON.parse(tool.inputSchema), null, 2); }
-                                catch { return tool.inputSchema; }
-                              })()}
-                            </pre>
-                          </details>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">无参数</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid gap-2 max-h-72 overflow-y-auto">
+              {tools.map((tool) => (
+                <div key={tool.id} className="group rounded-lg border border-border-light bg-surface-1 px-3 py-2.5 transition-colors hover:border-border">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-medium text-text-bright">{tool.toolName}</span>
+                      </div>
+                      {tool.description && (
+                        <p className="mt-0.5 text-xs text-text-secondary line-clamp-2">{tool.description}</p>
+                      )}
+                    </div>
+                    {tool.inputSchema ? (
+                      <details className="shrink-0">
+                        <summary className="text-xs text-text-muted cursor-pointer hover:text-text-primary transition-colors">
+                          参数
+                        </summary>
+                        <pre className="mt-2 text-xs p-2.5 bg-surface-2 rounded-lg overflow-x-auto max-h-40 min-w-[200px] font-mono">
+                          {(() => {
+                            try { return JSON.stringify(JSON.parse(tool.inputSchema), null, 2); }
+                            catch { return tool.inputSchema; }
+                          })()}
+                        </pre>
+                      </details>
+                    ) : (
+                      <span className="shrink-0 text-xs text-text-muted">无参数</span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           );
         }}
         actions={(row) => (
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={inspectingServer === row.name} onClick={() => handleInspect(row)}>
+          <div className="flex gap-1.5">
+            <Button size="xs" variant="outline" disabled={inspectingServer === row.name} onClick={() => handleInspect(row)}>
               {inspectingServer === row.name ? "检测中..." : "检测"}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => handleToggle(row)}>
+            <Button size="xs" variant="outline" onClick={() => handleToggle(row)}>
               {row.enabled ? "禁用" : "启用"}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => handleOpenEdit(row)}>编辑</Button>
-            <Button size="sm" variant="destructive"
+            <Button size="xs" variant="outline" onClick={() => handleOpenEdit(row)}>编辑</Button>
+            <Button size="xs" variant="destructive"
               onClick={() => { setDeleteTarget(row.name); setConfirmOpen(true); }}>删除</Button>
           </div>
         )}
@@ -541,16 +562,19 @@ export function McpPage() {
         onSubmit={handleSave} loading={formSaving} width="sm:max-w-2xl">
         <div className="space-y-4">
           <div>
-            <Label>名称</Label>
+            <label className="text-sm font-medium text-text-primary">名称</label>
             <Input value={formName} onChange={(e) => setFormName(e.target.value)}
-              disabled={!!editingServer} placeholder="例如 my-mcp-server" />
+              disabled={!!editingServer} placeholder="my-mcp-server" className="mt-1 font-mono text-sm" />
+            {editingServer && (
+              <p className="text-xs text-text-muted mt-1">名称创建后不可修改</p>
+            )}
           </div>
           <div>
-            <Label>类型</Label>
-            <p className="text-xs text-muted-foreground mb-1">
+            <label className="text-sm font-medium text-text-primary">类型</label>
+            <p className="text-xs text-text-muted mb-1.5">
               {formType === "local"
-                ? "Local: 在本地通过命令行启动 MCP 服务器"
-                : "Remote: 通过 URL 连接到远程 MCP 服务器"}
+                ? "通过命令行在本地启动 MCP 服务器进程"
+                : "通过 URL 连接到远程 MCP 服务器"}
             </p>
             <Select value={formType} onValueChange={(v) => setFormType(v as "local" | "remote")}
               disabled={!!editingServer}>
@@ -564,113 +588,118 @@ export function McpPage() {
           {formType === "local" && (
             <>
               <div>
-                <Label>命令（空格分隔，含引号参数用双引号包裹）</Label>
+                <label className="text-sm font-medium text-text-primary">命令</label>
+                <p className="text-xs text-text-muted mb-1.5">空格分隔，含空格的参数用双引号包裹</p>
                 <Input value={formCommand} onChange={(e) => setFormCommand(e.target.value)}
-                  placeholder="npx @anthropic/mcp-server-xxx --arg1 val1" />
+                  placeholder="npx @anthropic/mcp-server-xxx --arg1 val1" className="font-mono text-sm" />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label>环境变量</Label>
-                  <Button type="button" size="sm" variant="outline"
+                  <label className="text-sm font-medium text-text-primary">环境变量</label>
+                  <Button type="button" size="xs" variant="outline"
                     onClick={() => setFormEnvironment([...formEnvironment, { key: "", value: "" }])}>
-                    添加
+                    + 添加
                   </Button>
                 </div>
-                {formEnvironment.map((entry, idx) => (
-                  <div key={idx} className="flex gap-2 mb-2 items-center">
-                    <Input placeholder="KEY" value={entry.key}
-                      onChange={(e) => {
-                        const next = [...formEnvironment];
-                        next[idx] = { ...next[idx], key: e.target.value };
-                        setFormEnvironment(next);
-                      }} className="flex-1" />
-                    <Input placeholder="VALUE" value={entry.value}
-                      onChange={(e) => {
-                        const next = [...formEnvironment];
-                        next[idx] = { ...next[idx], value: e.target.value };
-                        setFormEnvironment(next);
-                      }} className="flex-1" />
-                    <Button type="button" size="sm" variant="ghost"
-                      onClick={() => setFormEnvironment(formEnvironment.filter((_, i) => i !== idx))}>
-                      删除
-                    </Button>
-                  </div>
-                ))}
+                <div className="space-y-2">
+                  {formEnvironment.map((entry, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <Input placeholder="KEY" value={entry.key}
+                        onChange={(e) => {
+                          const next = [...formEnvironment];
+                          next[idx] = { ...next[idx], key: e.target.value };
+                          setFormEnvironment(next);
+                        }} className="flex-1 font-mono text-sm" />
+                      <Input placeholder="VALUE" value={entry.value}
+                        onChange={(e) => {
+                          const next = [...formEnvironment];
+                          next[idx] = { ...next[idx], value: e.target.value };
+                          setFormEnvironment(next);
+                        }} className="flex-1 text-sm" />
+                      <Button type="button" size="xs" variant="ghost" className="text-text-muted hover:text-destructive shrink-0"
+                        onClick={() => setFormEnvironment(formEnvironment.filter((_, i) => i !== idx))}>
+                        删除
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </>
           )}
           {formType === "remote" && (
             <>
               <div>
-                <Label>URL</Label>
-                <div className="flex gap-2">
+                <label className="text-sm font-medium text-text-primary">URL</label>
+                <div className="flex gap-2 mt-1">
                   <Input value={formUrl} onChange={(e) => setFormUrl(e.target.value)}
-                    placeholder="https://example.com/mcp" className="flex-1" />
+                    placeholder="https://example.com/mcp" className="flex-1 font-mono text-sm" />
                   <Button type="button" size="sm" variant="outline" disabled={testingUrl || !formUrl.trim()}
                     onClick={handleTestFormUrl}>
-                    {testingUrl ? "测试中..." : "测试连接"}
+                    {testingUrl ? "测试中..." : "测试"}
                   </Button>
                 </div>
               </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label>请求头</Label>
-                  <Button type="button" size="sm" variant="outline"
+                  <label className="text-sm font-medium text-text-primary">请求头</label>
+                  <Button type="button" size="xs" variant="outline"
                     onClick={() => setFormHeaders([...formHeaders, { key: "", value: "" }])}>
-                    添加
+                    + 添加
                   </Button>
                 </div>
-                {formHeaders.map((entry, idx) => (
-                  <div key={idx} className="flex gap-2 mb-2 items-center">
-                    <Input placeholder="Header Name" value={entry.key}
-                      onChange={(e) => {
-                        const next = [...formHeaders];
-                        next[idx] = { ...next[idx], key: e.target.value };
-                        setFormHeaders(next);
-                      }} className="flex-1" />
-                    <Input placeholder="Header Value" value={entry.value}
-                      onChange={(e) => {
-                        const next = [...formHeaders];
-                        next[idx] = { ...next[idx], value: e.target.value };
-                        setFormHeaders(next);
-                      }} className="flex-1" />
-                    <Button type="button" size="sm" variant="ghost"
-                      onClick={() => setFormHeaders(formHeaders.filter((_, i) => i !== idx))}>
-                      删除
-                    </Button>
-                  </div>
-                ))}
+                <div className="space-y-2">
+                  {formHeaders.map((entry, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <Input placeholder="Header Name" value={entry.key}
+                        onChange={(e) => {
+                          const next = [...formHeaders];
+                          next[idx] = { ...next[idx], key: e.target.value };
+                          setFormHeaders(next);
+                        }} className="flex-1 text-sm" />
+                      <Input placeholder="Header Value" value={entry.value}
+                        onChange={(e) => {
+                          const next = [...formHeaders];
+                          next[idx] = { ...next[idx], value: e.target.value };
+                          setFormHeaders(next);
+                        }} className="flex-1 text-sm" />
+                      <Button type="button" size="xs" variant="ghost" className="text-text-muted hover:text-destructive shrink-0"
+                        onClick={() => setFormHeaders(formHeaders.filter((_, i) => i !== idx))}>
+                        删除
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
               <Collapsible open={oauthExpanded} onOpenChange={setOauthExpanded}>
-                <div className="rounded-lg border">
-                  <CollapsibleTrigger className="flex w-full items-center justify-between p-4 text-sm font-medium hover:bg-muted/50 transition-colors">
+                <div className="rounded-lg border border-border-light">
+                  <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-text-primary hover:bg-surface-hover transition-colors">
                     OAuth 配置（可选）
-                    <span className="text-xs text-muted-foreground">{oauthExpanded ? "收起" : "展开"}</span>
+                    <span className="text-xs text-text-muted">{oauthExpanded ? "收起" : "展开"}</span>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <div className="space-y-4 px-4 pb-4">
-                      <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-4 px-4 pb-4 border-t border-border-light pt-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label>Client ID</Label>
+                          <label className="text-sm font-medium text-text-primary">Client ID</label>
                           <Input value={formOauthClientId}
-                            onChange={(e) => setFormOauthClientId(e.target.value)} placeholder="可选" />
+                            onChange={(e) => setFormOauthClientId(e.target.value)} placeholder="可选" className="mt-1" />
                         </div>
                         <div>
-                          <Label>Client Secret</Label>
+                          <label className="text-sm font-medium text-text-primary">Client Secret</label>
                           <Input type="password" value={formOauthClientSecret}
-                            onChange={(e) => setFormOauthClientSecret(e.target.value)} placeholder="可选" />
+                            onChange={(e) => setFormOauthClientSecret(e.target.value)} placeholder="可选" className="mt-1" />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label>Scope</Label>
+                          <label className="text-sm font-medium text-text-primary">Scope</label>
                           <Input value={formOauthScope}
-                            onChange={(e) => setFormOauthScope(e.target.value)} placeholder="可选" />
+                            onChange={(e) => setFormOauthScope(e.target.value)} placeholder="可选" className="mt-1" />
                         </div>
                         <div>
-                          <Label>Redirect URI</Label>
+                          <label className="text-sm font-medium text-text-primary">Redirect URI</label>
                           <Input value={formOauthRedirectUri}
-                            onChange={(e) => setFormOauthRedirectUri(e.target.value)} placeholder="可选" />
+                            onChange={(e) => setFormOauthRedirectUri(e.target.value)} placeholder="可选" className="mt-1" />
                         </div>
                       </div>
                     </div>
@@ -680,10 +709,11 @@ export function McpPage() {
             </>
           )}
           <div>
-            <Label>超时时间（毫秒，留空使用默认值）</Label>
+            <label className="text-sm font-medium text-text-primary">超时时间</label>
+            <p className="text-xs text-text-muted mb-1.5">毫秒，留空使用默认值</p>
             <Input type="number" value={formTimeout}
               onChange={(e) => setFormTimeout(e.target.value)}
-              placeholder="例如 5000" min={1} />
+              placeholder="5000" min={1} className="font-mono text-sm" />
           </div>
         </div>
       </FormDialog>

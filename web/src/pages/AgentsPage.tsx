@@ -324,7 +324,10 @@ export function AgentsPage() {
     return (
         <div className="p-6 space-y-4">
             <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-text-bright">Agent管理</h2>
+                <div>
+                    <h2 className="text-xl font-semibold text-text-bright">Agent 管理</h2>
+                    <p className="text-sm text-text-muted mt-0.5">管理 AI Agent 的模型、提示词和权限配置</p>
+                </div>
                 <Button onClick={handleOpenCreate}>新建Agent</Button>
             </div>
             <DataTable<AgentInfo>
@@ -334,25 +337,26 @@ export function AgentsPage() {
                 searchPlaceholder="搜索Agent..."
                 selectable
                 onSelectionChange={setSelected}
+                emptyMessage={'暂无 Agent，点击「新建Agent」添加'}
                 actions={(row) => (
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5">
                         {row.name !== defaultAgent && (
                             <Button
-                                size="sm"
+                                size="xs"
                                 variant="outline"
                                 onClick={() => handleSetDefault(row.name)}>
                                 设为默认
                             </Button>
                         )}
                         <Button
-                            size="sm"
+                            size="xs"
                             variant="outline"
                             onClick={() => handleOpenEdit(row)}>
                             编辑
                         </Button>
                         {!row.builtIn && (
                             <Button
-                                size="sm"
+                                size="xs"
                                 variant="destructive"
                                 onClick={() => {
                                     setDeleteTarget(row.name);
@@ -456,7 +460,7 @@ export function AgentsPage() {
                                     min={1}
                                     max={200}
                                 />
-                                <p className="text-xs text-muted-foreground mt-1">
+                                <p className="text-xs text-text-muted mt-1">
                                   Agent 最大思考步骤数。建议：简单任务 10-30，复杂任务 50-100
                                 </p>
                             </div>

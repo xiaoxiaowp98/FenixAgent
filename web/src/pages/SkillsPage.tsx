@@ -349,6 +349,7 @@ export function SkillsPage() {
         selectable
         onSelectionChange={setSelected}
         rowKey={(row) => row.name}
+        emptyMessage={'暂无技能，点击「新建技能」添加'}
         actions={(row) => (
           <div className="flex gap-1.5">
             <Button size="xs" variant="outline" onClick={() => handleToggle(row)}>
@@ -384,6 +385,7 @@ export function SkillsPage() {
         onSubmit={handleDialogSubmit}
         submitLabel={editingSkill || createMode === "text" ? "保存" : "开始上传"}
         loading={editingSkill || createMode === "text" ? formSaving : uploadPending}
+        disabled={!editingSkill && createMode === "upload" && uploadItems.filter((i) => i.hasSkillMd).length === 0}
         width="sm:max-w-4xl"
       >
         {!editingSkill ? (
@@ -422,7 +424,12 @@ export function SkillsPage() {
                     <span className="text-sm font-medium text-text-primary">
                       已选择 {uploadItems.length} 个目录
                     </span>
-                    <Button type="button" variant="ghost" size="xs" onClick={() => { setUploadItems([]); setUploadError(null); }}>
+                    <Button type="button" variant="ghost" size="xs" onClick={() => {
+                      setUploadItems([]);
+                      setUploadError(null);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                      fileInputRef.current?.click();
+                    }}>
                       重新选择
                     </Button>
                   </div>

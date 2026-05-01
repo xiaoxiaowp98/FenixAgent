@@ -18,6 +18,7 @@ interface FormDialogProps {
   onSubmit: () => void;
   submitLabel?: string;
   loading?: boolean;
+  disabled?: boolean;
   width?: string;
   formConfig?: FormDialogFormConfig;
 }
@@ -30,6 +31,7 @@ export function FormDialog({
   onSubmit,
   submitLabel = "保存",
   loading,
+  disabled,
   width = "sm:max-w-lg",
   formConfig,
 }: FormDialogProps) {
@@ -52,7 +54,7 @@ export function FormDialog({
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
           取消
         </Button>
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" disabled={loading || disabled}>
           {loading ? "保存中..." : submitLabel}
         </Button>
       </DialogFooter>

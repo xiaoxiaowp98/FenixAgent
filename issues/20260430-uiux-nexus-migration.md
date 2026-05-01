@@ -200,9 +200,9 @@
 **现状**: `web/src/pages/SessionDetail.tsx` 中简单标题
 **目标**: 返回按钮 + Agent 名称 + Session ID + 状态指示 + 时间
 
-- [ ] 返回按钮 (← arrow-left + "返回")
-- [ ] 标题格式: `agent-prod / session-abc123`
-- [ ] 状态: 绿色脉冲点 + "Running" + "Started 5min ago"
+- [x] 返回按钮 (← arrow-left + "返回")
+- [x] 标题格式: `agent-prod / session-abc123`
+- [x] 状态: 绿色脉冲点 + "Running" + "Started 5min ago"
 
 **影响文件**: `web/src/pages/SessionDetail.tsx` 或 ACP 相关会话组件
 
@@ -212,9 +212,9 @@
 **现状**: 无
 **目标**: 水平统计条 (Model / Tokens / Tools / Duration)
 
-- [ ] 4 格统计: 图标 + 标签 + 值
-- [ ] Model = sonnet-4-6, Tokens = 4.6k/200k, Tools = 21 calls, Duration = 5m 23s
-- [ ] 各自有颜色编码 (brand/green/cyan/amber)
+- [x] 4 格统计: 图标 + 标签 + 值
+- [x] Model = sonnet-4-6, Tokens = 4.6k/200k, Tools = 21 calls, Duration = 5m 23s
+- [x] 各自有颜色编码 (brand/green/cyan/amber)
 
 **影响文件**: 会话详情页
 

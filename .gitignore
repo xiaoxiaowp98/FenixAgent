@@ -49,3 +49,5 @@ user
 *.tar
 *.tar.gz
 .opencode
+
+workspace/

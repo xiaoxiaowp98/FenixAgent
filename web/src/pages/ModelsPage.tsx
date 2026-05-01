@@ -183,7 +183,7 @@ function ModelSubrow({ providerId, models, onModelChange }: { providerId: string
   return (
     <div className="space-y-2">
       {models.length === 0 ? (
-        <div className="py-6 text-center text-muted-foreground text-sm">
+        <div className="py-6 text-center text-text-muted text-sm">
           暂无模型，点击下方按钮添加
         </div>
       ) : (
@@ -339,7 +339,7 @@ function ModelSubrow({ providerId, models, onModelChange }: { providerId: string
         </div>
       </FormDialog>
       <ConfirmDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}
-        title="确认删除模型" description={`确定要删除模型 "${deleteConfirm?.modelId}" 吗？`}
+        title="确认删除模型" description={`此操作不可逆。确定要删除模型 "${deleteConfirm?.modelId}" 吗？`}
         variant="destructive" onConfirm={handleModelDelete} />
     </div>
   );
@@ -575,6 +575,7 @@ export function ModelsPage() {
         selectable
         onSelectionChange={setSelected}
         rowKey={(row) => row.id}
+        emptyMessage={'暂无服务商，点击「新建服务商」添加'}
         expandableRow={(row) => (
           <ModelSubrow
             providerId={row.id}
@@ -675,7 +676,7 @@ export function ModelsPage() {
             ) : null
           )}
           {testResult && !("error" in testResult) && testResult.models.length > 0 && (
-            <div className="max-h-72 overflow-y-auto space-y-1">
+            <div className="max-h-72 overflow-y-auto grid gap-1.5">
               {(testResult as { name: string; models: string[] }).models.map((m) => {
                 const added = addedModelIds.has(m);
                 return (

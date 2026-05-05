@@ -28,6 +28,8 @@ services:
             - rcs-opencode-data:/root/.local/share/opencode
             # Agent 工作目录，环境的 workspacePath 应指向 /workspaces 下的路径
             - rcs-workspaces:/workspaces
+            # acpx-g workflow 模板文件，宿主机修改后容器内即时生效
+            - ./workflow:/app/workflow
         healthcheck:
             test:
                 [

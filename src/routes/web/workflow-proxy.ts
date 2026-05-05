@@ -8,9 +8,11 @@ async function proxyToAcpxG(
   request: Request,
 ): Promise<Response> {
   const targetUrl = `${config.acpxGUrl}${targetPath}`;
+  const headers = new Headers(request.headers);
+  headers.set("Host", new URL(config.acpxGUrl).host);
   const init: RequestInit = {
     method: request.method,
-    headers: { ...request.headers, Host: new URL(config.acpxGUrl).host },
+    headers,
   };
   if (request.method !== "GET" && request.method !== "HEAD") {
     init.body = request.body;
@@ -41,13 +43,3 @@ workflowStaticApp.all("/:path{.*}", async (c) => {
   return proxyToAcpxG(`/${path}`, c.req.raw);
 });
 
-// API 代理：挂载到 /api/v1，转发到 acpx-g 的 /api/v1/*
-export const workflowApiApp = new Hono();
-workflowApiApp.use("/*", sessionAuth);
-workflowApiApp.all("/", async (c) => {
-  return proxyToAcpxG("/api/v1", c.req.raw);
-});
-workflowApiApp.all("/:path{.*}", async (c) => {
-  const path = c.req.param("path");
-  return proxyToAcpxG(`/api/v1/${path}`, c.req.raw);
-});

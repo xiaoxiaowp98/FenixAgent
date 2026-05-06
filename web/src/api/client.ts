@@ -1,6 +1,7 @@
 import type { Session, Environment, EnvironmentDetail, EnvironmentInstance, CreateEnvironmentRequest, UpdateEnvironmentRequest, ControlResponse, SessionEvent, ChannelProviderInfo, ChannelInfo } from "../types";
 import type { FileListResponse, FileContent, FileUploadResult, FileWriteResult } from "../types";
 import type { ProviderInfo, ProviderDetail, ModelConfig, AgentInfo, AgentDetail, SkillInfo, SkillDetail, McpServerInfo, McpServerDetail, McpServerConfig, McpToolInfo, McpInspectResult, ApiResponse, SkillUploadResponse, SkillUploadConflictResponse } from "../types/config";
+import type { KnowledgeBaseInfo, KnowledgeBaseDetail, KnowledgeResourceInfo, KnowledgeUploadResponse } from "../types/knowledge";
 
 
 const BASE = "";
@@ -20,8 +21,19 @@ async function api<T>(verb: string, path: string, payload?: unknown): Promise<T>
 
   const requestPath = `${BASE}${path}`;
   const res = await fetch(requestPath, requestInit);
-  const data = await res.json();
+  const raw = await res.text();
+  let data: unknown = raw;
+  if (raw) {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = raw;
+    }
+  }
   if (!res.ok) {
+    if (typeof data === "string") {
+      throw new Error(data || res.statusText);
+    }
     const err = data.error || { type: "unknown", message: res.statusText };
     throw new Error(err.message || err.type);
   }
@@ -199,6 +211,65 @@ export function apiUpdateApiKeyLabel(id: string, label: string) {
   return api<{ ok: boolean }>("PATCH", `/web/api-keys/${id}`, { label });
 }
 
+// --- Knowledge Bases ---
+
+export function apiListKnowledgeBases() {
+  return api<KnowledgeBaseInfo[]>("GET", "/web/knowledge-bases");
+}
+
+export function apiGetKnowledgeBase(id: string) {
+  return api<KnowledgeBaseDetail>("GET", `/web/knowledge-bases/${id}`);
+}
+
+export function apiCreateKnowledgeBase(data: {
+  name: string;
+  slug: string;
+  description?: string;
+}) {
+  return api<KnowledgeBaseDetail>("POST", "/web/knowledge-bases", data);
+}
+
+export function apiUpdateKnowledgeBase(id: string, data: {
+  name?: string;
+  slug?: string;
+  description?: string | null;
+}) {
+  return api<KnowledgeBaseDetail>("PATCH", `/web/knowledge-bases/${id}`, data);
+}
+
+export function apiDeleteKnowledgeBase(id: string) {
+  return api<{ ok: boolean }>("DELETE", `/web/knowledge-bases/${id}`);
+}
+
+export function apiListKnowledgeResources(id: string) {
+  return api<KnowledgeResourceInfo[]>("GET", `/web/knowledge-bases/${id}/resources`);
+}
+
+export function apiDeleteKnowledgeResource(knowledgeBaseId: string, resourceId: string) {
+  return api<{ ok: boolean }>("DELETE", `/web/knowledge-bases/${knowledgeBaseId}/resources/${resourceId}`);
+}
+
+export async function apiUploadKnowledgeResources(id: string, formData: FormData) {
+  const res = await fetch(`/web/knowledge-bases/${id}/resources/upload`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const err = data.error || { type: "unknown", message: res.statusText };
+    throw new Error(err.message || err.type);
+  }
+  return data as KnowledgeUploadResponse;
+}
+
+export function apiImportKnowledgeResourceUrl(id: string, payload: {
+  url: string;
+  sourceName?: string;
+}) {
+  return api<KnowledgeResourceInfo>("POST", `/web/knowledge-bases/${id}/resources/url`, payload);
+}
+
 // --- Config ---
 
 async function apiConfigAction<T>(
@@ -262,7 +333,7 @@ export function apiGetAgent(name: string) {
   return apiConfigAction<AgentDetail>("agents", "get", { name });
 }
 export function apiSetAgent(name: string, data: Record<string, unknown>) {
-  return apiConfigAction<{ name: string }>("agents", "set", { name, data });
+  return apiConfigAction<{ name: string; knowledge?: AgentDetail["knowledge"] }>("agents", "set", { name, data });
 }
 export function apiCreateAgent(name: string, data: Record<string, unknown>) {
   return apiConfigAction<{ name: string }>("agents", "create", { name, data });

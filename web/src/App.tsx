@@ -30,6 +30,9 @@ const AgentsPage = lazy(() =>
 const SkillsPage = lazy(() =>
     import("./pages/SkillsPage").then((m) => ({ default: m.SkillsPage })),
 );
+const KnowledgeBasesPage = lazy(() =>
+    import("./pages/KnowledgeBasesPage").then((m) => ({ default: m.KnowledgeBasesPage })),
+);
 const McpPage = lazy(() =>
     import("./pages/McpPage").then((m) => ({ default: m.McpPage })),
 );
@@ -44,7 +47,7 @@ const WorkflowPage = lazy(() =>
 );
 
 export function parseConfigView(pathname: string): string | null {
-    const configViews = ["models", "agents", "skills", "mcp", "tasks", "channels", "workflow", "environments"];
+    const configViews = ["models", "agents", "skills", "knowledge-bases", "mcp", "tasks", "channels", "workflow", "environments"];
     const segment = pathname.replace(/^\/ctrl\/?/, "").split("/")[0];
     return configViews.includes(segment) ? segment : null;
 }
@@ -57,6 +60,7 @@ type ViewId =
     | "models"
     | "agents"
     | "skills"
+    | "knowledge-bases"
     | "mcp"
     | "tasks"
     | "channels"
@@ -75,7 +79,7 @@ export default function App() {
     const parseRoute = useCallback(() => {
         const path = window.location.pathname;
         const params = new URLSearchParams(window.location.search);
-        const configViews = ["models", "agents", "skills", "mcp", "tasks", "channels", "workflow", "environments"];
+        const configViews = ["models", "agents", "skills", "knowledge-bases", "mcp", "tasks", "channels", "workflow", "environments"];
         const segment = path.replace(/^\/ctrl\/?/, "").split("/")[0];
         if (configViews.includes(segment)) {
             setConfigView(segment);
@@ -211,6 +215,8 @@ export default function App() {
                         <AgentsPage />
                     ) : configView === "skills" ? (
                         <SkillsPage />
+                    ) : configView === "knowledge-bases" ? (
+                        <KnowledgeBasesPage />
                     ) : configView === "mcp" ? (
                         <McpPage />
                     ) : configView === "tasks" ? (

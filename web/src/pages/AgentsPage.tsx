@@ -25,8 +25,10 @@ import {
     apiDeleteAgent,
     apiSetDefaultAgent,
     apiGetModels,
+    apiListKnowledgeBases,
 } from "../api/client";
-import type { AgentInfo } from "../types/config";
+import type { AgentDetail, AgentInfo } from "../types/config";
+import type { KnowledgeBaseInfo } from "../types/knowledge";
 import { PermissionTab } from "../components/PermissionTab";
 import { dispatchConfigChange } from "../lib/config-events";
 
@@ -82,7 +84,79 @@ export function buildSubagentFormData(params: {
     };
 }
 
-export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "primary" | "subagent" }) {
+export interface AgentKnowledgeFormState {
+    knowledgeBaseIds: string[];
+    searchFirst: boolean;
+    maxResults: string;
+}
+
+export function getDefaultKnowledgeFormState(): AgentKnowledgeFormState {
+    return {
+        knowledgeBaseIds: [],
+        searchFirst: true,
+        maxResults: "5",
+    };
+}
+
+export function buildKnowledgeFormState(detail: Pick<AgentDetail, "knowledge">): AgentKnowledgeFormState {
+    return {
+        knowledgeBaseIds: detail.knowledge?.knowledgeBaseIds ?? [],
+        searchFirst: detail.knowledge?.policy?.searchFirst ?? true,
+        maxResults: String(detail.knowledge?.policy?.maxResults ?? 5),
+    };
+}
+
+export function filterKnowledgeBaseIds(
+    selectedIds: string[],
+    knowledgeOptions: Pick<KnowledgeBaseInfo, "id">[],
+) {
+    const validIds = new Set(knowledgeOptions.map((item) => item.id));
+    return selectedIds.filter((id) => validIds.has(id));
+}
+
+export function buildAgentPayload(input: {
+    model: string;
+    mode: string;
+    steps: string;
+    prompt: string;
+    description: string;
+    variant: string;
+    temperature: string;
+    topP: string;
+    color: string;
+    hidden: boolean;
+    disable: boolean;
+    permission: Record<string, unknown> | null;
+    knowledge: AgentKnowledgeFormState;
+}) {
+    return {
+        model: input.model || undefined,
+        mode: input.mode,
+        steps: parseInt(input.steps),
+        prompt: input.prompt || undefined,
+        description: input.description || undefined,
+        variant: input.variant || undefined,
+        temperature: input.temperature !== "" ? parseFloat(input.temperature) : undefined,
+        top_p: input.topP !== "" ? parseFloat(input.topP) : undefined,
+        color: input.color || undefined,
+        hidden: input.hidden,
+        disable: input.disable,
+        permission: input.permission,
+        knowledge: {
+            knowledgeBaseIds: input.knowledge.knowledgeBaseIds,
+            policy: {
+                searchFirst: input.knowledge.searchFirst,
+                maxResults: Number(input.knowledge.maxResults || 5),
+            },
+        },
+    };
+}
+
+export function AgentsPage({
+    initialTab = "all",
+}: {
+    initialTab?: "all" | "primary" | "subagent";
+}) {
     const [agents, setAgents] = useState<AgentInfo[]>([]);
     const [defaultAgent, setDefaultAgent] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -93,6 +167,7 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
     const [selected, setSelected] = useState<AgentInfo[]>([]);
     const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
     const [modelOptions, setModelOptions] = useState<string[]>([]);
+    const [knowledgeOptions, setKnowledgeOptions] = useState<KnowledgeBaseInfo[]>([]);
     const [formName, setFormName] = useState("");
     const [formModel, setFormModel] = useState("");
     const [formMode, setFormMode] = useState("primary");
@@ -106,11 +181,13 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
     const [formColor, setFormColor] = useState("");
     const [formHidden, setFormHidden] = useState(false);
     const [formDisable, setFormDisable] = useState(false);
+    const [formKnowledgeBaseIds, setFormKnowledgeBaseIds] = useState<string[]>([]);
+    const [formKnowledgeSearchFirst, setFormKnowledgeSearchFirst] = useState(true);
+    const [formKnowledgeMaxResults, setFormKnowledgeMaxResults] = useState("5");
     const [formPermission, setFormPermission] = useState<Record<
         string,
         unknown
     > | null>(null);
-    const [formTab, setFormTab] = useState<"basic" | "permission">("basic");
     const [pageTab, setPageTab] = useState<"all" | "primary" | "subagent">(initialTab);
     const [subDialogOpen, setSubDialogOpen] = useState(false);
     const [editingSubagent, setEditingSubagent] = useState<AgentInfo | null>(null);
@@ -121,6 +198,7 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
     const [subFormSteps, setSubFormSteps] = useState("50");
     const [subFormDisable, setSubFormDisable] = useState(false);
     const [subFormSaving, setSubFormSaving] = useState(false);
+    const [activeTab, setActiveTab] = useState<"basic" | "knowledge" | "permission">("basic");
 
     const loadAgents = useCallback(async () => {
         setLoading(true);
@@ -147,19 +225,24 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
         }
     }, []);
 
-    const subagents = useMemo(
-        () => filterSubagents(agents),
-        [agents],
-    );
     const displayAgents = useMemo(
         () => getDisplayAgents(agents, pageTab),
         [pageTab, agents],
     );
+    const loadKnowledgeOptions = useCallback(async () => {
+        try {
+            const data = await apiListKnowledgeBases();
+            setKnowledgeOptions(data);
+        } catch {
+            /* silent */
+        }
+    }, []);
 
     useEffect(() => {
         loadAgents();
         loadModelOptions();
-    }, [loadAgents, loadModelOptions]);
+        loadKnowledgeOptions();
+    }, [loadAgents, loadModelOptions, loadKnowledgeOptions]);
 
     const columns: Column<AgentInfo>[] = [
         { key: "name", header: "名称", sortable: true, filterable: true },
@@ -178,6 +261,12 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
             filterable: true,
             render: (row) =>
                 row.mode ? <StatusBadge status={row.mode} /> : "—",
+        },
+        {
+            key: "knowledgeBaseCount",
+            header: "知识库",
+            sortable: true,
+            render: (row) => `${row.knowledgeBaseCount ?? 0}`,
         },
         {
             key: "default",
@@ -208,7 +297,8 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
         },
     ];
 
-    const handleOpenCreate = () => {
+    const handleOpenCreate = async () => {
+        await loadKnowledgeOptions();
         setEditingAgent(null);
         setFormName("");
         setFormModel(modelOptions[0] || "");
@@ -222,7 +312,12 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
         setFormColor("");
         setFormHidden(false);
         setFormDisable(false);
+        const knowledgeDefaults = getDefaultKnowledgeFormState();
+        setFormKnowledgeBaseIds(knowledgeDefaults.knowledgeBaseIds);
+        setFormKnowledgeSearchFirst(knowledgeDefaults.searchFirst);
+        setFormKnowledgeMaxResults(knowledgeDefaults.maxResults);
         setFormPermission(null);
+        setActiveTab("basic");
         setDialogOpen(true);
     };
 
@@ -297,6 +392,7 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
     };
 
     const handleOpenEdit = async (agent: AgentInfo) => {
+        await loadKnowledgeOptions();
         setEditingAgent(agent);
         setFormName(agent.name);
         setFormModel(agent.model || "");
@@ -309,6 +405,10 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
         setFormColor("");
         setFormHidden(false);
         setFormDisable(false);
+        const knowledgeDefaults = getDefaultKnowledgeFormState();
+        setFormKnowledgeBaseIds(knowledgeDefaults.knowledgeBaseIds);
+        setFormKnowledgeSearchFirst(knowledgeDefaults.searchFirst);
+        setFormKnowledgeMaxResults(knowledgeDefaults.maxResults);
         setFormPermission(null);
         try {
             const detail = await apiGetAgent(agent.name);
@@ -329,6 +429,10 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
             setFormColor(detail.color || "");
             setFormHidden(detail.hidden ?? false);
             setFormDisable(detail.disable ?? false);
+            const knowledgeState = buildKnowledgeFormState(detail);
+            setFormKnowledgeBaseIds(knowledgeState.knowledgeBaseIds);
+            setFormKnowledgeSearchFirst(knowledgeState.searchFirst);
+            setFormKnowledgeMaxResults(knowledgeState.maxResults);
             setFormPermission(
                 detail.permission
                     ? typeof detail.permission === "string"
@@ -342,6 +446,7 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
         } catch {
             setFormSteps("50");
         }
+        setActiveTab("basic");
         setDialogOpen(true);
     };
 
@@ -369,25 +474,38 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
                 return;
             }
         }
+        const knowledgeMaxResults = parseInt(formKnowledgeMaxResults);
+        if (isNaN(knowledgeMaxResults) || knowledgeMaxResults < 1 || knowledgeMaxResults > 20) {
+            toast.error("知识库检索条数须在 1-20 之间");
+            return;
+        }
         setFormSaving(true);
         try {
-            const data: Record<string, unknown> = {
-                model: formModel || undefined,
+            const latestKnowledgeOptions = await apiListKnowledgeBases().catch(() => knowledgeOptions);
+            setKnowledgeOptions(latestKnowledgeOptions);
+            const validKnowledgeBaseIds = filterKnowledgeBaseIds(formKnowledgeBaseIds, latestKnowledgeOptions);
+            if (validKnowledgeBaseIds.length !== formKnowledgeBaseIds.length) {
+                setFormKnowledgeBaseIds(validKnowledgeBaseIds);
+            }
+            const data: Record<string, unknown> = buildAgentPayload({
+                model: formModel,
                 mode: formMode,
-                steps: parseInt(formSteps),
-                prompt: formPrompt || undefined,
-                description: formDescription || undefined,
-                variant: formVariant || undefined,
-                temperature:
-                    formTemperature !== ""
-                        ? parseFloat(formTemperature)
-                        : undefined,
-                top_p: formTopP !== "" ? parseFloat(formTopP) : undefined,
-                color: formColor || undefined,
+                steps: formSteps,
+                prompt: formPrompt,
+                description: formDescription,
+                variant: formVariant,
+                temperature: formTemperature,
+                topP: formTopP,
+                color: formColor,
                 hidden: formHidden,
                 disable: formDisable,
                 permission: formPermission,
-            };
+                knowledge: {
+                    knowledgeBaseIds: validKnowledgeBaseIds,
+                    searchFirst: formKnowledgeSearchFirst,
+                    maxResults: formKnowledgeMaxResults,
+                },
+            });
             if (editingAgent) {
                 await apiSetAgent(name, data);
                 toast.success("Agent已更新");
@@ -583,18 +701,24 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
                 <div className="flex gap-1 rounded-lg bg-surface-2 p-1 mb-4">
                     <button
                         type="button"
-                        className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${formTab === "basic" ? "bg-surface-1 text-text-primary shadow-sm" : "text-text-muted hover:text-text-secondary"}`}
-                        onClick={() => setFormTab("basic")}>
+                        className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "basic" ? "bg-surface-1 text-text-primary shadow-sm" : "text-text-muted hover:text-text-secondary"}`}
+                        onClick={() => setActiveTab("basic")}>
                         基础配置
                     </button>
                     <button
                         type="button"
-                        className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${formTab === "permission" ? "bg-surface-1 text-text-primary shadow-sm" : "text-text-muted hover:text-text-secondary"}`}
-                        onClick={() => setFormTab("permission")}>
+                        className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "knowledge" ? "bg-surface-1 text-text-primary shadow-sm" : "text-text-muted hover:text-text-secondary"}`}
+                        onClick={() => setActiveTab("knowledge")}>
+                        知识库
+                    </button>
+                    <button
+                        type="button"
+                        className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "permission" ? "bg-surface-1 text-text-primary shadow-sm" : "text-text-muted hover:text-text-secondary"}`}
+                        onClick={() => setActiveTab("permission")}>
                         权限配置
                     </button>
                 </div>
-                {formTab === "basic" && (
+                {activeTab === "basic" && (
                     <div className="space-y-4 max-h-[55vh] overflow-y-auto">
                         <div>
                             <Label>名称</Label>
@@ -764,7 +888,65 @@ export function AgentsPage({ initialTab = "all" }: { initialTab?: "all" | "prima
                         </div>
                     </div>
                 )}
-                {formTab === "permission" && (
+                {activeTab === "knowledge" && (
+                    <div className="space-y-4 max-h-[55vh] overflow-y-auto">
+                        <div className="rounded-lg border border-border-subtle p-3">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-sm font-medium text-text-bright">绑定知识库</p>
+                                    <p className="text-xs text-text-muted">已选择 {formKnowledgeBaseIds.length} 个知识库</p>
+                                </div>
+                            </div>
+                            <div className="mt-3 space-y-2">
+                                {knowledgeOptions.length === 0 ? (
+                                    <p className="text-sm text-text-muted">暂无可选知识库</p>
+                                ) : knowledgeOptions.map((item) => {
+                                    const checked = formKnowledgeBaseIds.includes(item.id);
+                                    return (
+                                        <label key={item.id} className="flex items-center justify-between gap-3 rounded-md border border-border-subtle px-3 py-2 text-sm">
+                                            <div>
+                                                <p className="font-medium text-text-bright">{item.name}</p>
+                                                <p className="text-xs text-text-muted">{item.slug}</p>
+                                            </div>
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={(e) => {
+                                                    setFormKnowledgeBaseIds((current) =>
+                                                        e.target.checked
+                                                            ? [...current, item.id]
+                                                            : current.filter((id) => id !== item.id),
+                                                    );
+                                                }}
+                                            />
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <label className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    checked={formKnowledgeSearchFirst}
+                                    onChange={(e) => setFormKnowledgeSearchFirst(e.target.checked)}
+                                />
+                                优先检索知识库
+                            </label>
+                            <div>
+                                <Label>最大返回条数</Label>
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    max={20}
+                                    value={formKnowledgeMaxResults}
+                                    onChange={(e) => setFormKnowledgeMaxResults(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {activeTab === "permission" && (
                     <div className="max-h-[55vh] overflow-y-auto">
                         <PermissionTab
                             key={editingAgent?.name ?? "__new__"}

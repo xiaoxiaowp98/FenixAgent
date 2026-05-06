@@ -19,8 +19,10 @@ import webConfig from "./routes/web/config";
 import webInstances from "./routes/web/instances";
 import webTasks from "./routes/web/tasks";
 import webChannels from "./routes/web/channels";
+import webKnowledgeBases from "./routes/web/knowledge-bases";
 import fileRoutes from "./routes/web/files";
 import { workflowStaticApp } from "./routes/web/workflow-proxy";
+import knowledgeMcpRoutes from "./routes/mcp/knowledge";
 import { stopAllInstances, spawnInstanceFromEnvironment, findRunningInstanceByEnvironment } from "./services/instance";
 import { storeListAllEnvironments } from "./store";
 import { migrateSkillsDir } from "./services/skill";
@@ -123,9 +125,11 @@ app.route("/web", webConfig);
 app.route("/web", webInstances);
 app.route("/web", webTasks);
 app.route("/web", webChannels);
+app.route("/web", webKnowledgeBases);
 
 // Workflow proxy routes (forward to acpx-g)
 app.route("/workflow-ui", workflowStaticApp);
+app.route("/", knowledgeMcpRoutes);
 
 // ACP protocol routes
 console.log("[RCS] ACP support enabled");

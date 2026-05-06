@@ -23,6 +23,14 @@ export const config = {
   jwtExpiresIn: parseInt(process.env.RCS_JWT_EXPIRES_IN || "3600"),
   /** acpx-g workflow engine URL for reverse proxy. */
   acpxGUrl: process.env.ACPX_G_URL || "http://localhost:8848",
+  /** Knowledge provider selection. Phase 1 supports OpenViking only. */
+  knowledgeProvider: process.env.RCS_KNOWLEDGE_PROVIDER || "openviking",
+  /** Knowledge provider HTTP base URL. */
+  knowledgeBaseUrl: process.env.RCS_KNOWLEDGE_BASE_URL || "http://localhost:8090",
+  /** Optional shared API key for the knowledge provider. */
+  knowledgeApiKey: process.env.RCS_KNOWLEDGE_API_KEY || "",
+  /** Timeout in milliseconds for knowledge provider requests. */
+  knowledgeRequestTimeoutMs: parseInt(process.env.RCS_KNOWLEDGE_REQUEST_TIMEOUT_MS || "15000"),
 } as const;
 
 export function getBaseUrl(): string {

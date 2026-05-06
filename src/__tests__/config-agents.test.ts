@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, mock } from "bun:test";
 
 let _agentStore: Record<string, any> = {};
 let _topLevelFields: Record<string, any> = {};
+let _agentKnowledgeBindings: Record<string, { knowledgeBaseId: string; priority: number; enabled: boolean }[]> = {};
 
 mock.module("../auth/better-auth", () => ({
   auth: {
@@ -27,6 +28,45 @@ mock.module("../services/config", () => ({
   getConfig: async () => ({ ..._topLevelFields, agent: _agentStore }),
 }));
 
+mock.module("../services/agent-knowledge", () => ({
+  InvalidKnowledgeBindingError: class InvalidKnowledgeBindingError extends Error {
+    code = "INVALID_KNOWLEDGE_BINDINGS";
+  },
+  syncAgentKnowledgeBindings: async (_userId: string, agentName: string, knowledge: { knowledgeBaseIds: string[] } | null | undefined) => {
+    const missingIds = (knowledge?.knowledgeBaseIds ?? []).filter((id) => id === "kb_missing");
+    if (missingIds.length > 0) {
+      const error = new Error(`知识库不存在或无权限访问: ${missingIds.join(", ")}`) as Error & { code: string };
+      error.code = "INVALID_KNOWLEDGE_BINDINGS";
+      throw error;
+    }
+    _agentKnowledgeBindings[agentName] = (knowledge?.knowledgeBaseIds ?? []).map((knowledgeBaseId, priority) => ({
+      knowledgeBaseId,
+      priority,
+      enabled: true,
+    }));
+  },
+  listAgentKnowledgeBindings: async (agentName: string) => _agentKnowledgeBindings[agentName] ?? [],
+  countBindingsByKnowledgeBaseIds: async (knowledgeBaseIds: string[]) => {
+    const counts: Record<string, number> = {};
+    for (const knowledgeBaseId of knowledgeBaseIds) {
+      counts[knowledgeBaseId] = 0;
+    }
+    for (const bindings of Object.values(_agentKnowledgeBindings)) {
+      for (const binding of bindings) {
+        if (binding.knowledgeBaseId in counts) {
+          counts[binding.knowledgeBaseId] += 1;
+        }
+      }
+    }
+    return counts;
+  },
+  resolveAgentKnowledgePolicy: (policy?: { searchFirst?: boolean; maxResults?: number; defaultNamespaces?: string[] } | null) => ({
+    searchFirst: policy?.searchFirst ?? true,
+    maxResults: policy?.maxResults ?? 5,
+    defaultNamespaces: policy?.defaultNamespaces ?? [],
+  }),
+}));
+
 const agentsRoute = (await import("../routes/web/config/agents")).default;
 
 describe("Agents Config Route", () => {
@@ -37,6 +77,7 @@ describe("Agents Config Route", () => {
       "code-reviewer": { model: "gpt-4o", prompt: "Review code" },
     };
     _topLevelFields = { default_agent: "build" };
+    _agentKnowledgeBindings = {};
   });
 
   test("list 返回所有 agent", async () => {
@@ -90,6 +131,26 @@ describe("Agents Config Route", () => {
     expect(_agentStore.build.steps).toBe(100);
     // Original fields preserved
     expect(_agentStore.build.model).toBe("claude-sonnet-4-6");
+  });
+
+  test("set returns validation error when knowledge base ids are invalid", async () => {
+    const res = await agentsRoute.request(new Request("http://localhost/config/agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "set",
+        name: "build",
+        data: {
+          knowledge: {
+            knowledgeBaseIds: ["kb_missing"],
+            policy: { searchFirst: true, maxResults: 5 },
+          },
+        },
+      }),
+    }));
+    const json = await res.json();
+    expect(json.success).toBe(false);
+    expect(json.error.code).toBe("INVALID_KNOWLEDGE_BINDINGS");
   });
 
   test("set 不存在 agent", async () => {
@@ -286,7 +347,17 @@ describe("Agents Config Route", () => {
     });
 
     test("handleGet 新增字段有值", async () => {
-      _agentStore["val-agent"] = { model: "gpt-4o", variant: "thinking", temperature: 0.7, top_p: 0.9, disable: true, hidden: true, color: "#FF5500", description: "测试" };
+      _agentStore["val-agent"] = {
+        model: "gpt-4o",
+        variant: "thinking",
+        temperature: 0.7,
+        top_p: 0.9,
+        disable: true,
+        hidden: true,
+        color: "#FF5500",
+        description: "测试",
+        knowledge: { knowledgeBaseIds: ["kb_a"], policy: { searchFirst: false, maxResults: 3 } },
+      };
       const res = await agentsRoute.request(new Request("http://localhost/config/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -300,6 +371,10 @@ describe("Agents Config Route", () => {
       expect(json.data.hidden).toBe(true);
       expect(json.data.color).toBe("#FF5500");
       expect(json.data.description).toBe("测试");
+      expect(json.data.knowledge).toEqual({
+        knowledgeBaseIds: ["kb_a"],
+        policy: { searchFirst: false, maxResults: 3, defaultNamespaces: [] },
+      });
     });
   });
 
@@ -399,6 +474,34 @@ describe("Agents Config Route", () => {
       expect(_agentStore.build.disable).toBe(true);
       expect(_agentStore.build.description).toBe("测试");
     });
+
+    test("set 更新 knowledge 并覆盖旧绑定", async () => {
+      _agentKnowledgeBindings.build = [{ knowledgeBaseId: "kb_old", priority: 0, enabled: true }];
+      const res = await agentsRoute.request(new Request("http://localhost/config/agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set",
+          name: "build",
+          data: {
+            knowledge: {
+              knowledgeBaseIds: ["kb_new_a", "kb_new_b"],
+              policy: { searchFirst: false, maxResults: 8 },
+            },
+          },
+        }),
+      }));
+      const json = await res.json();
+      expect(json.success).toBe(true);
+      expect(_agentStore.build.knowledge).toEqual({
+        knowledgeBaseIds: ["kb_new_a", "kb_new_b"],
+        policy: { searchFirst: false, maxResults: 8, defaultNamespaces: [] },
+      });
+      expect(_agentKnowledgeBindings.build).toEqual([
+        { knowledgeBaseId: "kb_new_a", priority: 0, enabled: true },
+        { knowledgeBaseId: "kb_new_b", priority: 1, enabled: true },
+      ]);
+    });
   });
 
   describe("handleCreate — 白名单过滤和新字段校验", () => {
@@ -423,6 +526,21 @@ describe("Agents Config Route", () => {
       const json = await res.json();
       expect(json.success).toBe(false);
       expect(json.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    test("list 返回 knowledgeBaseCount", async () => {
+      _agentKnowledgeBindings.build = [
+        { knowledgeBaseId: "kb_a", priority: 0, enabled: true },
+        { knowledgeBaseId: "kb_b", priority: 1, enabled: true },
+      ];
+      const res = await agentsRoute.request(new Request("http://localhost/config/agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "list" }),
+      }));
+      const json = await res.json();
+      const build = json.data.agents.find((agent: any) => agent.name === "build");
+      expect(build.knowledgeBaseCount).toBe(2);
     });
   });
 });

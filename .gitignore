@@ -52,3 +52,5 @@ user
 
 workspace/
 .tmp
+
+ov.conf

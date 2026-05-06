@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createApiKey } from "../auth/api-key-service";
 import { getBaseUrl } from "../config";
 import { log } from "../logger";
+import { listAgentKnowledgeBindings } from "./agent-knowledge";
 import { storeGetEnvironment, storeCreateSession } from "../store";
 import { closeInstanceLocalWs } from "../transport/acp-relay-handler";
 import { resolveExecutable } from "../utils/executable";
@@ -221,6 +222,20 @@ export async function spawnInstanceFromEnvironment(userId: string, environmentId
       }
 
       config.default_agent = env.agentName;
+      const knowledgeBindings = await listAgentKnowledgeBindings(env.agentName);
+      if (knowledgeBindings.length > 0) {
+        const mcp = typeof config.mcp === "object" && config.mcp !== null
+          ? config.mcp as Record<string, unknown>
+          : {};
+        mcp.kb = {
+          type: "remote",
+          url: `${getBaseUrl()}/mcp/knowledge`,
+          headers: { Authorization: `Bearer ${env.secret}` },
+          enabled: true,
+          timeout: 15000,
+        };
+        config.mcp = mcp;
+      }
 
       if (!existsSync(configDir)) {
         mkdirSync(configDir, { recursive: true });

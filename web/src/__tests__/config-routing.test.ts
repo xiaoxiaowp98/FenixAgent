@@ -18,6 +18,10 @@ describe("parseConfigView", () => {
     expect(parseConfigView("/ctrl/skills")).toBe("skills");
   });
 
+  test("/ctrl/knowledge-bases → knowledge-bases", () => {
+    expect(parseConfigView("/ctrl/knowledge-bases")).toBe("knowledge-bases");
+  });
+
   test("/ctrl/channels → channels", () => {
     expect(parseConfigView("/ctrl/channels")).toBe("channels");
   });

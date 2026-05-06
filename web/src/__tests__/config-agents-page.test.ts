@@ -1,12 +1,16 @@
 import { describe, test, expect } from "bun:test";
 import {
-    isValidAgentNameInput,
-    isValidStepsInput,
-    filterSubagents,
-    getDisplayAgents,
-    getSubagentColumnKeys,
-    getFullAgentColumnKeys,
-    buildSubagentFormData,
+  buildAgentPayload,
+  buildKnowledgeFormState,
+  filterKnowledgeBaseIds,
+  getDefaultKnowledgeFormState,
+  isValidAgentNameInput,
+  isValidStepsInput,
+  filterSubagents,
+  getDisplayAgents,
+  getSubagentColumnKeys,
+  getFullAgentColumnKeys,
+  buildSubagentFormData,
 } from "../pages/AgentsPage";
 import type { AgentInfo } from "../types/config";
 
@@ -234,5 +238,62 @@ describe("buildSubagentFormData", () => {
     expect(data).not.toHaveProperty("color");
     expect(data).not.toHaveProperty("hidden");
     expect(data).not.toHaveProperty("permission");
+  });
+});
+
+describe("Agent knowledge form helpers", () => {
+  test("读取 AgentDetail.knowledge 时正确回填 knowledgeBaseIds", () => {
+    expect(buildKnowledgeFormState({
+      knowledge: {
+        knowledgeBaseIds: ["kb_a", "kb_b"],
+        policy: { searchFirst: false, maxResults: 8 },
+      },
+    } as any)).toEqual({
+      knowledgeBaseIds: ["kb_a", "kb_b"],
+      searchFirst: false,
+      maxResults: "8",
+    });
+  });
+
+  test("knowledge 默认值渲染 searchFirst/maxResults", () => {
+    expect(getDefaultKnowledgeFormState()).toEqual({
+      knowledgeBaseIds: [],
+      searchFirst: true,
+      maxResults: "5",
+    });
+  });
+
+  test("保存时提交 payload 包含 knowledge.knowledgeBaseIds 与 policy.maxResults", () => {
+    const payload = buildAgentPayload({
+      model: "gpt-4o",
+      mode: "primary",
+      steps: "50",
+      prompt: "",
+      description: "",
+      variant: "",
+      temperature: "",
+      topP: "",
+      color: "",
+      hidden: false,
+      disable: false,
+      permission: null,
+      knowledge: {
+        knowledgeBaseIds: ["kb_a", "kb_b"],
+        searchFirst: true,
+        maxResults: "7",
+      },
+    });
+
+    expect(payload.knowledge).toEqual({
+      knowledgeBaseIds: ["kb_a", "kb_b"],
+      policy: { searchFirst: true, maxResults: 7 },
+    });
+  });
+
+  test("过滤掉已不存在的知识库 id", () => {
+    expect(filterKnowledgeBaseIds(
+      ["kb_a", "kb_missing", "kb_b"],
+      [{ id: "kb_a" }, { id: "kb_b" }] as any,
+    )).toEqual(["kb_a", "kb_b"]);
   });
 });

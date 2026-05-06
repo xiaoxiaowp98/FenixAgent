@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, mock, afterEach } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { chmodSync, mkdtempSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -31,7 +31,19 @@ mock.module("node:net", () => ({
 }));
 
 mock.module("../config", () => ({
+  config: {
+    knowledgeProvider: "openviking",
+    knowledgeBaseUrl: "http://localhost:8090",
+    knowledgeApiKey: "",
+    knowledgeRequestTimeoutMs: 15000,
+  },
   getBaseUrl: () => "http://localhost:3000",
+}));
+
+let mockKnowledgeBindings: Array<{ knowledgeBaseId: string; priority: number; enabled: boolean }> = [];
+
+mock.module("../services/agent-knowledge", () => ({
+  listAgentKnowledgeBindings: mock(async () => mockKnowledgeBindings),
 }));
 
 mock.module("../auth/api-key-service", () => ({
@@ -54,6 +66,29 @@ mock.module("../store", () => ({
     workspacePath: process.cwd(),
     secret: "env_secret_test123",
   })),
+  storeGetEnvironmentBySecret: mock((secret: string) => {
+    if (secret === "env_secret_test123") {
+      return {
+        id: "env_test_secret",
+        userId: "test-user",
+        agentName: "test-agent",
+        name: "test-env",
+        workspacePath: process.cwd(),
+        secret,
+      };
+    }
+    if (secret === "env_secret_kb_mcp") {
+      return {
+        id: "env_kb_mcp",
+        userId: "kb-mcp-user",
+        agentName: "general",
+        name: "kb-mcp-env",
+        workspacePath: process.cwd(),
+        secret,
+      };
+    }
+    return undefined;
+  }),
   storeCreateSession: mock((req: any) => ({
     id: `session_${Date.now()}_${Math.random().toString(36).slice(2)}`,
     environmentId: req.environmentId,
@@ -100,6 +135,7 @@ describe("InstanceService", () => {
     writeFileSync(localAcpLink, "#!/bin/sh\nexit 0\n");
     chmodSync(localAcpLink, 0o755);
     process.chdir(testCwd);
+    mockKnowledgeBindings = [];
     setInstanceSpawnForTesting(mockSpawn as unknown as typeof import("node:child_process").spawn);
   });
 
@@ -274,6 +310,7 @@ describe("InstanceService multi-instance", () => {
     originalCwd = process.cwd();
     testCwd = mkdtempSync(join(tmpdir(), "instance-multi-"));
     process.chdir(testCwd);
+    mockKnowledgeBindings = [];
     setInstanceSpawnForTesting(mockSpawn as unknown as typeof import("node:child_process").spawn);
   });
 
@@ -335,5 +372,30 @@ describe("InstanceService multi-instance", () => {
     expect(inst1.sessionId).toBeTruthy();
     expect(inst2.sessionId).toBeTruthy();
     expect(inst1.sessionId).not.toBe(inst2.sessionId);
+  });
+
+  test("default agent with knowledge bindings injects kb MCP config", async () => {
+    mockKnowledgeBindings = [{ knowledgeBaseId: "kb_1", priority: 0, enabled: true }];
+    await spawnInstanceFromEnvironment("test-user", "env_test_inject");
+
+    const configPath = join(process.cwd(), ".opencode", "opencode.json");
+    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    expect(config.default_agent).toBe("test-agent");
+    expect(config.mcp.kb).toEqual({
+      type: "remote",
+      url: "http://localhost:3000/mcp/knowledge",
+      headers: { Authorization: "Bearer env_secret_test123" },
+      enabled: true,
+      timeout: 15000,
+    });
+  });
+
+  test("default agent without knowledge bindings does not inject knowledge MCP config", async () => {
+    await spawnInstanceFromEnvironment("test-user", "env_test_no_kb");
+
+    const configPath = join(process.cwd(), ".opencode", "opencode.json");
+    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    expect(config.default_agent).toBe("test-agent");
+    expect(config.mcp).toBeUndefined();
   });
 });

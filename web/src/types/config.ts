@@ -33,6 +33,17 @@ export interface PermissionObjectConfig {
 /** PermissionConfig: 字符串模式（全局策略）或对象模式（按工具配置） */
 export type PermissionConfig = PermissionAction | PermissionObjectConfig;
 
+export interface AgentKnowledgePolicy {
+    searchFirst?: boolean;
+    maxResults?: number;
+    defaultNamespaces?: string[];
+}
+
+export interface AgentKnowledgeConfig {
+    knowledgeBaseIds: string[];
+    policy?: AgentKnowledgePolicy | null;
+}
+
 export interface OpenCodeModel {
     name?: string;
     modalities?: {
@@ -68,6 +79,7 @@ export interface OpenCodeAgent {
     prompt?: string;
     tools?: string[];
     permission?: PermissionConfig;
+    knowledge?: AgentKnowledgeConfig | null;
 }
 
 // === MCP 类型定义 ===
@@ -176,6 +188,7 @@ export interface AgentInfo {
     mode: string | null;
     description: string | null;
     color: string | null;
+    knowledgeBaseCount: number;
 }
 
 export interface AgentDetail {
@@ -194,6 +207,7 @@ export interface AgentDetail {
     hidden: boolean;
     color: string | null;
     description: string | null;
+    knowledge: AgentKnowledgeConfig | null;
 }
 
 // --- Skills ---

@@ -43,3 +43,10 @@ workflowStaticApp.all("/:path{.*}", async (c) => {
   return proxyToAcpxG(`/${path}`, c.req.raw);
 });
 
+// API 代理：挂载到 /api/v1，转发到 acpx-g 的 /api/v1/* 路径
+export const workflowApiApp = new Hono();
+workflowApiApp.use("/*", sessionAuth);
+workflowApiApp.all("/:path{.*}", async (c) => {
+  const path = c.req.param("path");
+  return proxyToAcpxG(`/api/v1/${path}`, c.req.raw);
+});

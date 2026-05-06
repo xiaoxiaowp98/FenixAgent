@@ -153,11 +153,70 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_environment_user_id ON environment(user_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_environment_secret ON environment(secret);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_environment_name ON environment(name);
+
+    CREATE TABLE IF NOT EXISTS knowledge_base (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      description TEXT,
+      provider TEXT NOT NULL DEFAULT 'openviking',
+      remote_id TEXT,
+      remote_account_id TEXT,
+      remote_user_id TEXT,
+      status TEXT NOT NULL DEFAULT 'empty',
+      last_error TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS knowledge_resource (
+      id TEXT PRIMARY KEY,
+      knowledge_base_id TEXT NOT NULL REFERENCES knowledge_base(id) ON DELETE CASCADE,
+      source_type TEXT NOT NULL,
+      source_name TEXT NOT NULL,
+      source_path TEXT,
+      remote_id TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      last_error TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS agent_knowledge_binding (
+      id TEXT PRIMARY KEY,
+      agent_name TEXT NOT NULL,
+      knowledge_base_id TEXT NOT NULL REFERENCES knowledge_base(id) ON DELETE CASCADE,
+      priority INTEGER NOT NULL DEFAULT 0,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_knowledge_base_user_slug ON knowledge_base(user_id, slug);
+    CREATE INDEX IF NOT EXISTS idx_knowledge_base_user_status ON knowledge_base(user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_knowledge_resource_kb ON knowledge_resource(knowledge_base_id);
+    CREATE INDEX IF NOT EXISTS idx_knowledge_resource_status ON knowledge_resource(status);
+    CREATE INDEX IF NOT EXISTS idx_agent_knowledge_binding_agent ON agent_knowledge_binding(agent_name);
+    CREATE INDEX IF NOT EXISTS idx_agent_knowledge_binding_kb ON agent_knowledge_binding(knowledge_base_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_knowledge_binding_agent_kb ON agent_knowledge_binding(agent_name, knowledge_base_id);
   `);
 
   // Migrate: add auto_start column to existing environment table
   try {
     sqlite.exec(`ALTER TABLE environment ADD COLUMN auto_start INTEGER NOT NULL DEFAULT 0`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  try {
+    sqlite.exec(`ALTER TABLE knowledge_base ADD COLUMN remote_account_id TEXT`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  try {
+    sqlite.exec(`ALTER TABLE knowledge_base ADD COLUMN remote_user_id TEXT`);
   } catch {
     // Column already exists — ignore
   }

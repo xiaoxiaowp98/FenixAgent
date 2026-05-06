@@ -9,6 +9,7 @@ import {
   Radio,
   KeyRound,
   Workflow,
+  BookOpen,
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
@@ -55,6 +56,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "配置",
     items: [
       { id: "skills", label: "技能", icon: Settings },
+      { id: "knowledge-bases", label: "知识库", icon: BookOpen },
       { id: "mcp", label: "MCP", icon: Plug },
       { id: "tasks", label: "定时任务", icon: Clock },
       { id: "channels", label: "消息渠道", icon: Radio },
@@ -162,10 +164,7 @@ export function Sidebar({
 
             {/* Items */}
             {group.items.map((item) => {
-              const isActive =
-                item.id === currentPage ||
-                (item.id === "environments" && currentPage === "agents") ||
-                (item.id === "session" && currentPage === "session");
+              const isActive = item.id === currentPage;
 
               const Icon = item.icon;
 

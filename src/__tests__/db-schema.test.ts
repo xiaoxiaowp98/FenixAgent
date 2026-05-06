@@ -39,7 +39,47 @@ beforeEach(() => {
       capabilities TEXT,
       secret TEXT NOT NULL,
       user_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+      auto_start INTEGER NOT NULL DEFAULT 0,
       last_poll_at INTEGER,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE knowledge_base (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      description TEXT,
+      provider TEXT NOT NULL DEFAULT 'openviking',
+      remote_id TEXT,
+      remote_account_id TEXT,
+      remote_user_id TEXT,
+      status TEXT NOT NULL DEFAULT 'empty',
+      last_error TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE knowledge_resource (
+      id TEXT PRIMARY KEY,
+      knowledge_base_id TEXT NOT NULL REFERENCES knowledge_base(id) ON DELETE CASCADE,
+      source_type TEXT NOT NULL,
+      source_name TEXT NOT NULL,
+      source_path TEXT,
+      remote_id TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      last_error TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE agent_knowledge_binding (
+      id TEXT PRIMARY KEY,
+      agent_name TEXT NOT NULL,
+      knowledge_base_id TEXT NOT NULL REFERENCES knowledge_base(id) ON DELETE CASCADE,
+      priority INTEGER NOT NULL DEFAULT 0,
+      enabled INTEGER NOT NULL DEFAULT 1,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -47,6 +87,9 @@ beforeEach(() => {
     CREATE INDEX idx_environment_user_id ON environment(user_id);
     CREATE UNIQUE INDEX idx_environment_secret ON environment(secret);
     CREATE UNIQUE INDEX idx_environment_name ON environment(name);
+    CREATE UNIQUE INDEX idx_knowledge_base_user_slug ON knowledge_base(user_id, slug);
+    CREATE INDEX idx_knowledge_resource_kb ON knowledge_resource(knowledge_base_id);
+    CREATE INDEX idx_agent_knowledge_binding_agent ON agent_knowledge_binding(agent_name);
   `);
 });
 
@@ -109,5 +152,46 @@ describe("environment table schema", () => {
 
     const rows = sqlite.prepare("SELECT * FROM environment WHERE id = ?").all("e1");
     expect(rows.length).toBe(0);
+  });
+
+  test("knowledge_base has expected columns", () => {
+    const cols = sqlite.prepare("PRAGMA table_info(knowledge_base)").all() as { name: string }[];
+    const colNames = cols.map((c) => c.name);
+    expect(colNames).toContain("slug");
+    expect(colNames).toContain("status");
+    expect(colNames).toContain("remote_id");
+    expect(colNames).toContain("remote_account_id");
+    expect(colNames).toContain("remote_user_id");
+    expect(colNames).toContain("last_error");
+  });
+
+  test("knowledge_resource cascades when deleting knowledge_base", () => {
+    const now = Math.floor(Date.now() / 1000);
+    sqlite.prepare("INSERT INTO user (id, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)").run("u1", "Test", "test@test.com", now, now);
+    sqlite.prepare(
+      "INSERT INTO knowledge_base (id, user_id, name, slug, provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run("kb1", "u1", "Docs", "docs", "openviking", "empty", now, now);
+    sqlite.prepare(
+      "INSERT INTO knowledge_resource (id, knowledge_base_id, source_type, source_name, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    ).run("res1", "kb1", "upload", "README.md", "pending", now, now);
+
+    sqlite.prepare("DELETE FROM knowledge_base WHERE id = ?").run("kb1");
+
+    const rows = sqlite.prepare("SELECT * FROM knowledge_resource WHERE id = ?").all("res1");
+    expect(rows.length).toBe(0);
+  });
+
+  test("agent_knowledge_binding can be queried by agent_name", () => {
+    const now = Math.floor(Date.now() / 1000);
+    sqlite.prepare("INSERT INTO user (id, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)").run("u1", "Test", "test@test.com", now, now);
+    sqlite.prepare(
+      "INSERT INTO knowledge_base (id, user_id, name, slug, provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run("kb1", "u1", "Docs", "docs", "openviking", "empty", now, now);
+    sqlite.prepare(
+      "INSERT INTO agent_knowledge_binding (id, agent_name, knowledge_base_id, priority, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    ).run("bind1", "build", "kb1", 0, 1, now, now);
+
+    const rows = sqlite.prepare("SELECT * FROM agent_knowledge_binding WHERE agent_name = ?").all("build");
+    expect(rows).toHaveLength(1);
   });
 });

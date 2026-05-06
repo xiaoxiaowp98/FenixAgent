@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 // better-auth tables
 export const user = sqliteTable("user", {
@@ -120,6 +120,61 @@ export const environment = sqliteTable("environment", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
+
+export const knowledgeBase = sqliteTable("knowledge_base", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  description: text("description"),
+  provider: text("provider").notNull().default("openviking"),
+  remoteId: text("remote_id"),
+  remoteAccountId: text("remote_account_id"),
+  remoteUserId: text("remote_user_id"),
+  status: text("status").notNull().default("empty"),
+  lastError: text("last_error"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+}, (table) => ({
+  userSlugIdx: uniqueIndex("idx_knowledge_base_user_slug").on(table.userId, table.slug),
+  userStatusIdx: index("idx_knowledge_base_user_status").on(table.userId, table.status),
+}));
+
+export const knowledgeResource = sqliteTable("knowledge_resource", {
+  id: text("id").primaryKey(),
+  knowledgeBaseId: text("knowledge_base_id")
+    .notNull()
+    .references(() => knowledgeBase.id, { onDelete: "cascade" }),
+  sourceType: text("source_type").notNull(),
+  sourceName: text("source_name").notNull(),
+  sourcePath: text("source_path"),
+  remoteId: text("remote_id"),
+  status: text("status").notNull().default("pending"),
+  lastError: text("last_error"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+}, (table) => ({
+  kbIdx: index("idx_knowledge_resource_kb").on(table.knowledgeBaseId),
+  statusIdx: index("idx_knowledge_resource_status").on(table.status),
+}));
+
+export const agentKnowledgeBinding = sqliteTable("agent_knowledge_binding", {
+  id: text("id").primaryKey(),
+  agentName: text("agent_name").notNull(),
+  knowledgeBaseId: text("knowledge_base_id")
+    .notNull()
+    .references(() => knowledgeBase.id, { onDelete: "cascade" }),
+  priority: integer("priority").notNull().default(0),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+}, (table) => ({
+  agentIdx: index("idx_agent_knowledge_binding_agent").on(table.agentName),
+  kbIdx: index("idx_agent_knowledge_binding_kb").on(table.knowledgeBaseId),
+  agentKbIdx: uniqueIndex("idx_agent_knowledge_binding_agent_kb").on(table.agentName, table.knowledgeBaseId),
+}));
 
 // 定时任务表
 export const scheduledTask = sqliteTable("scheduled_task", {

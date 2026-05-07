@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/config/DataTable";
 import { FormDialog } from "@/components/config/FormDialog";
@@ -152,11 +152,7 @@ export function buildAgentPayload(input: {
     };
 }
 
-export function AgentsPage({
-    initialTab = "all",
-}: {
-    initialTab?: "all" | "primary" | "subagent";
-}) {
+export function AgentsPage() {
     const [agents, setAgents] = useState<AgentInfo[]>([]);
     const [defaultAgent, setDefaultAgent] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -170,7 +166,7 @@ export function AgentsPage({
     const [knowledgeOptions, setKnowledgeOptions] = useState<KnowledgeBaseInfo[]>([]);
     const [formName, setFormName] = useState("");
     const [formModel, setFormModel] = useState("");
-    const [formMode, setFormMode] = useState("primary");
+    const [formMode, setFormMode] = useState("subagent");
     const [formSteps, setFormSteps] = useState("50");
     const [formPrompt, setFormPrompt] = useState("");
     const [formSaving, setFormSaving] = useState(false);
@@ -188,16 +184,6 @@ export function AgentsPage({
         string,
         unknown
     > | null>(null);
-    const [pageTab, setPageTab] = useState<"all" | "primary" | "subagent">(initialTab);
-    const [subDialogOpen, setSubDialogOpen] = useState(false);
-    const [editingSubagent, setEditingSubagent] = useState<AgentInfo | null>(null);
-    const [subFormName, setSubFormName] = useState("");
-    const [subFormModel, setSubFormModel] = useState("");
-    const [subFormDescription, setSubFormDescription] = useState("");
-    const [subFormPrompt, setSubFormPrompt] = useState("");
-    const [subFormSteps, setSubFormSteps] = useState("50");
-    const [subFormDisable, setSubFormDisable] = useState(false);
-    const [subFormSaving, setSubFormSaving] = useState(false);
     const [activeTab, setActiveTab] = useState<"basic" | "knowledge" | "permission">("basic");
 
     const loadAgents = useCallback(async () => {
@@ -225,10 +211,6 @@ export function AgentsPage({
         }
     }, []);
 
-    const displayAgents = useMemo(
-        () => getDisplayAgents(agents, pageTab),
-        [pageTab, agents],
-    );
     const loadKnowledgeOptions = useCallback(async () => {
         try {
             const data = await apiListKnowledgeBases();
@@ -275,34 +257,12 @@ export function AgentsPage({
         },
     ];
 
-    const subagentColumns: Column<AgentInfo>[] = [
-        { key: "name", header: "名称", sortable: true, filterable: true },
-        {
-            key: "builtIn",
-            header: "类型",
-            filterable: true,
-            render: (row) => (
-                <StatusBadge status={row.builtIn ? "builtIn" : "custom"} />
-            ),
-        },
-        { key: "model", header: "模型", sortable: true },
-        {
-            key: "description",
-            header: "描述",
-            render: (row) => (
-                <span className="truncate max-w-[200px] inline-block align-bottom">
-                    {row.description || "—"}
-                </span>
-            ),
-        },
-    ];
-
     const handleOpenCreate = async () => {
         await loadKnowledgeOptions();
         setEditingAgent(null);
         setFormName("");
         setFormModel(modelOptions[0] || "");
-        setFormMode("primary");
+        setFormMode("subagent");
         setFormSteps("50");
         setFormPrompt("");
         setFormDescription("");
@@ -321,82 +281,12 @@ export function AgentsPage({
         setDialogOpen(true);
     };
 
-    const handleOpenSubagentCreate = () => {
-        setEditingSubagent(null);
-        setSubFormName("");
-        setSubFormModel(modelOptions[0] || "");
-        setSubFormDescription("");
-        setSubFormPrompt("");
-        setSubFormSteps("50");
-        setSubFormDisable(false);
-        setSubDialogOpen(true);
-    };
-
-    const handleOpenSubagentEdit = async (agent: AgentInfo) => {
-        setEditingSubagent(agent);
-        setSubFormName(agent.name);
-        setSubFormModel(agent.model || "");
-        setSubFormDescription("");
-        setSubFormPrompt("");
-        setSubFormSteps("50");
-        setSubFormDisable(false);
-        try {
-            const detail = await apiGetAgent(agent.name);
-            setSubFormDescription(detail.description || "");
-            setSubFormPrompt(detail.prompt || "");
-            setSubFormSteps(String(detail.steps ?? 50));
-            setSubFormDisable(detail.disable ?? false);
-        } catch {
-            setSubFormSteps("50");
-        }
-        setSubDialogOpen(true);
-    };
-
-    const handleSubagentSave = async () => {
-        const name = subFormName.trim();
-        if (!isValidAgentNameInput(name)) {
-            toast.error("名称只能包含小写字母、数字和单连字符，长度 1-64");
-            return;
-        }
-        if (!isValidStepsInput(subFormSteps)) {
-            toast.error("最大轮数须在 1-200 之间");
-            return;
-        }
-        setSubFormSaving(true);
-        try {
-            const data = buildSubagentFormData({
-                name,
-                model: subFormModel,
-                description: subFormDescription,
-                prompt: subFormPrompt,
-                steps: subFormSteps,
-                disable: subFormDisable,
-            });
-            if (editingSubagent) {
-                await apiSetAgent(name, data);
-                toast.success("子智能体已更新");
-            } else {
-                await apiCreateAgent(name, data);
-                toast.success("子智能体已创建");
-            }
-            setSubDialogOpen(false);
-            loadAgents();
-            dispatchConfigChange("agents");
-        } catch (e) {
-            toast.error(
-                "保存失败: " + (e instanceof Error ? e.message : "未知错误"),
-            );
-        } finally {
-            setSubFormSaving(false);
-        }
-    };
-
     const handleOpenEdit = async (agent: AgentInfo) => {
         await loadKnowledgeOptions();
         setEditingAgent(agent);
         setFormName(agent.name);
         setFormModel(agent.model || "");
-        setFormMode(agent.mode || "primary");
+        setFormMode(agent.mode || "subagent");
         setFormPrompt("");
         setFormDescription("");
         setFormVariant("");
@@ -596,58 +486,19 @@ export function AgentsPage({
                     <h2 className="text-xl font-semibold text-text-bright">智能体模板</h2>
                     <p className="text-sm text-text-muted mt-0.5">管理 AI Agent 的模型、提示词和权限配置</p>
                 </div>
-                {pageTab === "subagent" ? (
-                    <Button onClick={handleOpenSubagentCreate}>新建智能体模板</Button>
-                ) : (
-                    <Button onClick={handleOpenCreate}>新建智能体模板</Button>
-                )}
-            </div>
-            <div className="flex gap-1 rounded-lg bg-surface-2 p-1">
-                <button
-                    type="button"
-                    className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                        pageTab === "all"
-                            ? "bg-surface-1 text-text-primary shadow-sm"
-                            : "text-text-muted hover:text-text-secondary"
-                    }`}
-                    onClick={() => setPageTab("all")}
-                >
-                    全部智能体
-                </button>
-                <button
-                    type="button"
-                    className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                        pageTab === "primary"
-                            ? "bg-surface-1 text-text-primary shadow-sm"
-                            : "text-text-muted hover:text-text-secondary"
-                    }`}
-                    onClick={() => setPageTab("primary")}
-                >
-                    主智能体
-                </button>
-                <button
-                    type="button"
-                    className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                        pageTab === "subagent"
-                            ? "bg-surface-1 text-text-primary shadow-sm"
-                            : "text-text-muted hover:text-text-secondary"
-                    }`}
-                    onClick={() => setPageTab("subagent")}
-                >
-                    子智能体
-                </button>
+                <Button onClick={handleOpenCreate}>新建智能体模板</Button>
             </div>
             <DataTable<AgentInfo>
-                columns={pageTab === "subagent" ? subagentColumns : columns}
-                data={displayAgents}
+                columns={columns}
+                data={agents}
                 searchable
-                searchPlaceholder={pageTab === "subagent" ? "搜索子智能体..." : pageTab === "primary" ? "搜索主智能体..." : "搜索智能体..."}
+                searchPlaceholder="搜索智能体..."
                 selectable
                 onSelectionChange={setSelected}
-                emptyMessage={pageTab === "subagent" ? '暂无子智能体，点击「新建智能体模板」添加' : pageTab === "primary" ? '暂无主智能体' : '暂无智能体，点击「新建智能体模板」添加'}
+                emptyMessage='暂无智能体，点击「新建智能体模板」添加'
                 actions={(row) => (
                     <div className="flex gap-1.5">
-                        {pageTab !== "subagent" && row.name !== defaultAgent && (
+                        {row.name !== defaultAgent && (
                             <Button
                                 size="xs"
                                 variant="outline"
@@ -658,11 +509,7 @@ export function AgentsPage({
                         <Button
                             size="xs"
                             variant="outline"
-                            onClick={() =>
-                                pageTab === "subagent"
-                                    ? handleOpenSubagentEdit(row)
-                                    : handleOpenEdit(row)
-                            }>
+                            onClick={() => handleOpenEdit(row)}>
                             编辑
                         </Button>
                         {!row.builtIn && (
@@ -956,79 +803,6 @@ export function AgentsPage({
                         />
                     </div>
                 )}
-            </FormDialog>
-            <FormDialog
-                open={subDialogOpen}
-                onOpenChange={setSubDialogOpen}
-                title={editingSubagent ? "编辑子智能体" : "新建子智能体"}
-                onSubmit={handleSubagentSave}
-                loading={subFormSaving}>
-                <div className="space-y-4 max-h-[55vh] overflow-y-auto">
-                    <div>
-                        <Label>名称</Label>
-                        <Input
-                            value={subFormName}
-                            onChange={(e) => setSubFormName(e.target.value)}
-                            disabled={!!editingSubagent}
-                            placeholder="例如 my-subagent"
-                        />
-                    </div>
-                    <div>
-                        <Label>模型</Label>
-                        <Select
-                            value={subFormModel}
-                            onValueChange={setSubFormModel}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="选择模型" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {modelOptions.map((m) => (
-                                    <SelectItem key={m} value={m}>
-                                        {m}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div>
-                        <Label>描述</Label>
-                        <Input
-                            value={subFormDescription}
-                            onChange={(e) => setSubFormDescription(e.target.value)}
-                            placeholder="可选，子智能体的简短描述"
-                        />
-                    </div>
-                    <div>
-                        <Label>提示词 (Prompt)</Label>
-                        <Textarea
-                            value={subFormPrompt}
-                            onChange={(e) => setSubFormPrompt(e.target.value)}
-                            rows={4}
-                            placeholder="可选，自定义子智能体提示词"
-                        />
-                    </div>
-                    <div>
-                        <Label>步数 (1-200)</Label>
-                        <Input
-                            type="number"
-                            value={subFormSteps}
-                            onChange={(e) => setSubFormSteps(e.target.value)}
-                            min={1}
-                            max={200}
-                        />
-                        <p className="text-xs text-text-muted mt-1">
-                            子智能体最大思考步骤数。建议：简单任务 10-30，复杂任务 50-100
-                        </p>
-                    </div>
-                    <label className="flex items-center gap-2 text-sm" title="子智能体完全不可用，无法被主 Agent 调用">
-                        <input
-                            type="checkbox"
-                            checked={subFormDisable}
-                            onChange={(e) => setSubFormDisable(e.target.checked)}
-                        />
-                        禁用
-                    </label>
-                </div>
             </FormDialog>
             <ConfirmDialog
                 open={confirmOpen}

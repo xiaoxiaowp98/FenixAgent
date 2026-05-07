@@ -574,6 +574,7 @@ export function ModelsPage() {
         searchPlaceholder="搜索服务商..."
         selectable
         onSelectionChange={setSelected}
+        defaultExpandAll
         rowKey={(row) => row.id}
         emptyMessage={'暂无服务商，点击「新建服务商」添加'}
         expandableRow={(row) => (

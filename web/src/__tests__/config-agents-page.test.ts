@@ -1,299 +1,238 @@
 import { describe, test, expect } from "bun:test";
 import {
-  buildAgentPayload,
-  buildKnowledgeFormState,
-  filterKnowledgeBaseIds,
-  getDefaultKnowledgeFormState,
-  isValidAgentNameInput,
-  isValidStepsInput,
-  filterSubagents,
-  getDisplayAgents,
-  getSubagentColumnKeys,
-  getFullAgentColumnKeys,
-  buildSubagentFormData,
+    buildAgentPayload,
+    buildKnowledgeFormState,
+    filterKnowledgeBaseIds,
+    getDefaultKnowledgeFormState,
+    isValidAgentNameInput,
+    isValidStepsInput,
+    getFullAgentColumnKeys,
+    buildSubagentFormData,
 } from "../pages/AgentsPage";
 import type { AgentInfo } from "../types/config";
 
 describe("isValidAgentNameInput", () => {
-  test("valid name", () => {
-    expect(isValidAgentNameInput("my-agent")).toBe(true);
-  });
+    test("valid name", () => {
+        expect(isValidAgentNameInput("my-agent")).toBe(true);
+    });
 
-  test("uppercase rejected", () => {
-    expect(isValidAgentNameInput("MY-AGENT")).toBe(false);
-  });
+    test("uppercase rejected", () => {
+        expect(isValidAgentNameInput("MY-AGENT")).toBe(false);
+    });
 
-  test("single char valid", () => {
-    expect(isValidAgentNameInput("a")).toBe(true);
-  });
+    test("single char valid", () => {
+        expect(isValidAgentNameInput("a")).toBe(true);
+    });
 
-  test("double hyphen rejected", () => {
-    expect(isValidAgentNameInput("a--b")).toBe(false);
-  });
+    test("double hyphen rejected", () => {
+        expect(isValidAgentNameInput("a--b")).toBe(false);
+    });
 
-  test("empty rejected", () => {
-    expect(isValidAgentNameInput("")).toBe(false);
-  });
+    test("empty rejected", () => {
+        expect(isValidAgentNameInput("")).toBe(false);
+    });
 });
 
 describe("isValidStepsInput", () => {
-  test("valid steps", () => {
-    expect(isValidStepsInput("50")).toBe(true);
-  });
+    test("valid steps", () => {
+        expect(isValidStepsInput("50")).toBe(true);
+    });
 
-  test("zero rejected", () => {
-    expect(isValidStepsInput("0")).toBe(false);
-  });
+    test("zero rejected", () => {
+        expect(isValidStepsInput("0")).toBe(false);
+    });
 
-  test("over 200 rejected", () => {
-    expect(isValidStepsInput("201")).toBe(false);
-  });
+    test("over 200 rejected", () => {
+        expect(isValidStepsInput("201")).toBe(false);
+    });
 
-  test("non-number rejected", () => {
-    expect(isValidStepsInput("abc")).toBe(false);
-  });
+    test("non-number rejected", () => {
+        expect(isValidStepsInput("abc")).toBe(false);
+    });
 });
 
 describe("isValidAgentNameInput — Task 5 回归", () => {
-  test("带连字符的合法名称", () => {
-    expect(isValidAgentNameInput("my-custom-agent")).toBe(true);
-  });
+    test("带连字符的合法名称", () => {
+        expect(isValidAgentNameInput("my-custom-agent")).toBe(true);
+    });
 
-  test("纯数字名称", () => {
-    expect(isValidAgentNameInput("123")).toBe(true);
-  });
+    test("纯数字名称", () => {
+        expect(isValidAgentNameInput("123")).toBe(true);
+    });
 
-  test("64 字符名称仍合法", () => {
-    expect(isValidAgentNameInput("a".repeat(64))).toBe(true);
-  });
+    test("64 字符名称仍合法", () => {
+        expect(isValidAgentNameInput("a".repeat(64))).toBe(true);
+    });
 
-  test("65 字符名称不合法", () => {
-    expect(isValidAgentNameInput("a".repeat(65))).toBe(false);
-  });
+    test("65 字符名称不合法", () => {
+        expect(isValidAgentNameInput("a".repeat(65))).toBe(false);
+    });
 });
 
 describe("isValidStepsInput — Task 5 回归", () => {
-  test("边界值 1", () => {
-    expect(isValidStepsInput("1")).toBe(true);
-  });
+    test("边界值 1", () => {
+        expect(isValidStepsInput("1")).toBe(true);
+    });
 
-  test("边界值 200", () => {
-    expect(isValidStepsInput("200")).toBe(true);
-  });
+    test("边界值 200", () => {
+        expect(isValidStepsInput("200")).toBe(true);
+    });
 
-  test("负数", () => {
-    expect(isValidStepsInput("-1")).toBe(false);
-  });
+    test("负数", () => {
+        expect(isValidStepsInput("-1")).toBe(false);
+    });
 
-  test("小数被 parseInt 截断为整数", () => {
-    // parseInt("1.5") = 1, 所以 isValidStepsInput("1.5") = true
-    expect(isValidStepsInput("1.5")).toBe(true);
-  });
-});
-
-const mockAgents: AgentInfo[] = [
-  { name: "agent-a", builtIn: false, model: "gpt-4", mode: "primary" },
-  { name: "agent-b", builtIn: true, model: "gpt-4", mode: "subagent" },
-  { name: "agent-c", builtIn: false, model: "gpt-3.5", mode: null },
-  { name: "agent-d", builtIn: false, model: "gpt-4", mode: "subagent" },
-];
-
-describe("filterSubagents", () => {
-  test("仅返回 mode=subagent 的条目", () => {
-    const result = filterSubagents(mockAgents);
-    expect(result).toHaveLength(2);
-    expect(result.map((a) => a.name)).toEqual(["agent-b", "agent-d"]);
-  });
-
-  test("无 mode=subagent 时返回空数组", () => {
-    const noSubs = mockAgents.filter((a) => a.mode !== "subagent");
-    expect(filterSubagents(noSubs)).toEqual([]);
-  });
-
-  test("mode=null 不匹配", () => {
-    const result = filterSubagents(mockAgents);
-    expect(result.find((a) => a.name === "agent-c")).toBeUndefined();
-  });
-});
-
-describe("getDisplayAgents", () => {
-  test("pageTab=all 返回全量", () => {
-    expect(getDisplayAgents(mockAgents, "all")).toHaveLength(4);
-  });
-
-  test("pageTab=subagent 返回过滤后数据", () => {
-    expect(getDisplayAgents(mockAgents, "subagent")).toHaveLength(2);
-  });
-
-  test("pageTab=primary 返回主智能体", () => {
-    const result = getDisplayAgents(mockAgents, "primary");
-    expect(result).toHaveLength(2);
-    expect(result.map((a) => a.name)).toEqual(["agent-a", "agent-c"]);
-  });
-
-  test("空列表 pageTab=subagent 返回空数组", () => {
-    expect(getDisplayAgents([], "subagent")).toEqual([]);
-  });
-
-  test("空列表 pageTab=primary 返回空数组", () => {
-    expect(getDisplayAgents([], "primary")).toEqual([]);
-  });
-});
-
-describe("getSubagentColumnKeys", () => {
-  test("返回正确的 4 个列 key", () => {
-    const keys = getSubagentColumnKeys();
-    expect(keys).toEqual(["name", "builtIn", "model", "description"]);
-  });
-
-  test("不包含 mode 和 default", () => {
-    const keys = getSubagentColumnKeys();
-    expect(keys).not.toContain("mode");
-    expect(keys).not.toContain("default");
-  });
+    test("小数被 parseInt 截断为整数", () => {
+        // parseInt("1.5") = 1, 所以 isValidStepsInput("1.5") = true
+        expect(isValidStepsInput("1.5")).toBe(true);
+    });
 });
 
 describe("getFullAgentColumnKeys", () => {
-  test("返回正确的 5 个列 key", () => {
-    const keys = getFullAgentColumnKeys();
-    expect(keys).toEqual(["name", "builtIn", "model", "mode", "default"]);
-  });
+    test("返回正确的 5 个列 key", () => {
+        const keys = getFullAgentColumnKeys();
+        expect(keys).toEqual(["name", "builtIn", "model", "mode", "default"]);
+    });
 
-  test("不包含 description", () => {
-    const keys = getFullAgentColumnKeys();
-    expect(keys).not.toContain("description");
-  });
+    test("不包含 description", () => {
+        const keys = getFullAgentColumnKeys();
+        expect(keys).not.toContain("description");
+    });
 });
 
 describe("buildSubagentFormData", () => {
-  test("基本构建", () => {
-    const data = buildSubagentFormData({
-      name: "my-sub",
-      model: "gpt-4",
-      description: "test desc",
-      prompt: "do something",
-      steps: "50",
-      disable: false,
+    test("基本构建", () => {
+        const data = buildSubagentFormData({
+            name: "my-sub",
+            model: "gpt-4",
+            description: "test desc",
+            prompt: "do something",
+            steps: "50",
+            disable: false,
+        });
+        expect(data).toEqual({
+            mode: "subagent",
+            model: "gpt-4",
+            steps: 50,
+            prompt: "do something",
+            description: "test desc",
+            disable: false,
+        });
     });
-    expect(data).toEqual({
-      mode: "subagent",
-      model: "gpt-4",
-      steps: 50,
-      prompt: "do something",
-      description: "test desc",
-      disable: false,
-    });
-  });
 
-  test("空字符串转 undefined", () => {
-    const data = buildSubagentFormData({
-      name: "my-sub",
-      model: "",
-      description: "",
-      prompt: "",
-      steps: "30",
-      disable: false,
+    test("空字符串转 undefined", () => {
+        const data = buildSubagentFormData({
+            name: "my-sub",
+            model: "",
+            description: "",
+            prompt: "",
+            steps: "30",
+            disable: false,
+        });
+        expect(data.model).toBeUndefined();
+        expect(data.prompt).toBeUndefined();
+        expect(data.description).toBeUndefined();
     });
-    expect(data.model).toBeUndefined();
-    expect(data.prompt).toBeUndefined();
-    expect(data.description).toBeUndefined();
-  });
 
-  test("steps 解析为数字", () => {
-    const data = buildSubagentFormData({
-      name: "my-sub",
-      model: "gpt-4",
-      description: "",
-      prompt: "",
-      steps: "100",
-      disable: false,
+    test("steps 解析为数字", () => {
+        const data = buildSubagentFormData({
+            name: "my-sub",
+            model: "gpt-4",
+            description: "",
+            prompt: "",
+            steps: "100",
+            disable: false,
+        });
+        expect(data.steps).toBe(100);
     });
-    expect(data.steps).toBe(100);
-  });
 
-  test("disable 透传", () => {
-    const data = buildSubagentFormData({
-      name: "my-sub",
-      model: "gpt-4",
-      description: "",
-      prompt: "",
-      steps: "50",
-      disable: true,
+    test("disable 透传", () => {
+        const data = buildSubagentFormData({
+            name: "my-sub",
+            model: "gpt-4",
+            description: "",
+            prompt: "",
+            steps: "50",
+            disable: true,
+        });
+        expect(data.disable).toBe(true);
     });
-    expect(data.disable).toBe(true);
-  });
 
-  test("不含高级字段", () => {
-    const data = buildSubagentFormData({
-      name: "my-sub",
-      model: "gpt-4",
-      description: "",
-      prompt: "",
-      steps: "50",
-      disable: false,
+    test("不含高级字段", () => {
+        const data = buildSubagentFormData({
+            name: "my-sub",
+            model: "gpt-4",
+            description: "",
+            prompt: "",
+            steps: "50",
+            disable: false,
+        });
+        expect(data).not.toHaveProperty("variant");
+        expect(data).not.toHaveProperty("temperature");
+        expect(data).not.toHaveProperty("top_p");
+        expect(data).not.toHaveProperty("color");
+        expect(data).not.toHaveProperty("hidden");
+        expect(data).not.toHaveProperty("permission");
     });
-    expect(data).not.toHaveProperty("variant");
-    expect(data).not.toHaveProperty("temperature");
-    expect(data).not.toHaveProperty("top_p");
-    expect(data).not.toHaveProperty("color");
-    expect(data).not.toHaveProperty("hidden");
-    expect(data).not.toHaveProperty("permission");
-  });
 });
 
 describe("Agent knowledge form helpers", () => {
-  test("读取 AgentDetail.knowledge 时正确回填 knowledgeBaseIds", () => {
-    expect(buildKnowledgeFormState({
-      knowledge: {
-        knowledgeBaseIds: ["kb_a", "kb_b"],
-        policy: { searchFirst: false, maxResults: 8 },
-      },
-    } as any)).toEqual({
-      knowledgeBaseIds: ["kb_a", "kb_b"],
-      searchFirst: false,
-      maxResults: "8",
-    });
-  });
-
-  test("knowledge 默认值渲染 searchFirst/maxResults", () => {
-    expect(getDefaultKnowledgeFormState()).toEqual({
-      knowledgeBaseIds: [],
-      searchFirst: true,
-      maxResults: "5",
-    });
-  });
-
-  test("保存时提交 payload 包含 knowledge.knowledgeBaseIds 与 policy.maxResults", () => {
-    const payload = buildAgentPayload({
-      model: "gpt-4o",
-      mode: "primary",
-      steps: "50",
-      prompt: "",
-      description: "",
-      variant: "",
-      temperature: "",
-      topP: "",
-      color: "",
-      hidden: false,
-      disable: false,
-      permission: null,
-      knowledge: {
-        knowledgeBaseIds: ["kb_a", "kb_b"],
-        searchFirst: true,
-        maxResults: "7",
-      },
+    test("读取 AgentDetail.knowledge 时正确回填 knowledgeBaseIds", () => {
+        expect(
+            buildKnowledgeFormState({
+                knowledge: {
+                    knowledgeBaseIds: ["kb_a", "kb_b"],
+                    policy: { searchFirst: false, maxResults: 8 },
+                },
+            } as any),
+        ).toEqual({
+            knowledgeBaseIds: ["kb_a", "kb_b"],
+            searchFirst: false,
+            maxResults: "8",
+        });
     });
 
-    expect(payload.knowledge).toEqual({
-      knowledgeBaseIds: ["kb_a", "kb_b"],
-      policy: { searchFirst: true, maxResults: 7 },
+    test("knowledge 默认值渲染 searchFirst/maxResults", () => {
+        expect(getDefaultKnowledgeFormState()).toEqual({
+            knowledgeBaseIds: [],
+            searchFirst: true,
+            maxResults: "5",
+        });
     });
-  });
 
-  test("过滤掉已不存在的知识库 id", () => {
-    expect(filterKnowledgeBaseIds(
-      ["kb_a", "kb_missing", "kb_b"],
-      [{ id: "kb_a" }, { id: "kb_b" }] as any,
-    )).toEqual(["kb_a", "kb_b"]);
-  });
+    test("保存时提交 payload 包含 knowledge.knowledgeBaseIds 与 policy.maxResults", () => {
+        const payload = buildAgentPayload({
+            model: "gpt-4o",
+            mode: "primary",
+            steps: "50",
+            prompt: "",
+            description: "",
+            variant: "",
+            temperature: "",
+            topP: "",
+            color: "",
+            hidden: false,
+            disable: false,
+            permission: null,
+            knowledge: {
+                knowledgeBaseIds: ["kb_a", "kb_b"],
+                searchFirst: true,
+                maxResults: "7",
+            },
+        });
+
+        expect(payload.knowledge).toEqual({
+            knowledgeBaseIds: ["kb_a", "kb_b"],
+            policy: { searchFirst: true, maxResults: 7 },
+        });
+    });
+
+    test("过滤掉已不存在的知识库 id", () => {
+        expect(
+            filterKnowledgeBaseIds(["kb_a", "kb_missing", "kb_b"], [
+                { id: "kb_a" },
+                { id: "kb_b" },
+            ] as any),
+        ).toEqual(["kb_a", "kb_b"]);
+    });
 });

@@ -218,55 +218,6 @@ export function Sidebar({
           </div>
         ))}
       </nav>
-
-      {/* ---- Status panel ---- */}
-      <div
-        className={[
-          "border-t border-border-subtle flex-shrink-0 overflow-hidden",
-          "bg-surface-0",
-          "transition-all duration-300",
-          collapsed
-            ? "flex flex-col items-center gap-1 px-0 py-3"
-            : "px-3 py-3.5",
-        ].join(" ")}
-      >
-        {collapsed ? (
-          <>
-            {/* Collapsed: just dots */}
-            <span className="block w-1.5 h-1.5 rounded-full bg-status-active" />
-            <span className="block w-1.5 h-1.5 rounded-full bg-brand" />
-          </>
-        ) : (
-          <>
-            {/* Agents row */}
-            <div className="flex items-center gap-2 py-1 text-xs text-text-secondary whitespace-nowrap">
-              <span className="w-1.5 h-1.5 rounded-full bg-status-active flex-shrink-0" />
-              <span>Agents</span>
-              <span
-                className={[
-                  "ml-auto font-mono text-[10px] font-semibold",
-                  "text-white px-1.5 py-px rounded-full",
-                  "bg-status-active",
-                ].join(" ")}
-              >
-                LIVE
-              </span>
-              <span className="font-mono text-[11px] font-semibold text-text-bright">
-                3
-              </span>
-            </div>
-
-            {/* Sessions row */}
-            <div className="flex items-center gap-2 py-1 text-xs text-text-secondary whitespace-nowrap">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0" />
-              <span>活跃会话</span>
-              <span className="ml-auto font-mono text-[11px] font-semibold text-text-bright">
-                12
-              </span>
-            </div>
-          </>
-        )}
-      </div>
     </aside>
   );
 }

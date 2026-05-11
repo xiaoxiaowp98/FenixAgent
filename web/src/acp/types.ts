@@ -136,9 +136,18 @@ export interface ProxySessionUpdateMessage {
   };
 }
 
+export interface PromptUsage {
+  totalTokens?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+}
+
 export interface ProxyPromptCompleteMessage {
   type: "prompt_complete";
-  payload: { stopReason: string };
+  payload: {
+    stopReason: string;
+    usage?: PromptUsage;
+  };
 }
 
 export interface ProxyPermissionRequestMessage {

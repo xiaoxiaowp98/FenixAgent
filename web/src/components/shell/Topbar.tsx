@@ -1,6 +1,7 @@
-import { Search } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Search, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { useSession } from "../../lib/auth-client";
+import { useSession, signOut } from "../../lib/auth-client";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -36,6 +37,24 @@ export function Topbar({ currentPage }: TopbarProps) {
   const userEmail = session?.user?.email ?? "";
   const avatarLetter = userEmail.charAt(0).toUpperCase() || "U";
   const pageLabel = PAGE_LABELS[currentPage] ?? currentPage;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
+
+  const handleLogout = async () => {
+    setMenuOpen(false);
+    await signOut({ fetchOptions: { credentials: "include" } });
+  };
 
   return (
     <header
@@ -89,19 +108,59 @@ export function Topbar({ currentPage }: TopbarProps) {
         {/* Theme toggle */}
         <ThemeToggle />
 
-        {/* User avatar */}
-        <div
-          className={[
-            "w-8 h-8 rounded-full flex-shrink-0",
-            "flex items-center justify-center",
-            "bg-gradient-to-br from-brand to-brand-light",
-            "text-white text-[13px] font-semibold",
-            "cursor-pointer transition-shadow duration-150",
-            "hover:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]",
-          ].join(" ")}
-          title={userEmail}
-        >
-          {avatarLetter}
+        {/* User avatar + dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className={[
+              "w-8 h-8 rounded-full flex-shrink-0",
+              "flex items-center justify-center",
+              "bg-gradient-to-br from-brand to-brand-light",
+              "text-white text-[13px] font-semibold",
+              "cursor-pointer transition-shadow duration-150",
+              "hover:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]",
+            ].join(" ")}
+            title={userEmail}
+          >
+            {avatarLetter}
+          </button>
+
+          {menuOpen && (
+            <div
+              ref={menuRef}
+              className={[
+                "absolute right-0 top-full mt-2",
+                "w-52 py-1.5",
+                "rounded-[var(--radius-lg)]",
+                "border border-border-default bg-surface-2",
+                "shadow-lg shadow-black/10",
+                "z-50",
+              ].join(" ")}
+            >
+              {/* User info */}
+              <div className="px-3 py-2 border-b border-border-subtle">
+                <p className="text-[13px] font-medium text-text-bright truncate">
+                  {userEmail}
+                </p>
+              </div>
+
+              {/* Logout */}
+              <button
+                type="button"
+                onClick={handleLogout}
+                className={[
+                  "flex items-center gap-2 w-full px-3 py-2",
+                  "text-[13px] text-text-default",
+                  "hover:bg-surface-elevated rounded-[var(--radius)] mx-1",
+                  "transition-colors duration-100",
+                ].join(" ")}
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                退出登录
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

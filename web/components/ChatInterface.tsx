@@ -534,12 +534,19 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       handleSessionUpdate(sessionId, update);
     });
 
-    client.setPromptCompleteHandler((stopReason) => {
-      console.log("[ChatInterface] Prompt complete:", stopReason);
+    client.setPromptCompleteHandler((stopReason, usage) => {
+      console.log("[ChatInterface] Prompt complete:", stopReason, usage);
       // Always set isLoading=false when prompt completes
       // This includes stopReason="cancelled" (which is the expected response after client.cancel())
       // Note: Tool calls are already marked as "canceled" in handleCancel before this fires
       setIsLoading(false);
+
+      // inputTokens === 0 indicates the prompt was not processed (error)
+      if (usage && usage.inputTokens === 0) {
+        setErrorMessage("请求未能正常处理，请检查 Agent 或大模型状态后重试");
+        if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+        errorTimerRef.current = setTimeout(() => setErrorMessage(null), 8000);
+      }
     });
 
     client.setPermissionRequestHandler(handlePermissionRequest);

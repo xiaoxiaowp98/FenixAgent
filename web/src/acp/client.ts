@@ -37,7 +37,7 @@ export type ConnectionStateHandler = (
 ) => void;
 export type SessionUpdateHandler = (sessionId: string, update: SessionUpdate) => void;
 export type SessionCreatedHandler = (sessionId: string) => void;
-export type PromptCompleteHandler = (stopReason: string) => void;
+export type PromptCompleteHandler = (stopReason: string, usage?: import("./types").PromptUsage) => void;
 export type PermissionRequestHandler = (request: PermissionRequestPayload) => void;
 export type BrowserToolCallHandler = (
   params: BrowserToolParams,
@@ -487,7 +487,7 @@ export class ACPClient {
         break;
 
       case "prompt_complete":
-        this.onPromptComplete?.(response.payload.stopReason);
+        this.onPromptComplete?.(response.payload.stopReason, response.payload.usage);
         break;
 
       case "permission_request":

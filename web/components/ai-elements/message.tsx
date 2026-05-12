@@ -9,10 +9,19 @@ import {
     TooltipTrigger,
 } from "../ui/tooltip";
 import { cn } from "../../src/lib/utils";
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "../ui/dialog";
 import type { FileUIPart, UIMessage } from "ai";
 import {
     ChevronLeftIcon,
     ChevronRightIcon,
+    Maximize2,
+    Minimize2,
     PaperclipIcon,
     XIcon,
 } from "lucide-react";
@@ -60,6 +69,95 @@ class StreamdownErrorBoundary extends Component<
 const LazyStreamdown = lazy(() =>
     import("streamdown").then((m) => ({ default: m.Streamdown })),
 );
+
+const PREVIEW_SIZES = [
+    { key: "sm", label: "小", w: "60vw", maxW: 800, h: "60vh", maxH: 600 },
+    { key: "md", label: "中", w: "80vw", maxW: 1100, h: "75vh", maxH: 800 },
+    { key: "lg", label: "大", w: "92vw", maxW: 1500, h: "88vh", maxH: 960 },
+    { key: "full", label: "全屏", w: "98vw", maxW: 9999, h: "95vh", maxH: 9999 },
+] as const;
+
+function IframePreview({ src, width, height, title, ...rest }: Record<string, unknown>) {
+    const [expanded, setExpanded] = useState(false);
+    const [sizeIdx, setSizeIdx] = useState(2); // 默认"大"
+    const size = PREVIEW_SIZES[sizeIdx];
+    return (
+        <>
+            <div className="relative group/iframe">
+                <iframe
+                    src={src as string}
+                    width={(width as string) || "100%"}
+                    height={(height as string) || "400"}
+                    title={title as string}
+                    sandbox="allow-scripts allow-same-origin allow-popups"
+                    loading="lazy"
+                    style={{ border: "1px solid #e5e7eb", borderRadius: 8 }}
+                    {...Object.fromEntries(
+                        Object.entries(rest).filter(([k]) => !["children", "node"].includes(k)),
+                    )}
+                />
+                <button
+                    type="button"
+                    onClick={() => setExpanded(true)}
+                    className="absolute top-2 right-2 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 opacity-0 group-hover/iframe:opacity-100 transition-opacity hover:bg-white dark:hover:bg-gray-700 shadow-sm"
+                    title="扩大"
+                >
+                    <Maximize2 className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                </button>
+            </div>
+            <Dialog open={expanded} onOpenChange={setExpanded}>
+                <DialogContent
+                    showCloseButton={false}
+                    className="flex flex-col p-0 gap-0 overflow-hidden"
+                    style={{ width: size.w, maxWidth: size.maxW, height: size.h, maxHeight: size.maxH }}
+                >
+                    <DialogHeader className="flex-row items-center justify-between px-3 py-2 border-b shrink-0 gap-2">
+                        <DialogTitle className="text-sm font-medium truncate">{(title as string) || "预览"}</DialogTitle>
+                        <div className="flex items-center gap-1 shrink-0">
+                            <div className="flex items-center rounded-md border border-border/60 overflow-hidden">
+                                {PREVIEW_SIZES.map((s, i) => (
+                                    <button
+                                        key={s.key}
+                                        type="button"
+                                        onClick={() => setSizeIdx(i)}
+                                        className={cn(
+                                            "px-2 py-0.5 text-xs transition-colors",
+                                            i === sizeIdx
+                                                ? "bg-brand text-white"
+                                                : "hover:bg-gray-100 dark:hover:bg-gray-700 text-text-secondary",
+                                        )}
+                                    >
+                                        {s.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <DialogClose asChild>
+                                <button
+                                    type="button"
+                                    className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ml-1"
+                                    title="缩小"
+                                >
+                                    <Minimize2 className="h-4 w-4" />
+                                </button>
+                            </DialogClose>
+                        </div>
+                    </DialogHeader>
+                    <div className="flex-1 min-h-0">
+                        <iframe
+                            src={src as string}
+                            title={title as string}
+                            sandbox="allow-scripts allow-same-origin allow-popups"
+                            className="w-full h-full border-0"
+                            {...Object.fromEntries(
+                                Object.entries(rest).filter(([k]) => !["children", "node"].includes(k)),
+                            )}
+                        />
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
     from: UIMessage["role"];
@@ -387,20 +485,7 @@ export const MessageResponse = memo(
                                     )}
                                 />
                             ),
-                            iframe: ({ src, width, height, title, ...rest }: Record<string, unknown>) => (
-                                <iframe
-                                    src={src as string}
-                                    width={(width as string) || "100%"}
-                                    height={(height as string) || "400"}
-                                    title={title as string}
-                                    sandbox="allow-scripts allow-same-origin allow-popups"
-                                    loading="lazy"
-                                    style={{ border: "1px solid #e5e7eb", borderRadius: 8 }}
-                                    {...Object.fromEntries(
-                                        Object.entries(rest).filter(([k]) => !["children", "node"].includes(k)),
-                                    )}
-                                />
-                            ),
+                            iframe: (props: Record<string, unknown>) => <IframePreview {...props} />,
                         }}
                         urlTransform={urlTransform}
                         className={cn(

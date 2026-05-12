@@ -286,7 +286,7 @@ app.get("/:sessionId/user/:filePath{.+}", sessionAuth, async (c) => {
         c.header("Content-Type", mimeType);
         c.header(
             "Content-Security-Policy",
-            "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline'; img-src * data: blob:; font-src * data:; media-src * blob:; connect-src *",
+            "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval' blob:; style-src * 'unsafe-inline'; img-src * data: blob:; font-src * data:; media-src * blob:; connect-src *",
         );
         return c.body(createReadStream(resolved) as any);
     }

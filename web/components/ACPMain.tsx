@@ -194,7 +194,7 @@ export function ACPMain({ client, agentId, initialCwd, readonly, rcsSessionId }:
 
       {/* 聊天区域 */}
       <div className="flex-1 flex flex-col min-w-0">
-        <ChatInterface ref={chatRef} client={client} agentId={agentId} cwd={cwd} cwdReady={cwdReady} readonly={readonly} rcsSessionId={rcsSessionId} />
+        <ChatInterface ref={chatRef} client={client} agentId={agentId} cwd={cwd} cwdReady={cwdReady} readonly={readonly} rcsSessionId={rcsSessionId} onSessionCreated={(sessionId) => setInitialActiveSessionId(sessionId)} />
       </div>
     </div>
   );
@@ -222,10 +222,10 @@ function SidebarSessionList({
   const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!activeId && initialActiveSessionId) {
+    if (initialActiveSessionId) {
       setActiveId(initialActiveSessionId);
     }
-  }, [activeId, initialActiveSessionId]);
+  }, [initialActiveSessionId]);
 
   const loadSessions = useCallback(async () => {
     if (!cwdReady) {

@@ -409,6 +409,7 @@ bun test web/src/__tests__/app-i18n.test.ts
 - 路径：`src/__tests__/*.test.ts`
 - 模式：单元测试为主，临时文件/目录用于 config 测试
 - Mock：使用 `mock.module()` 模拟依赖，需在 `import` 语句之前注册
+- 注释规范：每个 `test(...)` 上方补一行中文注释，和 test label 基本匹配即可；如果测试较复杂，可补充少量说明
 
 #### Mock 注意事项
 
@@ -431,6 +432,7 @@ bun test web/src/__tests__/app-i18n.test.ts
 - 组件测试：使用 React Testing Library + ReactDOMServer
 - **文件读取路径**：使用 `import.meta.dirname` 或 `join(import.meta.dirname, "..")` 构建 web 根目录，不使用相对路径字符串（如 `"src/App.tsx"`），因为 CWD 可能不是 `web/`
 - **shadcn 组件导入**：使用相对路径如 `../../components/ui/skeleton`（从 `__tests__/` 出发）
+- 注释规范：每个 test(...) 上方补一行中文注释，和 test label 基本匹配即可；如果测试逻辑较复杂或存在隐藏前提，可补充说明
 
 ## 状态字段映射
 
@@ -478,6 +480,19 @@ Permission 选项（`web/src/components/PermissionTab.tsx`）：
 19. **FilePickerDialog 上传始终到 user/**：不管当前浏览哪个目录，上传操作应始终写入 workspace 的 `user/` 子目录
 
 ## 代码风格
+
+### 注释约定
+
+- 对外暴露的接口、类型、类和公共方法应补充简洁注释，优先回答“这是什么”和“拿来做什么”
+- 字段名不足以表达语义时，补字段级注释；重点解释：
+  - 该字段代表的平台语义或业务含义
+  - 为什么它和其他相近字段需要并存，例如平台 ID 与 provider 原生 ID
+  - Core 只存储不解释的扩展字段，如 metadata、provider 私有引用
+- 注释保持短小直接，不把类型定义写成长文档；避免重复代码字面含义
+- 仓储接口方法至少说明读取/写入对象、查询维度和异常或缺失时的行为
+- runtime / registry / resolver 这类编排组件的方法，优先说明输入输出语义和失败条件
+- 测试辅助实现（如 in-memory repository）的方法，至少说明它模拟的正式契约以及 `reset()` 等方法的用途
+- ID 工厂、brand 类型、provider session 映射这类容易混淆的基础类型，应明确说明“平台侧”和“provider 侧”的边界
 
 ### 前端约束
 

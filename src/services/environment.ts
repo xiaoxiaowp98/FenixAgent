@@ -27,6 +27,7 @@ export {
 
 // ── acp ──
 export {
+  getEnvironmentBySecret,
   registerEnvironment,
   deregisterEnvironment,
   getEnvironment,

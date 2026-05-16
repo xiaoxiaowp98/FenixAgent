@@ -3,7 +3,7 @@ import { errorResponse } from "../../plugins/auth";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import * as z from "zod/v4";
-import { environmentRepo } from "../../repositories";
+import { getEnvironmentBySecret } from "../../services/environment";
 import {
   readKnowledgeResourceForAgent,
   searchKnowledgeForAgent,
@@ -79,7 +79,7 @@ app.all("/mcp/knowledge", async ({ request, error }) => {
     return error(401, { error: { message: "Missing bearer token" } });
   }
 
-  const environment = await environmentRepo.getBySecret(token);
+  const environment = await getEnvironmentBySecret(token);
   if (!environment) {
     return error(401, { error: { message: "Invalid bearer token" } });
   }

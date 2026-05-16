@@ -6,6 +6,18 @@ import { NotFoundError } from "../errors";
 import { findOrCreateForEnvironment } from "./session";
 import { toResponse, deleteEnvironment } from "./environment-core";
 
+/** 通过 secret 获取环境信息（认证用），仅返回认证所需字段 */
+export async function getEnvironmentBySecret(secret: string): Promise<{ id: string; userId: string | null; agentName: string | null; secret: string } | null> {
+  const env = await environmentRepo.getBySecret(secret);
+  if (!env) return null;
+  return {
+    id: env.id,
+    userId: env.userId,
+    agentName: env.agentName,
+    secret: env.secret,
+  };
+}
+
 /** Bridge 注册请求参数 */
 export interface BridgeRegistrationInput {
   authEnvironmentId?: string;

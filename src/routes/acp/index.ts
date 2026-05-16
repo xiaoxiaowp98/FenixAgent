@@ -12,6 +12,7 @@ import {
   handleRelayClose,
 } from "../../transport/acp-relay-handler";
 import { environmentRepo } from "../../repositories";
+import { getEnvironmentBySecret } from "../../services/environment";
 import { log, error as logError } from "../../logger";
 import { authGuardPlugin, lookupUserById } from "../../plugins/auth";
 import type { WsConnection } from "../../transport/ws-types";
@@ -46,8 +47,7 @@ async function resolveTokenAuth(token: string | undefined): Promise<{ userId: st
   if (!token) return null;
 
   // 0. Environment secret match
-  const { environmentRepo } = await import("../../repositories");
-  const envRecord = await environmentRepo.getBySecret(token);
+  const envRecord = await getEnvironmentBySecret(token);
   if (envRecord) {
     if (envRecord.userId) {
       return { userId: envRecord.userId, envId: envRecord.id };

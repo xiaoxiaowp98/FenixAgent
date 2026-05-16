@@ -340,3 +340,14 @@
 2. **并行 — environment-acp.ts handleAcpIdentify bound 路径**：`markEnvironmentActive`（写 status/poll）与 `getEnvironment`（读 capabilities）无依赖，串行→`Promise.all` 并行。
 3. **清理 — session.ts 移除冗余 Promise.resolve**：`getSession`/`resolveExistingSessionId`/`createSession` 为 async 函数，`async` 自动包装返回值为 Promise，内部 `Promise.resolve()` 多余。
 4. 新增 3 个测试文件共 14 用例（group-instances-batch、acp-identify-parallel、session-async-cleanup）。31 轮累计 316 个测试。
+
+## 2026-05-17 第三十二次审查
+
+审查范围：同 R31 全部 service 文件及子模块
+
+修复（1 BUG + 3 CLEANUP/DRY）：
+1. **BUG — task.ts executeTaskById 超时检测不完整**：`AbortSignal.timeout` 在 Bun 下可能抛 `TimeoutError` 而非 `AbortError`，扩展检查条件为 `err.name === "AbortError" || err.name === "TimeoutError"`。
+2. **CLEANUP — instance.ts stopInstance supplement 清理**：core 中不存在或已停止的实例，其 supplement 条目现从 Map 中删除，避免内存泄漏。
+3. **CLEANUP — environment-web.ts 移除多余 Promise.resolve**：`groupActiveInstancesByEnvironment` 是同步函数，R31 引入的 `Promise.resolve()` 包裹多余。
+4. **DRY — task.ts 提取 VALID_HTTP_METHODS 常量**：内联数组字面量提取为模块级 `as const` 常量。
+5. 新增 3 个测试文件共 10 用例。32 轮累计 326 个测试。

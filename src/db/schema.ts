@@ -104,6 +104,9 @@ export const environment = pgTable("environment", {
   description: text("description"),
   workspacePath: varchar("workspace_path").notNull(),
   agentName: varchar("agent_name"),
+  // UUID 强绑定 AgentConfig（优先于 agentName）
+  agentConfigId: uuid("agent_config_id")
+    .references(() => agentConfig.id, { onDelete: "set null" }),
   status: varchar("status", { length: 50 }).notNull().default("idle"),
   machineName: varchar("machine_name"),
   branch: varchar("branch"),
@@ -342,6 +345,9 @@ export const skill = pgTable("skill", {
     .references(() => user.id, { onDelete: "cascade" }),
   environmentId: varchar("environment_id")
     .references(() => environment.id, { onDelete: "cascade" }),
+  // Agent 专属 Skill：null = 全局，UUID = 仅该 AgentConfig 可用
+  agentConfigId: uuid("agent_config_id")
+    .references(() => agentConfig.id, { onDelete: "cascade" }),
   name: varchar("name").notNull(),
   description: text("description"),
   contentPath: text("content_path"),
@@ -352,6 +358,7 @@ export const skill = pgTable("skill", {
 }, (table) => ({
   globalIdx: index("idx_skill_global").on(table.userId, table.name),
   workspaceIdx: index("idx_skill_workspace").on(table.userId, table.environmentId, table.name),
+  agentIdx: index("idx_skill_agent_config").on(table.agentConfigId),
 }));
 
 // 用户偏好（单行）

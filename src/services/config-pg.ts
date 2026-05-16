@@ -173,6 +173,13 @@ export async function getAgentConfig(userId: string, name: string) {
   return rows[0] ?? null;
 }
 
+export async function getAgentConfigById(id: string) {
+  const rows = await db.select().from(agentConfig)
+    .where(eq(agentConfig.id, id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function createAgentConfig(
   userId: string,
   name: string,
@@ -276,7 +283,16 @@ export async function setMcpServerEnabled(userId: string, name: string, enabled:
 // Skill 操作
 // ────────────────────────────────────────────
 
-export async function listSkills(userId: string) {
+export async function listSkills(userId: string, agentConfigId?: string | null) {
+  if (agentConfigId) {
+    // 返回全局 Skill + 指定 Agent 的专属 Skill
+    return db.select().from(skill)
+      .where(and(
+        eq(skill.userId, userId),
+        isNull(skill.environmentId),
+        sql`(${skill.agentConfigId} IS NULL OR ${skill.agentConfigId} = ${agentConfigId})`,
+      ));
+  }
   return db.select().from(skill)
     .where(and(eq(skill.userId, userId), isNull(skill.environmentId)));
 }
@@ -306,6 +322,7 @@ export async function upsertSkill(
     metadata?: Record<string, unknown>;
     enabled?: boolean;
     environmentId?: string | null;
+    agentConfigId?: string | null;
   },
 ) {
   const envId = data.environmentId ?? null;
@@ -322,6 +339,7 @@ export async function upsertSkill(
     contentPath: data.contentPath,
     metadata: data.metadata ? JSON.stringify(data.metadata) : undefined,
     enabled: data.enabled,
+    agentConfigId: data.agentConfigId ?? null,
     updatedAt: new Date(),
   };
 
@@ -334,6 +352,7 @@ export async function upsertSkill(
   const inserted = await db.insert(skill).values({
     userId,
     environmentId: envId,
+    agentConfigId: data.agentConfigId ?? null,
     name,
     description: data.description,
     contentPath: data.contentPath,

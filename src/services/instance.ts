@@ -7,6 +7,7 @@ import { createApiKey } from "../auth/api-key-service";
 import { getBaseUrl } from "../config";
 import { log } from "../logger";
 import { listAgentKnowledgeBindings } from "./agent-knowledge";
+import { getAgentConfigById } from "./config-pg";
 import { environmentRepo, sessionRepo } from "../repositories";
 import { closeInstanceLocalWs } from "../transport/acp-relay-handler";
 import { resolveExecutable } from "../utils/executable";
@@ -215,7 +216,15 @@ export async function spawnInstanceFromEnvironment(userId: string, environmentId
   if (!cwd || !existsSync(cwd)) throw new Error(`Workspace directory does not exist: ${cwd}`);
 
   // Inject default_agent into workspace config
-  if (env.agentName) {
+  // 优先使用 agentConfigId（UUID 强绑定），fallback 到 agentName（兼容过渡）
+  let resolvedAgentConfig: { name: string } | null = null;
+  if (env.agentConfigId) {
+    resolvedAgentConfig = await getAgentConfigById(env.agentConfigId);
+  } else if (env.agentName) {
+    resolvedAgentConfig = { name: env.agentName };
+  }
+
+  if (resolvedAgentConfig) {
     try {
       const configDir = join(cwd, ".opencode");
       const configPath = join(configDir, "opencode.json");
@@ -226,8 +235,8 @@ export async function spawnInstanceFromEnvironment(userId: string, environmentId
         config = JSON.parse(raw);
       }
 
-      config.default_agent = env.agentName;
-      const knowledgeBindings = await listAgentKnowledgeBindings(env.agentName);
+      config.default_agent = resolvedAgentConfig.name;
+      const knowledgeBindings = await listAgentKnowledgeBindings(resolvedAgentConfig.name);
       if (knowledgeBindings.length > 0) {
         const mcp = typeof config.mcp === "object" && config.mcp !== null
           ? config.mcp as Record<string, unknown>
@@ -323,4 +332,32 @@ export async function spawnInstanceFromEnvironment(userId: string, environmentId
 
 export function setInstanceSpawnForTesting(fn: typeof spawn | null): void {
   spawnImpl = fn ?? spawn;
+}
+
+// ────────────────────────────────────────────
+// ensureRunning：统一 spawn 决策入口
+// ────────────────────────────────────────────
+
+export interface EnsureRunningResult {
+  instance: SpawnedInstance;
+  status: "reused" | "spawned";
+}
+
+export async function ensureRunning(userId: string, environmentId: string): Promise<EnsureRunningResult> {
+  // 1. 检查是否已有 running instance → 复用
+  const existing = findRunningInstanceByEnvironment(environmentId);
+  if (existing) return { instance: existing, status: "reused" };
+
+  // 2. 检查 maxSessions 限制
+  const env = await environmentRepo.getById(environmentId);
+  if (!env) throw new Error("Environment not found");
+
+  const runningCount = getRunningInstancesByEnvironment(environmentId).length;
+  if (runningCount >= env.maxSessions) {
+    throw new Error(`max_sessions_reached: 已达到最大实例数 ${env.maxSessions}`);
+  }
+
+  // 3. 执行 spawn
+  const instance = await spawnInstanceFromEnvironment(userId, environmentId);
+  return { instance, status: "spawned" };
 }

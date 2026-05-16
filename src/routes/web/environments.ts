@@ -8,6 +8,7 @@ import {
     spawnInstanceFromEnvironment,
     listInstancesByEnvironment,
     getRunningInstancesByEnvironment,
+    ensureRunning,
 } from "../../services/instance";
 import { mkdirSync, realpathSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
@@ -59,6 +60,7 @@ function sanitizeResponse(row: EnvironmentRecord) {
         description: row.description ?? null,
         workspace_path: row.workspacePath,
         agent_name: row.agentName ?? null,
+        agent_config_id: (row as any).agentConfigId ?? null,
         status: row.status,
         machine_name: row.machineName ?? null,
         branch: row.branch ?? null,
@@ -121,8 +123,8 @@ app.get("/environments", async ({ store }) => {
 /** POST /web/environments — Register a new environment */
 app.post("/environments", async ({ store, body, error }) => {
     const user = store.user!;
-    const b = body as { name: string; description?: string; agentName?: string; autoStart?: boolean; workspacePath: string };
-    const { name, description, agentName, autoStart } = b;
+    const b = body as { name: string; description?: string; agentName?: string; agentConfigId?: string; autoStart?: boolean; workspacePath: string };
+    const { name, description, agentName, agentConfigId, autoStart } = b;
     let { workspacePath } = b;
 
     if (!name || !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(name)) {
@@ -147,7 +149,22 @@ app.post("/environments", async ({ store, body, error }) => {
         return error(400, { error: { type: "VALIDATION_ERROR", message: pathError } });
     }
 
-    if (agentName) {
+    // 优先使用 agentConfigId（UUID 强绑定），fallback 到 agentName（兼容过渡）
+    let resolvedAgentName = agentName ?? null;
+    let resolvedAgentConfigId = agentConfigId ?? null;
+
+    if (agentConfigId) {
+        const agent = await configPg.getAgentConfigById(agentConfigId);
+        if (!agent) {
+            return error(400, {
+                error: {
+                    type: "VALIDATION_ERROR",
+                    message: `AgentConfig '${agentConfigId}' 不存在`,
+                },
+            });
+        }
+        resolvedAgentName = agent.name;
+    } else if (agentName) {
         const agent = await configPg.getAgentConfig(user.id, agentName);
         if (!agent) {
             return error(400, {
@@ -157,6 +174,7 @@ app.post("/environments", async ({ store, body, error }) => {
                 },
             });
         }
+        resolvedAgentConfigId = agent.id;
     }
 
     try {
@@ -178,12 +196,13 @@ app.post("/environments", async ({ store, body, error }) => {
             name,
             description,
             workspacePath,
-            agentName,
+            agentName: resolvedAgentName,
             status: "idle",
             secret,
             userId: user.id,
             autoStart: autoStart === true,
-        });
+            agentConfigId: resolvedAgentConfigId,
+        } as any);
     } catch (err: any) {
         if (err.message?.includes("UNIQUE constraint failed") || err.message?.includes("unique") || err.message?.includes("duplicate")) {
             return error(409, {
@@ -228,8 +247,8 @@ app.put("/environments/:id", async ({ store, params, body, error }) => {
         return error(404, { error: { type: "NOT_FOUND", message: "环境不存在" } });
     }
 
-    const b = body as { name?: string; description?: string | null; workspacePath?: string; agentName?: string | null; autoStart?: boolean };
-    const patch: Partial<Pick<EnvironmentRecord, "name" | "description" | "workspacePath" | "agentName" | "autoStart">> = {};
+    const b = body as { name?: string; description?: string | null; workspacePath?: string; agentName?: string | null; agentConfigId?: string | null; autoStart?: boolean };
+    const patch: Record<string, unknown> = {};
 
     if (b.name !== undefined) {
         if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(b.name)) {
@@ -247,7 +266,21 @@ app.put("/environments/:id", async ({ store, params, body, error }) => {
         mkdirSync(b.workspacePath, { recursive: true });
         patch.workspacePath = realpathSync(b.workspacePath);
     }
-    if (b.agentName !== undefined) {
+    // 优先使用 agentConfigId（UUID 强绑定），fallback 到 agentName（兼容过渡）
+    if (b.agentConfigId !== undefined) {
+        if (b.agentConfigId) {
+            const agent = await configPg.getAgentConfigById(b.agentConfigId);
+            if (!agent) {
+                return error(400, {
+                    error: { type: "VALIDATION_ERROR", message: `AgentConfig '${b.agentConfigId}' 不存在` },
+                });
+            }
+            patch.agentConfigId = b.agentConfigId;
+            patch.agentName = agent.name;
+        } else {
+            patch.agentConfigId = null;
+        }
+    } else if (b.agentName !== undefined) {
         if (b.agentName) {
             const agent = await configPg.getAgentConfig(user.id, b.agentName);
             if (!agent) {
@@ -255,6 +288,7 @@ app.put("/environments/:id", async ({ store, params, body, error }) => {
                     error: { type: "VALIDATION_ERROR", message: `Agent '${b.agentName}' 不存在` },
                 });
             }
+            patch.agentConfigId = agent.id;
         }
         patch.agentName = b.agentName ?? null;
     }
@@ -270,7 +304,7 @@ app.put("/environments/:id", async ({ store, params, body, error }) => {
     return sanitizeResponse(updated!);
 }, { sessionAuth: true, body: "update-environment-request" });
 
-/** POST /web/environments/:id/enter — Enter an environment (auto-spawn instance if needed) */
+/** POST /web/environments/:id/enter — Enter an environment (use ensureRunning for unified spawn decision) */
 app.post("/environments/:id/enter", async ({ store, params, body, error }) => {
     const user = store.user!;
     const envId = params.id;
@@ -290,15 +324,11 @@ app.post("/environments/:id/enter", async ({ store, params, body, error }) => {
         return error(404, { error: { type: "NOT_FOUND", message: `实例 ${b.instance_number} 不存在或未运行` } });
       }
     } else {
-      const runningInstances = getRunningInstancesByEnvironment(envId);
-      if (runningInstances.length > 0) {
-        inst = runningInstances[0];
-      } else {
-        try {
-          inst = await spawnInstanceFromEnvironment(user.id, envId);
-        } catch (err: any) {
-          return error(500, { error: { type: "CONFIG_WRITE_ERROR", message: err.message } });
-        }
+      try {
+        const result = await ensureRunning(user.id, envId);
+        inst = result.instance;
+      } catch (err: any) {
+        return error(500, { error: { type: "CONFIG_WRITE_ERROR", message: err.message } });
       }
     }
 

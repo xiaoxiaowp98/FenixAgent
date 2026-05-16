@@ -10,6 +10,7 @@ export interface EnvironmentRecord {
   description: string | null;
   workspacePath: string;
   agentName: string | null;
+  agentConfigId: string | null;
   secret: string;
   machineName: string | null;
   directory: string | null;
@@ -32,6 +33,7 @@ export interface EnvironmentCreateParams {
   description?: string;
   workspacePath?: string;
   agentName?: string;
+  agentConfigId?: string | null;
   secret?: string;
   userId: string;
   status?: string;
@@ -49,7 +51,7 @@ export interface EnvironmentCreateParams {
 export type EnvironmentUpdateParams = Partial<Pick<
   EnvironmentRecord,
   "status" | "lastPollAt" | "capabilities" | "machineName" | "maxSessions" |
-  "name" | "description" | "workspacePath" | "agentName" | "branch" | "gitRepoUrl" | "autoStart"
+  "name" | "description" | "workspacePath" | "agentName" | "agentConfigId" | "branch" | "gitRepoUrl" | "autoStart"
 >>;
 
 /** Environment 仓储接口 — PostgreSQL 持久化 */
@@ -75,6 +77,7 @@ function rowToRecord(row: typeof environment.$inferSelect): EnvironmentRecord {
     description: row.description,
     workspacePath: row.workspacePath,
     agentName: row.agentName,
+    agentConfigId: (row as any).agentConfigId ?? null,
     secret: row.secret,
     machineName: row.machineName,
     directory: row.workspacePath,
@@ -107,6 +110,7 @@ class PgEnvironmentRepo implements IEnvironmentRepo {
       description: params.description ?? null,
       workspacePath,
       agentName: params.agentName ?? null,
+      agentConfigId: params.agentConfigId ?? null,
       secret,
       machineName: params.machineName ?? null,
       branch: params.branch ?? null,
@@ -118,10 +122,11 @@ class PgEnvironmentRepo implements IEnvironmentRepo {
       userId: params.userId,
       autoStart: params.autoStart ?? false,
       lastPollAt: now,
-    });
+    } as any);
     return {
       id, name, description: params.description ?? null, workspacePath,
-      agentName: params.agentName ?? null, secret,
+      agentName: params.agentName ?? null, agentConfigId: params.agentConfigId ?? null,
+      secret,
       machineName: params.machineName ?? null, directory: params.directory ?? null,
       branch: params.branch ?? null, gitRepoUrl: params.gitRepoUrl ?? null,
       maxSessions: params.maxSessions ?? 1, workerType: params.workerType ?? "acp",
@@ -153,6 +158,7 @@ class PgEnvironmentRepo implements IEnvironmentRepo {
     if (patch.description !== undefined) set.description = patch.description;
     if (patch.workspacePath !== undefined) set.workspacePath = patch.workspacePath;
     if (patch.agentName !== undefined) set.agentName = patch.agentName;
+    if (patch.agentConfigId !== undefined) set.agentConfigId = patch.agentConfigId;
     if (patch.branch !== undefined) set.branch = patch.branch;
     if (patch.gitRepoUrl !== undefined) set.gitRepoUrl = patch.gitRepoUrl;
     if (patch.autoStart !== undefined) set.autoStart = patch.autoStart;

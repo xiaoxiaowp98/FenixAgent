@@ -1,6 +1,6 @@
 import Elysia from "elysia";
 import { authGuardPlugin } from "../../plugins/auth";
-import { spawnInstance, listInstances, stopInstance, spawnInstanceFromEnvironment } from "../../services/instance";
+import { listInstances, stopInstance, spawnInstanceFromEnvironment } from "../../services/instance";
 import type { SpawnedInstance } from "../../services/instance";
 import {
   InstanceInfoSchema,
@@ -28,16 +28,6 @@ function toResponse(inst: SpawnedInstance) {
     created_at: Math.floor(inst.createdAt.getTime() / 1000),
   };
 }
-
-app.post("/instances", async ({ store, error }) => {
-  const user = store.user!;
-  try {
-    const inst = await spawnInstance(user.id);
-    return toResponse(inst);
-  } catch (err: any) {
-    return error(500, { error: { type: "spawn_failed", message: err.message } });
-  }
-}, { sessionAuth: true });
 
 app.post("/instances/from-environment", async ({ store, body, error }) => {
   const user = store.user!;

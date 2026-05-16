@@ -68,7 +68,7 @@ export function normalizePayload(type: string, payload: unknown): Record<string,
   if (p.approved !== undefined) normalized.approved = p.approved;
   if (p.updated_input) normalized.updated_input = p.updated_input;
 
-  // Preserve message field for backward compat
+  // permission_request 事件可能携带 message 字段
   if (p.message) normalized.message = p.message;
 
   if (type === "task_state") {

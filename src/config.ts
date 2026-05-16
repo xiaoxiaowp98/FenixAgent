@@ -3,9 +3,6 @@ export const config = {
   port: parseInt(process.env.RCS_PORT || "3000"),
   host: process.env.RCS_HOST || "0.0.0.0",
   baseUrl: process.env.RCS_BASE_URL || "",
-  /** Legacy global API keys (RCS_API_KEYS env). Supported for backward compatibility
-   *  with acp-link's ACP_RCS_TOKEN. Per-user API keys in SQLite take priority. */
-  apiKeys: (process.env.RCS_API_KEYS || "").split(",").filter(Boolean),
   pollTimeout: parseInt(process.env.RCS_POLL_TIMEOUT || "8"),
   heartbeatInterval: parseInt(process.env.RCS_HEARTBEAT_INTERVAL || "20"),
   /** Bun WebSocket idle timeout (seconds). Bun sends protocol-level pings after

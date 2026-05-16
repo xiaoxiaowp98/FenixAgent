@@ -152,10 +152,6 @@ export async function spawnInstanceFromEnvironment(
   return toSpawnedInstance(snapshot, supplement);
 }
 
-export async function spawnInstance(userId: string): Promise<SpawnedInstance> {
-  throw new Error("spawnInstance without environment is deprecated. Use spawnInstanceFromEnvironment instead.");
-}
-
 export function listInstances(userId: string): SpawnedInstance[] {
   const facade = getCoreRuntime();
   return facade.listInstances()
@@ -343,5 +339,4 @@ export function listInstancesResponse(environmentId: string): InstanceListRespon
   };
 }
 
-/** @deprecated 不再需要，保留空实现避免测试崩溃 */
-export function setInstanceSpawnForTesting(_fn: unknown): void {}
+

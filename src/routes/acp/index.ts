@@ -1,7 +1,6 @@
 import Elysia from "elysia";
-import { validateApiKeyAndGetUser, validateLegacyApiKey } from "../../auth/api-key-service";
+import { validateApiKeyAndGetUser } from "../../auth/api-key-service";
 import { auth } from "../../auth/better-auth";
-import { config } from "../../config";
 import {
   handleAcpWsOpen,
   handleAcpWsMessage,
@@ -14,7 +13,7 @@ import {
 } from "../../transport/acp-relay-handler";
 import { environmentRepo } from "../../repositories";
 import { log, error as logError } from "../../logger";
-import { authGuardPlugin, ensureSystemUser, lookupUserById } from "../../plugins/auth";
+import { authGuardPlugin, lookupUserById } from "../../plugins/auth";
 import type { WsConnection } from "../../transport/ws-types";
 import { v4 as uuid } from "uuid";
 
@@ -42,7 +41,7 @@ function toAcpAgentResponse(env: NonNullable<Awaited<ReturnType<typeof environme
   };
 }
 
-/** Resolve userId from token (three-level auth) */
+/** Resolve userId from token (two-level auth) */
 async function resolveTokenAuth(token: string | undefined): Promise<{ userId: string; envId?: string } | null> {
   if (!token) return null;
 
@@ -61,14 +60,6 @@ async function resolveTokenAuth(token: string | undefined): Promise<{ userId: st
     const userRow = await lookupUserById(keyInfo.userId);
     if (userRow) {
       return { userId: userRow.id };
-    }
-  }
-
-  // 2. Legacy global API Key
-  if (config.apiKeys.length > 0 && config.apiKeys.includes(token)) {
-    const systemUser = await ensureSystemUser();
-    if (systemUser) {
-      return { userId: systemUser.id };
     }
   }
 

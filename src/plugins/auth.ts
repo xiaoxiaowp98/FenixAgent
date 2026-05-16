@@ -1,7 +1,5 @@
 import Elysia from "elysia";
 import { auth } from "../auth/better-auth";
-import { config } from "../config";
-import { validateLegacyApiKey } from "../auth/api-key-service";
 import { verifyWorkerJwt } from "../auth/jwt";
 
 interface UserInfo {
@@ -21,39 +19,6 @@ function extractToken(request: Request): string | undefined {
   const url = new URL(request.url);
   const queryToken = url.searchParams.get("token");
   return authHeader?.replace("Bearer ", "") || queryToken || undefined;
-}
-
-export async function ensureSystemUser(): Promise<UserInfo | null> {
-  const { db } = await import("../db");
-  const { user } = await import("../db/schema");
-  const { eq } = await import("drizzle-orm");
-
-  const rows = await db.select().from(user).where(eq(user.email, "system@rcs.local")).limit(1);
-  if (rows.length > 0) {
-    return { id: rows[0].id, email: rows[0].email, name: rows[0].name };
-  }
-
-  const anyUser = await db.select().from(user).limit(1);
-  if (anyUser.length > 0) {
-    return { id: anyUser[0].id, email: anyUser[0].email, name: anyUser[0].name };
-  }
-
-  try {
-    const result = await (auth.api.signUpEmail as any)({
-      email: "system@rcs.local",
-      password: "system",
-      name: "System",
-    });
-    if (result.user) {
-      const { createApiKey } = await import("../auth/api-key-service");
-      await createApiKey(result.user.id, "legacy-auto");
-      return { id: result.user.id, email: result.user.email, name: result.user.name };
-    }
-  } catch {
-    // signUpEmail may fail if user was created concurrently
-  }
-
-  return null;
 }
 
 export async function lookupUserById(userId: string): Promise<UserInfo | null> {
@@ -137,15 +102,6 @@ export const authGuardPlugin = new Elysia({ name: "auth-guard" })
             }
           }
 
-          // 2. Legacy global API Key
-          if (config.apiKeys.length > 0 && config.apiKeys.includes(token)) {
-            const systemUser = await ensureSystemUser();
-            if (systemUser) {
-              store.user = systemUser;
-              return;
-            }
-          }
-
           return error(401, { error: { type: "unauthorized", message: "Invalid API key" } });
         },
       };
@@ -169,16 +125,7 @@ export const authGuardPlugin = new Elysia({ name: "auth-guard" })
         beforeHandle: async ({ store, request, error }: any) => {
           const token = extractToken(request);
 
-          // Try legacy API key
-          if (validateLegacyApiKey(token)) {
-            const systemUser = await ensureSystemUser();
-            if (systemUser) {
-              store.user = systemUser;
-              return;
-            }
-          }
-
-          // Try worker JWT
+          // Worker JWT
           if (token) {
             const payload = verifyWorkerJwt(token);
             if (payload) {

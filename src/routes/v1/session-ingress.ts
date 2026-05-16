@@ -1,7 +1,6 @@
 import { log, error as logError } from "../../logger";
 import Elysia from "elysia";
 import { errorResponse } from "../../plugins/auth";
-import { validateLegacyApiKey } from "../../auth/api-key-service";
 import { verifyWorkerJwt } from "../../auth/jwt";
 import {
   handleWebSocketOpen,
@@ -20,19 +19,13 @@ function adaptWs(ws: any): WsConnection {
   };
 }
 
-/** Authenticate via API key or worker JWT in Authorization header or ?token= query param */
+/** Authenticate via worker JWT in Authorization header or ?token= query param */
 function authenticateRequest(request: Request, label: string, expectedSessionId?: string): boolean {
   const authHeader = request.headers.get("Authorization") ?? undefined;
   const url = new URL(request.url);
   const queryToken = url.searchParams.get("token") ?? undefined;
   const token = authHeader?.replace("Bearer ", "") || queryToken;
 
-  // Try API key first
-  if (validateLegacyApiKey(token)) {
-    return true;
-  }
-
-  // Try JWT verification — validate session_id matches if provided
   if (token) {
     const payload = verifyWorkerJwt(token);
     if (payload) {
@@ -44,7 +37,7 @@ function authenticateRequest(request: Request, label: string, expectedSessionId?
     }
   }
 
-  log(`[Auth] ${label}: FAILED — no valid API key or JWT`);
+  log(`[Auth] ${label}: FAILED — no valid JWT`);
   return false;
 }
 

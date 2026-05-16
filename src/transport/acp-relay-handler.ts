@@ -333,16 +333,6 @@ export function closeInstanceRelay(instanceId: string): void {
   log(`[ACP-Relay] Closed relay handles for instance ${instanceId}`);
 }
 
-/** @deprecated Use closeInstanceRelay instead. Kept for backward compatibility. */
-export function closeInstanceLocalWs(instanceId: string): void {
-  closeInstanceRelay(instanceId);
-}
-
-/** @deprecated Core relay handles this internally. */
-export function sendToInstanceLocalWs(_instanceId: string, _data: string): boolean {
-  return false;
-}
-
 /** Send data to a spawned instance via core relay handle. Returns true if sent. */
 export function sendToInstanceRelay(instanceId: string, data: string): boolean {
   for (const [, entry] of relayConnections) {

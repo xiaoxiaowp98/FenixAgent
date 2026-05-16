@@ -1,13 +1,15 @@
 import { log, error as logError } from "../logger";
 import { environmentRepo, sessionRepo, workItemRepo } from "../repositories";
 import { config, getBaseUrl } from "../config";
+import { generateWorkerJwt } from "../auth/jwt";
 import type { WorkResponse } from "../types/api";
 
-/** Encode work secret as base64 JSON (no JWT — just API key as token) */
-function encodeWorkSecret(): string {
+/** Encode work secret as base64 JSON with a worker JWT as session_ingress_token */
+function encodeWorkSecret(sessionId: string): string {
+  const token = generateWorkerJwt(sessionId, config.jwtExpiresIn);
   const payload = {
     version: 1,
-    session_ingress_token: config.apiKeys[0] || "",
+    session_ingress_token: token,
     api_base_url: getBaseUrl(),
     sources: [] as string[],
     auth: [] as string[],
@@ -26,7 +28,7 @@ export async function createWorkItem(environmentId: string, sessionId: string): 
     throw new Error(`Environment ${environmentId} is not active (status: ${env.status})`);
   }
 
-  const secret = encodeWorkSecret();
+  const secret = encodeWorkSecret(sessionId);
   const record = await workItemRepo.create({ environmentId, sessionId, secret });
   log(`[RCS] Work item created: ${record.id} for env=${environmentId} session=${sessionId}`);
   return record.id;

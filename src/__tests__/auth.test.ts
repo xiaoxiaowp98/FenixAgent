@@ -4,7 +4,6 @@ import { describe, test, expect, beforeEach, afterAll, mock, spyOn } from "bun:t
 const mockConfig = {
   port: 3000,
   host: "0.0.0.0",
-  apiKeys: ["test-key-1", "test-key-2"],
   baseUrl: "",
   pollTimeout: 8,
   heartbeatInterval: 20,
@@ -17,31 +16,12 @@ mock.module("../config", () => ({
   getBaseUrl: () => "http://localhost:3000",
 }));
 
-import { validateLegacyApiKey as validateApiKey, hashApiKey } from "../auth/api-key-service";
+import { hashApiKey } from "../auth/api-key-service";
 import { generateWorkerJwt, verifyWorkerJwt } from "../auth/jwt";
 import { issueToken, resolveToken } from "../auth/token";
 import { resetAllRepos } from "../repositories";
 
 // ---------- api-key ----------
-
-describe("validateApiKey", () => {
-  test("validates a configured API key", () => {
-    expect(validateApiKey("test-key-1")).toBe(true);
-    expect(validateApiKey("test-key-2")).toBe(true);
-  });
-
-  test("rejects unknown key", () => {
-    expect(validateApiKey("unknown-key")).toBe(false);
-  });
-
-  test("rejects undefined", () => {
-    expect(validateApiKey(undefined)).toBe(false);
-  });
-
-  test("rejects empty string", () => {
-    expect(validateApiKey("")).toBe(false);
-  });
-});
 
 describe("hashApiKey", () => {
   test("produces consistent SHA-256 hex", () => {

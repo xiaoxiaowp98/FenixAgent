@@ -335,9 +335,16 @@ export async function executeTaskById(
     const status = response.ok ? "success" : "failed";
     const resultSummary = truncateSummary(responseText || `HTTP ${response.status}`);
 
+    // HTTP 错误时构建有意义的 error message（空 body 时不留尾部冒号）
+    const errorMsg = response.ok
+      ? null
+      : responseText
+        ? `HTTP ${response.status}: ${responseText.slice(0, 500)}`
+        : `HTTP ${response.status}`;
+
     return writeLogAndReturn(
       logId, task.id, status,
-      response.ok ? null : `HTTP ${response.status}: ${responseText.slice(0, 500)}`,
+      errorMsg,
       duration, triggeredBy, resultSummary, now,
     );
   } catch (err: unknown) {

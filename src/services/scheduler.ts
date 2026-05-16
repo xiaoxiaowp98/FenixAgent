@@ -19,12 +19,11 @@ function toInvocationDate(invocation: unknown): Date | null {
     return invocation;
   }
   if (typeof invocation === "object" && invocation !== null) {
-    const maybeToDate = (invocation as { toDate?: () => Date; toJSDate?: () => Date });
-    if (typeof maybeToDate.toDate === "function") {
-      return maybeToDate.toDate();
+    if ("toDate" in invocation && typeof invocation.toDate === "function") {
+      return (invocation as { toDate: () => Date }).toDate();
     }
-    if (typeof maybeToDate.toJSDate === "function") {
-      return maybeToDate.toJSDate();
+    if ("toJSDate" in invocation && typeof invocation.toJSDate === "function") {
+      return (invocation as { toJSDate: () => Date }).toJSDate();
     }
   }
   return null;

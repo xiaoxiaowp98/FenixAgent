@@ -284,14 +284,15 @@ export async function stopAllInstances(): Promise<void> {
 }
 
 export async function ensureRunning(userId: string, environmentId: string): Promise<EnsureRunningResult> {
-  const existing = findRunningInstanceByEnvironment(environmentId);
+  // 单次 filterInstances 查询：同时获取 existing 和 runningCount
+  const runningInstances = getRunningInstancesByEnvironment(environmentId);
+  const existing = runningInstances[0];
   if (existing) return { instance: existing, status: "reused" };
 
   const env = await environmentRepo.getById(environmentId);
   if (!env) throw new NotFoundError("Environment not found");
 
-  const runningCount = getRunningInstancesByEnvironment(environmentId).length;
-  if (runningCount >= env.maxSessions) {
+  if (runningInstances.length >= env.maxSessions) {
     throw new AppError(`已达到最大实例数 ${env.maxSessions}`, "MAX_SESSIONS_REACHED", 409);
   }
 

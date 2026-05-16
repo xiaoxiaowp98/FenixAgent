@@ -4,162 +4,17 @@ import * as configPg from "../../../services/config-pg";
 import {
   InvalidKnowledgeBindingError,
   listAgentKnowledgeBindings,
-  resolveAgentKnowledgePolicy,
   syncAgentKnowledgeBindings,
   type AgentKnowledgeConfig,
-  type AgentKnowledgePolicy,
 } from "../../../services/agent-knowledge";
+import {
+  validateAgentData,
+  normalizeKnowledgeConfig,
+  toolsToPermission,
+  isBuiltInAgent,
+  AGENT_SETTABLE_FIELDS,
+} from "../../../services/config/agent-config";
 import { configSuccess, configError, configValidationError, configNotFound, isValidResourceName } from "../../../services/config-utils";
-
-const BUILT_IN_AGENTS = new Set(["build", "plan", "general", "explore", "title", "summary", "compaction"]);
-
-// ── Permission 类型定义 ──
-type PermissionAction = "ask" | "allow" | "deny";
-type RuleBasedPermission = PermissionAction | Record<string, PermissionAction>;
-type TogglePermission = PermissionAction;
-
-type PermissionObjectConfig = {
-  read?: RuleBasedPermission;
-  edit?: RuleBasedPermission;
-  glob?: RuleBasedPermission;
-  grep?: RuleBasedPermission;
-  list?: RuleBasedPermission;
-  bash?: RuleBasedPermission;
-  task?: RuleBasedPermission;
-  external_directory?: RuleBasedPermission;
-  lsp?: RuleBasedPermission;
-  skill?: RuleBasedPermission;
-  todowrite?: TogglePermission;
-  question?: TogglePermission;
-  webfetch?: TogglePermission;
-  websearch?: TogglePermission;
-  codesearch?: TogglePermission;
-  doom_loop?: TogglePermission;
-};
-
-type PermissionConfig = PermissionAction | PermissionObjectConfig;
-
-type AgentConfig = Record<string, unknown> & {
-  knowledge?: AgentKnowledgeConfig | null;
-};
-
-const AGENT_SETTABLE_FIELDS = new Set([
-  "model", "prompt", "steps", "mode", "permission",
-  "variant", "temperature", "top_p", "disable", "hidden", "color", "description",
-  "knowledge",
-]);
-
-const isValidAgentName = isValidResourceName;
-
-function isValidMode(mode: string): boolean {
-  return ["primary", "subagent", "all"].includes(mode);
-}
-
-function isValidSteps(steps: number): boolean {
-  return Number.isInteger(steps) && steps >= 1 && steps <= 200;
-}
-
-/** 将旧 tools 格式转换为 permission 格式 */
-function toolsToPermission(tools: Record<string, boolean>): PermissionObjectConfig {
-  const result: Record<string, PermissionAction> = {};
-  for (const [key, val] of Object.entries(tools)) {
-    result[key] = val ? "allow" : "deny";
-  }
-  return result as PermissionObjectConfig;
-}
-
-function validateAgentData(data: Record<string, unknown>): string | null {
-  if (data.mode !== undefined && !isValidMode(data.mode as string)) return "INVALID_MODE";
-  if (data.steps !== undefined && !isValidSteps(data.steps as number)) return "INVALID_STEPS";
-  if (data.temperature !== undefined) {
-    const t = data.temperature as number;
-    if (typeof t !== "number" || t < 0 || t > 2) return "INVALID_TEMPERATURE";
-  }
-  if (data.top_p !== undefined) {
-    const p = data.top_p as number;
-    if (typeof p !== "number" || p < 0 || p > 1) return "INVALID_TOP_P";
-  }
-  if (data.color !== undefined) {
-    const c = data.color as string;
-    const PRESET_COLORS = ["primary", "secondary", "accent", "success", "warning", "error", "info"];
-    const isHex = /^#[0-9a-fA-F]{6}$/.test(c);
-    if (typeof c !== "string" || (!isHex && !PRESET_COLORS.includes(c))) return "INVALID_COLOR";
-  }
-  if (data.permission !== undefined && data.permission !== null) {
-    if (typeof data.permission === "string") return "INVALID_PERMISSION";
-    if (typeof data.permission !== "object" || Array.isArray(data.permission)) return "INVALID_PERMISSION";
-  }
-  if (data.knowledge !== undefined) {
-    const error = validateKnowledgeConfig(data.knowledge);
-    if (error) return error;
-  }
-  return null;
-}
-
-function normalizeKnowledgePolicy(value: AgentKnowledgePolicy | null | undefined) {
-  const policy = resolveAgentKnowledgePolicy(value);
-  return {
-    searchFirst: policy.searchFirst,
-    maxResults: policy.maxResults,
-    defaultNamespaces: policy.defaultNamespaces,
-  };
-}
-
-function normalizeKnowledgeConfig(value: unknown): AgentKnowledgeConfig | null {
-  if (value == null) return null;
-  const input = value as AgentKnowledgeConfig;
-  return {
-    knowledgeBaseIds: Array.from(
-      new Set(
-        (Array.isArray(input.knowledgeBaseIds) ? input.knowledgeBaseIds : [])
-          .filter((item): item is string => typeof item === "string")
-          .map((item) => item.trim())
-          .filter(Boolean),
-      ),
-    ),
-    policy: normalizeKnowledgePolicy(input.policy),
-  };
-}
-
-function validateKnowledgeConfig(value: unknown): string | null {
-  if (value == null) return null;
-  if (typeof value !== "object") return "INVALID_KNOWLEDGE";
-
-  const config = value as Record<string, unknown>;
-  if (!Array.isArray(config.knowledgeBaseIds)) {
-    return "INVALID_KNOWLEDGE_BASE_IDS";
-  }
-  if (config.knowledgeBaseIds.some((item) => typeof item !== "string" || item.trim().length === 0)) {
-    return "INVALID_KNOWLEDGE_BASE_IDS";
-  }
-
-  if (config.policy !== undefined && config.policy !== null) {
-    if (typeof config.policy !== "object") {
-      return "INVALID_KNOWLEDGE_POLICY";
-    }
-    const policy = config.policy as Record<string, unknown>;
-    if (policy.searchFirst !== undefined && typeof policy.searchFirst !== "boolean") {
-      return "INVALID_KNOWLEDGE_SEARCH_FIRST";
-    }
-    if (
-      policy.maxResults !== undefined
-      && (!Number.isInteger(policy.maxResults) || (policy.maxResults as number) < 1 || (policy.maxResults as number) > 20)
-    ) {
-      return "INVALID_KNOWLEDGE_MAX_RESULTS";
-    }
-    if (
-      policy.defaultNamespaces !== undefined
-      && (
-        !Array.isArray(policy.defaultNamespaces)
-        || policy.defaultNamespaces.some((item) => typeof item !== "string" || item.trim().length === 0)
-      )
-    ) {
-      return "INVALID_KNOWLEDGE_DEFAULT_NAMESPACES";
-    }
-  }
-
-  return null;
-}
 
 /** 将 PG 行数据映射为前端兼容的 agent 字段 */
 function pgRowToAgentFields(row: typeof configPg extends { listAgentConfigs: (userId: string) => Promise<(infer T)[]> } ? T : never) {
@@ -189,7 +44,7 @@ async function handleList(userId: string) {
   const defaultAgent = uc.defaultAgent ?? null;
   const list = await Promise.all(agents.map(async (a) => ({
     name: a.name,
-    builtIn: BUILT_IN_AGENTS.has(a.name),
+    builtIn: isBuiltInAgent(a.name),
     model: a.model ?? null,
     mode: a.mode ?? null,
     description: a.description ?? null,
@@ -212,7 +67,7 @@ async function handleGet(userId: string, name: string) {
 
   return configSuccess({
     name,
-    builtIn: BUILT_IN_AGENTS.has(name),
+    builtIn: isBuiltInAgent(name),
     model: agent.model ?? null,
     prompt: agent.prompt ?? null,
     steps: agent.steps ?? null,
@@ -236,7 +91,7 @@ async function handleSet(userId: string, name: string, data: Record<string, unkn
   // 白名单过滤
   const filtered: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(data)) {
-    if (AGENT_SETTABLE_FIELDS.has(key)) {
+    if (AGENT_SETTABLE_FIELDS.includes(key as typeof AGENT_SETTABLE_FIELDS[number])) {
       filtered[key] = key === "knowledge" ? normalizeKnowledgeConfig(value) : value;
     }
   }
@@ -265,7 +120,7 @@ async function handleSet(userId: string, name: string, data: Record<string, unkn
 }
 
 async function handleCreate(userId: string, name: string, data: Record<string, unknown>) {
-  if (!isValidAgentName(name)) {
+  if (!isValidResourceName(name)) {
     return configValidationError("Invalid agent name: must be 1-64 lowercase alphanumeric chars with single hyphens");
   }
   const validation = validateAgentData(data);
@@ -274,7 +129,7 @@ async function handleCreate(userId: string, name: string, data: Record<string, u
   // 白名单过滤
   const filtered: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(data)) {
-    if (AGENT_SETTABLE_FIELDS.has(key)) {
+    if (AGENT_SETTABLE_FIELDS.includes(key as typeof AGENT_SETTABLE_FIELDS[number])) {
       filtered[key] = key === "knowledge" ? normalizeKnowledgeConfig(value) : value;
     }
   }
@@ -300,7 +155,7 @@ async function handleCreate(userId: string, name: string, data: Record<string, u
 }
 
 async function handleDelete(userId: string, name: string) {
-  if (BUILT_IN_AGENTS.has(name)) {
+  if (isBuiltInAgent(name)) {
     return configError("FORBIDDEN", `Cannot delete built-in agent '${name}'`);
   }
   const deleted = await configPg.deleteAgentConfig(userId, name);

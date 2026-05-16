@@ -2,6 +2,9 @@ import { db } from "../../db";
 import { agentConfig } from "../../db/schema";
 import { eq, and } from "drizzle-orm";
 
+import { resolveAgentKnowledgePolicy } from "../agent-knowledge";
+import type { AgentKnowledgeConfig, AgentKnowledgePolicy } from "../agent-knowledge";
+
 // ────────────────────────────────────────────
 // Agent Config 操作
 // ────────────────────────────────────────────
@@ -77,3 +80,129 @@ export async function deleteAgentConfig(userId: string, name: string): Promise<b
 }
 
 export { AGENT_SETTABLE_FIELDS };
+
+
+// ────────────────────────────────────────────
+// Agent Config 验证与转换
+// ────────────────────────────────────────────
+
+type PermissionAction = "ask" | "allow" | "deny";
+
+const BUILT_IN_AGENTS = new Set(["build", "plan", "general", "explore", "title", "summary", "compaction"]);
+
+function isValidMode(mode: string): boolean {
+  return ["primary", "subagent", "all"].includes(mode);
+}
+
+function isValidSteps(steps: number): boolean {
+  return Number.isInteger(steps) && steps >= 1 && steps <= 200;
+}
+
+/** 校验 agent 数据字段，返回错误码或 null */
+export function validateAgentData(data: Record<string, unknown>): string | null {
+  if (data.mode !== undefined && !isValidMode(data.mode as string)) return "INVALID_MODE";
+  if (data.steps !== undefined && !isValidSteps(data.steps as number)) return "INVALID_STEPS";
+  if (data.temperature !== undefined) {
+    const t = data.temperature as number;
+    if (typeof t !== "number" || t < 0 || t > 2) return "INVALID_TEMPERATURE";
+  }
+  if (data.top_p !== undefined) {
+    const p = data.top_p as number;
+    if (typeof p !== "number" || p < 0 || p > 1) return "INVALID_TOP_P";
+  }
+  if (data.color !== undefined) {
+    const c = data.color as string;
+    const PRESET_COLORS = ["primary", "secondary", "accent", "success", "warning", "error", "info"];
+    const isHex = /^#[0-9a-fA-F]{6}$/.test(c);
+    if (typeof c !== "string" || (!isHex && !PRESET_COLORS.includes(c))) return "INVALID_COLOR";
+  }
+  if (data.permission !== undefined && data.permission !== null) {
+    if (typeof data.permission === "string") return "INVALID_PERMISSION";
+    if (typeof data.permission !== "object" || Array.isArray(data.permission)) return "INVALID_PERMISSION";
+  }
+  if (data.knowledge !== undefined) {
+    const error = validateKnowledgeConfig(data.knowledge);
+    if (error) return error;
+  }
+  return null;
+}
+
+function validateKnowledgeConfig(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value !== "object") return "INVALID_KNOWLEDGE";
+
+  const config = value as Record<string, unknown>;
+  if (!Array.isArray(config.knowledgeBaseIds)) {
+    return "INVALID_KNOWLEDGE_BASE_IDS";
+  }
+  if (config.knowledgeBaseIds.some((item) => typeof item !== "string" || item.trim().length === 0)) {
+    return "INVALID_KNOWLEDGE_BASE_IDS";
+  }
+
+  if (config.policy !== undefined && config.policy !== null) {
+    if (typeof config.policy !== "object") {
+      return "INVALID_KNOWLEDGE_POLICY";
+    }
+    const policy = config.policy as Record<string, unknown>;
+    if (policy.searchFirst !== undefined && typeof policy.searchFirst !== "boolean") {
+      return "INVALID_KNOWLEDGE_SEARCH_FIRST";
+    }
+    if (
+      policy.maxResults !== undefined
+      && (!Number.isInteger(policy.maxResults) || (policy.maxResults as number) < 1 || (policy.maxResults as number) > 20)
+    ) {
+      return "INVALID_KNOWLEDGE_MAX_RESULTS";
+    }
+    if (
+      policy.defaultNamespaces !== undefined
+      && (
+        !Array.isArray(policy.defaultNamespaces)
+        || policy.defaultNamespaces.some((item) => typeof item !== "string" || item.trim().length === 0)
+      )
+    ) {
+      return "INVALID_KNOWLEDGE_DEFAULT_NAMESPACES";
+    }
+  }
+
+  return null;
+}
+
+/** 将旧 tools 格式转换为 permission 格式 */
+export function toolsToPermission(tools: Record<string, boolean>): Record<string, PermissionAction> {
+  const result: Record<string, PermissionAction> = {};
+  for (const [key, val] of Object.entries(tools)) {
+    result[key] = val ? "allow" : "deny";
+  }
+  return result;
+}
+
+/** 规范化 knowledge config：去重、trim */
+export function normalizeKnowledgeConfig(value: unknown): AgentKnowledgeConfig | null {
+  if (value == null) return null;
+  const input = value as AgentKnowledgeConfig;
+  return {
+    knowledgeBaseIds: Array.from(
+      new Set(
+        (Array.isArray(input.knowledgeBaseIds) ? input.knowledgeBaseIds : [])
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    ),
+    policy: normalizeKnowledgePolicy(input.policy),
+  };
+}
+
+function normalizeKnowledgePolicy(value: AgentKnowledgePolicy | null | undefined) {
+  const policy = resolveAgentKnowledgePolicy(value);
+  return {
+    searchFirst: policy.searchFirst,
+    maxResults: policy.maxResults,
+    defaultNamespaces: policy.defaultNamespaces,
+  };
+}
+
+/** 判断 agent 是否为内置 */
+export function isBuiltInAgent(name: string): boolean {
+  return BUILT_IN_AGENTS.has(name);
+}

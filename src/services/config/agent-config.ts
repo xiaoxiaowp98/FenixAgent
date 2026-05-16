@@ -11,7 +11,7 @@ import type { AgentKnowledgeConfig, AgentKnowledgePolicy } from "../agent-knowle
 
 const AGENT_SETTABLE_FIELDS = [
   "model", "prompt", "steps", "mode", "permission",
-  "variant", "temperature", "topP", "disable", "hidden", "color", "description", "knowledge",
+  "variant", "temperature", "topP", "top_p", "disable", "hidden", "color", "description", "knowledge",
 ] as const;
 
 export async function listAgentConfigs(userId: string) {

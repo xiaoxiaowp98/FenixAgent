@@ -283,3 +283,12 @@
 2. **DRY — createAgentConfig 字段循环 2→1**：提取 `set` 后直接展开为 `values`，消除 `AGENT_SETTABLE_FIELDS` 的重复遍历。
 3. **PERF — importSkillDirectories PG deletes 串行→并行**：overwrite 清理和 rollback 路径的 `configPg.deleteSkill` 调用从 for 循环改为 `Promise.all`，减少 N 个 skill 时的串行等待。
 4. 新增 `acp-register-combined-update.test.ts`（4 用例）、`agent-config-create-single-loop.test.ts`（3 用例）、`skill-import-parallel-deletes.test.ts`（4 用例）。25 轮累计 277 个测试。
+
+## 2026-05-17 第二十六次审查
+
+审查范围：全量 CRUD 层（config/agent-config、skill）
+
+修复（1 BUG + 1 PERF）：
+1. **BUG — AGENT_SETTABLE_FIELDS 缺少 top_p**：前端发送 `top_p` 字段，路由白名单过滤依赖 `AGENT_SETTABLE_FIELDS` 数组，但数组仅有 `topP`（PG 列名）而无 `top_p`（前端字段名），导致 `top_p` 值在创建/更新 Agent 时被静默丢弃，`temperature` 校验有效但 `top_p` 永不写入 DB。修复为数组同时包含 `"topP"` 和 `"top_p"`。
+2. **PERF — importSkillDirectories upsertSkill 串行→并行**：导入成功后 N 个 skill 的 PG 元数据写入从 for 循环改为 `Promise.all`。
+3. 新增 `agent-settable-top-p.test.ts`（3 用例）、`skill-import-upsert-parallel.test.ts`（2 用例）。26 轮累计 282 个测试。

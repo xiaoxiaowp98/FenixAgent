@@ -238,13 +238,13 @@ export async function importSkillDirectories(
     attemptedNames.push(...writtenNames);
 
     const imported = await buildImportedSkillInfos(SKILLS_DIR, writtenNames);
-    for (const info of imported) {
-      await configPg.upsertSkill(userId, info.name, {
+    await Promise.all(imported.map((info) =>
+      configPg.upsertSkill(userId, info.name, {
         description: info.description,
         contentPath: info.path,
         enabled: true,
-      });
-    }
+      }),
+    ));
 
     return { imported, skipped, conflicts: [] };
   } catch (err) {

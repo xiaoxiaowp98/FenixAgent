@@ -400,3 +400,12 @@
 2. **CLEANUP — agent-config.ts**：移除 `createAgentConfig` 中冗余的双重 `as typeof agentConfig.$inferInsert` 类型断言。
 3. **CLEANUP — mcp-server.ts**：`validateMcpConfig` command 校验从 `!every(typeof === "string")` 改为 `some(typeof !== "string")` 提高可读性。
 4. 新增 `workspace-symlink-escape.test.ts`（4 用例）、`mcp-command-validation.test.ts`（5 用例）。37 轮累计 373 个测试。
+
+## 2026-05-17 第三十八次审查
+
+审查范围：同 R37 全量 service 文件 + db/schema.ts + repositories/task.ts
+
+修复（1 BUG + 1 WARNING）：
+1. **BUG — task.ts generateTaskId/generateLogId UUID 不兼容**：`task_xxx`/`log_xxx` 格式不兼容 PG `uuid` 列类型（`invalid input syntax for type uuid`），改为 `randomUUID()` 生成标准 UUID。
+2. **WARNING — instance.ts ensureRunning async gap 陈旧数据**：`maxSessions` 检查使用 `await getById` 前的陈旧 `runningInstances` 快照，async gap 后重新调用 `getRunningInstancesByEnvironment`，并发请求启动的实例可被复用。
+3. 新增 `task-log-id-uuid.test.ts`（4 用例）、`ensure-running-recheck.test.ts`（3 用例）。38 轮累计 380 个测试。

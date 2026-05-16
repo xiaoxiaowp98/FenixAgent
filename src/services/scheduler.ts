@@ -96,8 +96,7 @@ export function scheduleTask(task: { id: string; cron: string; timezone?: string
   const nextRunAt = toInvocationDate(job.nextInvocation());
 
   scheduledTaskRepo.update(task.id, { nextRunAt, updatedAt: new Date() })
-    .then(() => {})
-    .catch(() => {});
+    .catch((err) => { error(`[Scheduler] Failed to update nextRunAt for task ${task.id}:`, err); });
 
   log(`[Scheduler] Scheduled task ${task.id} with cron "${task.cron}" (tz: ${task.timezone ?? "server-local"})`);
 }

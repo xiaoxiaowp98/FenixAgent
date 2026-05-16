@@ -9,9 +9,7 @@ import type { RuntimeInstanceSnapshot } from "@mothership/core";
 import type { AgentFullConfig } from "./config-pg";
 
 // ────────────────────────────────────────────
-// ────────────────────────────────────────────
 // 公共类型
-// ────────────────────────────────────────────
 // ────────────────────────────────────────────
 
 export interface SpawnedInstance {
@@ -99,6 +97,19 @@ function toSpawnedInstance(
 // 公共 API
 // ────────────────────────────────────────────
 
+/** 统一的实例查询+转换：按 filter 条件筛选，再转为 SpawnedInstance */
+function filterInstances(
+  predicate: (snapshot: RuntimeInstanceSnapshot, sup: InstanceSupplement) => boolean,
+): SpawnedInstance[] {
+  const facade = getCoreRuntime();
+  return facade.listInstances()
+    .filter((s) => {
+      const sup = supplements.get(s.instanceId);
+      return sup !== undefined && predicate(s, sup);
+    })
+    .map((s) => toSpawnedInstance(s, supplements.get(s.instanceId)!));
+}
+
 export async function spawnInstanceFromEnvironment(
   userId: string,
   environmentId: string,
@@ -164,28 +175,14 @@ export async function spawnInstanceFromEnvironment(
 }
 
 export function listInstances(userId: string): SpawnedInstance[] {
-  const facade = getCoreRuntime();
-  return facade.listInstances()
-    .filter((s) => {
-      const sup = supplements.get(s.instanceId);
-      return sup?.userId === userId;
-    })
-    .map((s) => {
-      const sup = supplements.get(s.instanceId)!;
-      return toSpawnedInstance(s, sup);
-    });
+  return filterInstances((_s, sup) => sup.userId === userId);
 }
 
 export function findRunningInstanceByEnvironment(environmentId: string, userId?: string): SpawnedInstance | undefined {
-  const facade = getCoreRuntime();
-  for (const snapshot of facade.listInstances()) {
-    const sup = supplements.get(snapshot.instanceId);
-    if (sup?.environmentId === environmentId && snapshot.status === "running") {
-      if (userId && sup.userId !== userId) continue;
-      return toSpawnedInstance(snapshot, sup);
-    }
-  }
-  return undefined;
+  const results = filterInstances((s, sup) =>
+    sup.environmentId === environmentId && s.status === "running" && (!userId || sup.userId === userId),
+  );
+  return results[0];
 }
 
 export function findInstanceBySessionId(_sessionId: string): SpawnedInstance | undefined {
@@ -193,29 +190,15 @@ export function findInstanceBySessionId(_sessionId: string): SpawnedInstance | u
 }
 
 export function listInstancesByEnvironment(environmentId: string): SpawnedInstance[] {
-  const facade = getCoreRuntime();
-  return facade.listInstances()
-    .filter((s) => {
-      const sup = supplements.get(s.instanceId);
-      return sup?.environmentId === environmentId && s.status !== "stopped" && s.status !== "error";
-    })
-    .map((s) => {
-      const sup = supplements.get(s.instanceId)!;
-      return toSpawnedInstance(s, sup);
-    });
+  return filterInstances((s, sup) =>
+    sup.environmentId === environmentId && s.status !== "stopped" && s.status !== "error",
+  );
 }
 
 export function getRunningInstancesByEnvironment(environmentId: string): SpawnedInstance[] {
-  const facade = getCoreRuntime();
-  return facade.listInstances()
-    .filter((s) => {
-      const sup = supplements.get(s.instanceId);
-      return sup?.environmentId === environmentId && s.status === "running";
-    })
-    .map((s) => {
-      const sup = supplements.get(s.instanceId)!;
-      return toSpawnedInstance(s, sup);
-    });
+  return filterInstances((s, sup) =>
+    sup.environmentId === environmentId && s.status === "running",
+  );
 }
 
 export function getInstance(id: string, userId?: string): SpawnedInstance | undefined {

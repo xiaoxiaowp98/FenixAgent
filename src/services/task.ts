@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { scheduledTaskRepo, taskExecutionLogRepo } from "../repositories/task";
 import type { ScheduledTaskRow, TaskExecutionLogRow } from "../repositories/task";
 import { scheduleTask, rescheduleTask, unscheduleTask } from "./scheduler";
+import { parseJsonb } from "./config/jsonb";
 
 function generateTaskId(): string {
   return `task_${randomBytes(12).toString("hex")}`;
@@ -106,21 +107,9 @@ function validateTaskInput(data: CreateTaskInput, isUpdate = false): string | nu
   return null;
 }
 
-/** 安全解析 headers：兼容 jsonb 中存储的 JSON 字符串和已解析对象 */
+/** 解析 headers：复用 parseJsonb 兼容旧双重编码数据 */
 function parseHeaders(value: unknown): Record<string, string> | null {
-  if (!value) return null;
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      // 向后兼容：旧数据可能双重编码（jsonb + 手动 JSON.stringify）
-      if (typeof parsed === "string") {
-        try { return JSON.parse(parsed); } catch { return null; }
-      }
-      return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed as Record<string, string> : null;
-    } catch { return null; }
-  }
-  if (typeof value === "object" && !Array.isArray(value)) return value as Record<string, string>;
-  return null;
+  return parseJsonb<Record<string, string>>(value);
 }
 
 function sanitizeTask(row: ScheduledTaskRow): TaskResponse {
@@ -274,9 +263,7 @@ export async function executeTaskById(
   const startTime = Date.now();
 
   try {
-    const headers: Record<string, string> = task.headers
-      ? (typeof task.headers === "string" ? JSON.parse(task.headers) : task.headers) as Record<string, string>
-      : {};
+    const headers: Record<string, string> = parseHeaders(task.headers) ?? {};
     if (!headers["Content-Type"] && task.method?.toUpperCase() !== "GET") {
       headers["Content-Type"] = "application/json";
     }

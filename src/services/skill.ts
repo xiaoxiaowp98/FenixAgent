@@ -4,16 +4,13 @@
  * 全局 Skill 和 Workspace Skill 的业务逻辑，
  * 文件系统操作全部委托给 skill-fs.ts。
  */
-import { readFile, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdir, writeFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import * as configPg from "./config-pg";
 import {
   createSkillValidationError,
-  parseFrontmatter,
-  buildSkillMd,
-  normalizeUploadPath,
   groupUploadFiles,
   listSkillsFromDir,
   readSkillDetailFromMd,
@@ -99,6 +96,13 @@ function skillContentPath(name: string): string {
   return join(SKILLS_DIR, name, "SKILL.md");
 }
 
+/** 过滤 metadata 中的 name 和 description 字段 */
+function stripNameAndDescription(metadata: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([k]) => k !== "name" && k !== "description"),
+  );
+}
+
 export async function listSkills(userId: string): Promise<SkillInfo[]> {
   const rows = await configPg.listSkills(userId);
   return rows.map((r) => ({
@@ -122,9 +126,7 @@ export async function getSkill(userId: string, name: string): Promise<SkillDetai
     content: detail?.content ?? "",
     enabled: meta.enabled,
     path: contentPath,
-    metadata: Object.fromEntries(
-      Object.entries(detail?.metadata ?? {}).filter(([k]) => k !== "name" && k !== "description"),
-    ),
+    metadata: stripNameAndDescription(detail?.metadata ?? {}),
   };
 }
 
@@ -320,7 +322,7 @@ export async function getWorkspaceSkill(workspacePath: string, name: string): Pr
     content: detail.content,
     enabled: true,
     path: mdPath,
-    metadata: Object.fromEntries(Object.entries(detail.metadata).filter(([k]) => k !== "name" && k !== "description")),
+    metadata: stripNameAndDescription(detail.metadata),
   };
 }
 

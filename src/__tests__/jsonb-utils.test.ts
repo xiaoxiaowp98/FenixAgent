@@ -7,13 +7,14 @@ describe("parseJsonb", () => {
   // 已解析的对象（Drizzle 新数据）
   it("直接返回已解析的对象", () => {
     const obj = { type: "local", command: ["npx"] };
-    expect(parseJsonb(obj)).toEqual(obj);
+    const result = parseJsonb<typeof obj>(obj);
+    expect(result).toEqual(obj);
   });
 
-  // 已解析的数组
+  // 已解���的数组
   it("直接返回已解析的数组", () => {
-    const arr = [1, 2, 3];
-    expect(parseJsonb(arr)).toEqual(arr);
+    const result = parseJsonb<number[]>([1, 2, 3]);
+    expect(result).toEqual([1, 2, 3]);
   });
 
   // null 返回 null
@@ -29,14 +30,16 @@ describe("parseJsonb", () => {
   // 单层 JSON 字符串（旧 jsonb 数据）
   it("解析单层 JSON 字符串", () => {
     const encoded = JSON.stringify({ foo: "bar" });
-    expect(parseJsonb(encoded)).toEqual({ foo: "bar" });
+    const result = parseJsonb<{ foo: string }>(encoded);
+    expect(result).toEqual({ foo: "bar" });
   });
 
   // 双重编码 JSON 字符串（旧代码 bug 导致）
   it("解析双重编码的 JSON 字符串", () => {
     const original = { type: "remote", url: "https://example.com" };
     const doubleEncoded = JSON.stringify(JSON.stringify(original));
-    expect(parseJsonb(doubleEncoded)).toEqual(original);
+    const result = parseJsonb<typeof original>(doubleEncoded);
+    expect(result).toEqual(original);
   });
 
   // 非法 JSON 字符串返回 null
@@ -46,13 +49,13 @@ describe("parseJsonb", () => {
 
   // 布尔值直接返回
   it("布尔值直接返回", () => {
-    expect(parseJsonb(true)).toBe(true);
-    expect(parseJsonb(false)).toBe(false);
+    expect(parseJsonb<boolean>(true)).toBe(true);
+    expect(parseJsonb<boolean>(false)).toBe(false);
   });
 
   // 数字直接返回
   it("数字直接返回", () => {
-    expect(parseJsonb(42)).toBe(42);
+    expect(parseJsonb<number>(42)).toBe(42);
   });
 
   // JSON 字符串化的空字符串 → 解析后为 string 类型，尝试二次解析失败 → null
@@ -63,8 +66,8 @@ describe("parseJsonb", () => {
   // 嵌套对象
   it("正确处理嵌套对象", () => {
     const nested = { policy: { searchFirst: true, maxResults: 5 } };
-    expect(parseJsonb(nested)).toEqual(nested);
-    expect(parseJsonb(JSON.stringify(nested))).toEqual(nested);
+    expect(parseJsonb<typeof nested>(nested)).toEqual(nested);
+    expect(parseJsonb<typeof nested>(JSON.stringify(nested))).toEqual(nested);
   });
 });
 

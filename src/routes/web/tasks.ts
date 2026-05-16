@@ -11,7 +11,6 @@ import {
   listExecutionLogs,
   clearExecutionLogs,
 } from "../../services/task";
-import { scheduleTask, unscheduleTask, rescheduleTask } from "../../services/scheduler";
 import {
   TaskInfoSchema,
   CreateTaskRequestSchema,
@@ -46,9 +45,6 @@ app.post("/tasks", async ({ store, body, error }) => {
     return error(status, { error: { type: "validation_error", message: err.message } });
   }
 
-  const task = result.data!;
-  scheduleTask({ id: task.id, cron: task.cron, timezone: task.timezone, enabled: task.enabled });
-
   return result;
 }, { sessionAuth: true, body: "create-task-request" });
 
@@ -81,9 +77,6 @@ app.put("/tasks/:id", async ({ store, params, body, error }) => {
     return error(400, { error: { type: "validation_error", message: err.message } });
   }
 
-  const task = result.data!;
-  rescheduleTask({ id: task.id, cron: task.cron, timezone: task.timezone, enabled: task.enabled });
-
   return result;
 }, { sessionAuth: true, body: "update-task-request" });
 
@@ -98,8 +91,6 @@ app.delete("/tasks/:id", async ({ store, params, error }) => {
     return error(404, { error: { type: "not_found", message: err.message } });
   }
 
-  unscheduleTask(taskId);
-
   return result;
 }, { sessionAuth: true });
 
@@ -112,16 +103,6 @@ app.post("/tasks/:id/toggle", async ({ store, params, error }) => {
   if (!result.success) {
     const err = result.error!;
     return error(404, { error: { type: "not_found", message: err.message } });
-  }
-
-  if (result.data!.enabled) {
-    const taskResult = await getTask(user.id, taskId);
-    if (taskResult.success && taskResult.data) {
-      const task = taskResult.data;
-      scheduleTask({ id: task.id, cron: task.cron, timezone: task.timezone, enabled: task.enabled });
-    }
-  } else {
-    unscheduleTask(taskId);
   }
 
   return result;

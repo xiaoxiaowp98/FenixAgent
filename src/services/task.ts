@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { scheduledTaskRepo, taskExecutionLogRepo } from "../repositories/task";
 import type { ScheduledTaskRow, TaskExecutionLogRow } from "../repositories/task";
+import { scheduleTask, rescheduleTask, unscheduleTask } from "./scheduler";
 
 function generateTaskId(): string {
   return `task_${randomBytes(12).toString("hex")}`;
@@ -167,7 +168,12 @@ export async function createTask(userId: string, data: CreateTaskInput): Promise
     updatedAt: now,
   });
 
-  return { success: true, data: sanitizeTask(row) };
+  const result = sanitizeTask(row);
+  if (result.enabled) {
+    scheduleTask({ id: result.id, cron: result.cron, timezone: result.timezone, enabled: result.enabled });
+  }
+
+  return { success: true, data: result };
 }
 
 export async function listTasks(userId: string): Promise<ServiceSuccess<TaskResponse[]>> {
@@ -205,7 +211,10 @@ export async function updateTask(userId: string, taskId: string, data: UpdateTas
   await scheduledTaskRepo.update(taskId, updates);
 
   const row = await scheduledTaskRepo.getById(taskId);
-  return { success: true, data: sanitizeTask(row!) };
+  const result = sanitizeTask(row!);
+  rescheduleTask({ id: result.id, cron: result.cron, timezone: result.timezone, enabled: result.enabled });
+
+  return { success: true, data: result };
 }
 
 export async function deleteTask(userId: string, taskId: string): Promise<ServiceResult<undefined>> {
@@ -213,6 +222,7 @@ export async function deleteTask(userId: string, taskId: string): Promise<Servic
   if (!exists) return { success: false, error: { code: "NOT_FOUND", message: "任务不存在" } };
 
   await scheduledTaskRepo.deleteByUserAndId(userId, taskId);
+  unscheduleTask(taskId);
   return { success: true, data: undefined };
 }
 
@@ -222,6 +232,12 @@ export async function toggleTask(userId: string, taskId: string): Promise<Servic
 
   const newEnabled = !existing.enabled;
   await scheduledTaskRepo.update(taskId, { enabled: newEnabled, updatedAt: new Date() });
+
+  if (newEnabled) {
+    scheduleTask({ id: taskId, cron: existing.cron, timezone: existing.timezone, enabled: true });
+  } else {
+    unscheduleTask(taskId);
+  }
 
   return { success: true, data: { id: taskId, enabled: newEnabled } };
 }

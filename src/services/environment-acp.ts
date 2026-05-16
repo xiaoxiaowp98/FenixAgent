@@ -1,22 +1,34 @@
-/**
- * environment-acp — ACP/Bridge 注册编排 + Transport 状态操作
- *
- * 从 environment.ts 拆分出的 ACP 协议模块，
- * 被 transport/acp-ws-handler.ts、routes/v1/environments.ts 等调用。
- */
 import { randomBytes } from "node:crypto";
 import { environmentRepo, sessionRepo } from "../repositories";
+import type { RegisterEnvironmentRequest } from "../types/api";
 import type { EnvironmentRecord } from "../repositories";
 import { NotFoundError } from "../errors";
 import { findOrCreateForEnvironment } from "./session";
-import { deleteEnvironment, toResponse } from "./environment-core";
-import type { EnvironmentResponse } from "../types/api";
-import type { RegisterEnvironmentRequest } from "../types/api";
+import { toResponse, deleteEnvironment } from "./environment-core";
 
-// ────────────────────────────────────────────
-// V1 REST 注册接口
-// ────────────────────────────────────────────
+/** Bridge 注册请求参数 */
+export interface BridgeRegistrationInput {
+  authEnvironmentId?: string;
+  userId: string;
+  machine_name?: string;
+  directory?: string;
+  branch?: string;
+  git_repo_url?: string;
+  max_sessions?: number;
+  worker_type?: string;
+  capabilities?: Record<string, unknown>;
+  metadata?: { worker_type?: string };
+}
 
+/** Bridge 注册结果 */
+export interface BridgeRegistrationResult {
+  environment_id: string;
+  environment_secret: string;
+  status: string;
+  session_id?: string;
+}
+
+/** 旧式 WS 注册（env_ 前缀 secret），保留向后兼容 */
 export async function registerEnvironment(req: RegisterEnvironmentRequest & { metadata?: { worker_type?: string }; username?: string; userId?: string }) {
   const secret = `env_${randomBytes(24).toString("hex")}`;
   const workerType = req.worker_type || req.metadata?.worker_type;
@@ -37,38 +49,45 @@ export async function registerEnvironment(req: RegisterEnvironmentRequest & { me
   return { environment_id: record.id, environment_secret: record.secret, status: record.status as "active", session_id: undefined };
 }
 
+/** 旧式 WS 注销 */
 export async function deregisterEnvironment(envId: string) {
   await environmentRepo.update(envId, { status: "deregistered" });
 }
 
+/** 获取单个 Environment 记录 */
 export async function getEnvironment(envId: string) {
   return environmentRepo.getById(envId);
 }
 
+/** 更新 poll 时间 */
 export async function updatePollTime(envId: string) {
   await environmentRepo.update(envId, { lastPollAt: new Date() });
 }
 
+/** 获取所有活跃环境 */
 export async function listActiveEnvironments() {
   return environmentRepo.listActive();
 }
 
-export async function listActiveEnvironmentsResponse(): Promise<EnvironmentResponse[]> {
+/** 获取所有活跃环境（v1 响应格式） */
+export async function listActiveEnvironmentsResponse() {
   const envs = await environmentRepo.listActive();
   return envs.map(toResponse);
 }
 
-export async function listActiveEnvironmentsByUsername(username: string): Promise<EnvironmentResponse[]> {
+/** 按用户名获取活跃环境（v1 响应格式） */
+export async function listActiveEnvironmentsByUsername(username: string) {
   const envs = await environmentRepo.listActiveByUsername(username);
   return envs.map(toResponse);
 }
 
+/** 重连环境 */
 export async function reconnectEnvironment(envId: string) {
   await environmentRepo.update(envId, { status: "active" });
 }
 
 // ────────────────────────────────────────────
-// Transport 层状态操作
+// Transport 层专用接口
 // ────────────────────────────────────────────
 
 /** 标记 Environment 为 active 并更新 poll 时间 */
@@ -97,7 +116,7 @@ export async function updateEnvironmentCapabilities(
   });
 }
 
-/** 创建临时 Environment（WS 注册用） */
+/** 创建临时 Environment（非持久化，WS 注册用） */
 export async function createTemporaryEnvironment(params: {
   secret: string;
   userId: string;
@@ -120,28 +139,6 @@ export async function createTemporaryEnvironment(params: {
 // ────────────────────────────────────────────
 // Bridge 注册编排（v1/environments 路由用）
 // ────────────────────────────────────────────
-
-/** Bridge 注册请求参数 */
-export interface BridgeRegistrationInput {
-  authEnvironmentId?: string;
-  userId: string;
-  machine_name?: string;
-  directory?: string;
-  branch?: string;
-  git_repo_url?: string;
-  max_sessions?: number;
-  worker_type?: string;
-  capabilities?: Record<string, unknown>;
-  metadata?: { worker_type?: string };
-}
-
-/** Bridge 注册结果 */
-export interface BridgeRegistrationResult {
-  environment_id: string;
-  environment_secret: string;
-  status: string;
-  session_id?: string;
-}
 
 /** Bridge 注册编排：已认证环境更新 + 新环境创建 + 自动会话 */
 export async function registerBridge(input: BridgeRegistrationInput): Promise<BridgeRegistrationResult> {

@@ -1,14 +1,13 @@
-/**
- * environment.ts — barrel re-export
- *
- * 所有实现已拆分到：
- *   environment-core.ts — 共享常量、类型、工具函数
- *   environment-web.ts  — Web 控制面板 CRUD
- *   environment-acp.ts  — ACP/Bridge 注册编排 + Transport 状态操作
- */
+// src/services/environment.ts — barrel re-export
+// 所有导出名称保持不变，下游 import 路径无需修改。
+
+// ── core ──
 export {
   validateWorkspacePath,
   ensureWorkspaceDir,
+  KEBAB_CASE_RE,
+  generateEnvSecret,
+  toResponse,
   sanitizeResponse,
   getOwnedEnvironment,
   deleteEnvironment,
@@ -19,12 +18,14 @@ export type {
   UpdateWebEnvironmentParams,
 } from "./environment-core";
 
+// ── web ──
 export {
   createWebEnvironment,
   updateWebEnvironment,
   listEnvironmentsWithInstances,
 } from "./environment-web";
 
+// ── acp ──
 export {
   registerEnvironment,
   deregisterEnvironment,

@@ -174,14 +174,17 @@ export async function registerBridge(input: BridgeRegistrationInput): Promise<Br
       if (existing.userId !== userId) {
         throw new AppError("Environment not owned by you", "FORBIDDEN", 403);
       }
-      await environmentRepo.update(authEnvironmentId, {
-        status: "active",
-        lastPollAt: new Date(),
-        capabilities: capabilities ?? undefined,
-        maxSessions: max_sessions,
-      });
+      // 并行执行环境更新和 session 查询（两操作无依赖）
+      const [, sessions] = await Promise.all([
+        environmentRepo.update(authEnvironmentId, {
+          status: "active",
+          lastPollAt: new Date(),
+          capabilities: capabilities ?? undefined,
+          maxSessions: max_sessions,
+        }),
+        sessionRepo.listByEnvironment(authEnvironmentId),
+      ]);
 
-      const sessions = await sessionRepo.listByEnvironment(authEnvironmentId);
       return {
         environment_id: existing.id,
         environment_secret: existing.secret,

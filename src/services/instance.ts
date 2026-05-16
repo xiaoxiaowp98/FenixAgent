@@ -239,15 +239,19 @@ export async function stopInstance(id: string, userId: string): Promise<{ ok: bo
 
 export async function stopAllInstances(): Promise<void> {
   const facade = getCoreRuntime();
-  for (const snapshot of facade.listInstances()) {
-    if (snapshot.status !== "stopped" && snapshot.status !== "stopping") {
+  const active = facade.listInstances()
+    .filter(s => s.status !== "stopped" && s.status !== "stopping");
+
+  // 并行停止所有活跃实例（每个实例独立，互不依赖）
+  await Promise.all(
+    active.map(async (snapshot) => {
       try {
         await facade.stopInstance(snapshot.instanceId);
       } catch (err: unknown) {
         logError(`[Instance] Failed to stop ${snapshot.instanceId}:`, err);
       }
-    }
-  }
+    }),
+  );
   supplements.clear();
   envInstanceCounters.clear();
 }

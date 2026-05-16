@@ -33,14 +33,16 @@ function toInvocationDate(invocation: unknown): Date | null {
 async function executeTask(taskId: string): Promise<void> {
   if (runningTasks.has(taskId)) {
     try {
-      await createExecutionLog({
-        taskId,
-        status: "skipped",
-        triggeredBy: "cron",
-        skipReason: "previous_run_still_active",
-      });
-
-      await scheduledTaskRepo.update(taskId, { lastStatus: "skipped", updatedAt: new Date() });
+      // 并行写入日志和更新状态（两操作无依赖）
+      await Promise.all([
+        createExecutionLog({
+          taskId,
+          status: "skipped",
+          triggeredBy: "cron",
+          skipReason: "previous_run_still_active",
+        }),
+        scheduledTaskRepo.update(taskId, { lastStatus: "skipped", updatedAt: new Date() }),
+      ]);
     } catch (err) {
       error(`[Scheduler] Failed to record skipped execution for task ${taskId}:`, err);
     }

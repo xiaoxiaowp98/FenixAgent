@@ -101,8 +101,11 @@ function validateTaskInput(data: CreateTaskInput, isUpdate = false): string | nu
     const cronErr = validateCron(data.cron);
     if (cronErr) return cronErr;
   }
-  if (data.method && !["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"].includes(data.method.toUpperCase())) {
-    return "不支持的 HTTP 方法";
+  if (data.method !== undefined) {
+    if (typeof data.method !== "string" || data.method.trim().length === 0) return "HTTP 方法不能为空";
+    if (!["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"].includes(data.method.toUpperCase())) {
+      return "不支持的 HTTP 方法";
+    }
   }
   return null;
 }
@@ -301,6 +304,7 @@ export async function executeTaskById(
       method: task.method ?? "POST",
       headers,
       body: task.method?.toUpperCase() === "GET" ? undefined : (task.body ?? undefined),
+      signal: AbortSignal.timeout(30_000),
     });
 
     const duration = Date.now() - startTime;
@@ -336,7 +340,9 @@ export async function listExecutionLogs(
   page = 1,
   pageSize = 20,
 ): Promise<ServiceSuccess<{ total: number; items: TaskExecutionLogResponse[] }>> {
-  const { rows, total } = await taskExecutionLogRepo.listByTaskPaged(taskId, page, pageSize);
+  const safePage = Math.max(1, Math.floor(page));
+  const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
+  const { rows, total } = await taskExecutionLogRepo.listByTaskPaged(taskId, safePage, safePageSize);
 
   return {
     success: true,

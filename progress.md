@@ -107,3 +107,18 @@
 3. **null 语义遗漏** — `registerBridge` 中 `capabilities || undefined` 改为 `?? undefined`（第8轮遗漏的最后一处）。
 4. **废弃导入** — `migrateSkillsDir` 移除未使用的 `mkdtemp`、`tmpdir` 动态导入。
 5. 新增 `sanitize-execution-log.test.ts`（3 用例）。9 轮累计 146 个测试。
+
+## 2026-05-17 第十次审查
+
+审查范围：全量 CRUD 层深度审计（含 launch-spec-builder、config 子目录）
+
+修复（4 BUG + 4 WARNING）：
+1. **BUG — skill scope 泄漏**：`enableSkill`/`disableSkill` 缺少 `isNull(environmentId)` 条件，全局 skill 操作会误改同名 workspace skill。
+2. **BUG — fetch 无超时**：`executeTaskById` 的 `fetch()` 添加 `AbortSignal.timeout(30_000)`，防止慢速目标阻塞 scheduler。
+3. **BUG — 空 method 绕过校验**：`validateTaskInput` 对空字符串 method 从默放行改为拒绝（`data.method !== undefined` + trim 检查）。
+4. **BUG — JSON.parse 崩溃**：`launch-spec-builder.ts` MCP config 解析添加 try-catch，无效 JSON 跳过而非崩溃。
+5. **WARNING — 分页边界**：`listExecutionLogs` 添加 page≥1、pageSize 1-100 钳位。
+6. **WARNING — type 列过时**：`updateMcpServer` 同步更新 `type` 列（从 `config.type` 推导）。
+7. **WARNING — 定时器泄漏**：`listSkillSources` 添加 `clearTimeout` 防止悬挂定时器。
+8. **WARNING — 变量遮蔽**：`skill.ts` 两处 `catch (error)` → `catch (err)`，消除与 logger 导入的命名混淆。
+9. 新增 `pagination-bounds.test.ts`（6 用例），`task-validators.test.ts` 新增 2 用例。10 轮累计 153 个测试。

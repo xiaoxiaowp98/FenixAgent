@@ -39,8 +39,10 @@ export async function updateMcpServer(
   name: string,
   config: Record<string, unknown>,
 ) {
+  const updates: Record<string, unknown> = { config, updatedAt: new Date() };
+  if (typeof config.type === "string") updates.type = config.type;
   await db.update(mcpServer)
-    .set({ config, updatedAt: new Date() })
+    .set(updates)
     .where(and(eq(mcpServer.userId, userId), eq(mcpServer.name, name)));
 }
 

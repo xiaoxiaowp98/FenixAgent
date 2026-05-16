@@ -231,7 +231,7 @@ export async function importSkillDirectories(
     }
 
     return { imported, skipped, conflicts: [] };
-  } catch (error) {
+  } catch (err) {
     await cleanupWrittenSkills(SKILLS_DIR, attemptedNames);
     for (const name of attemptedNames) {
       await configPg.deleteSkill(userId, name).catch((e) => {
@@ -239,7 +239,7 @@ export async function importSkillDirectories(
       });
     }
     await restoreFromBackup(snapshots, SKILLS_DIR);
-    throw error;
+    throw err;
   } finally {
     await cleanupBackupDir(backupRoot);
   }
@@ -277,13 +277,18 @@ export async function listSkillSources(userId: string): Promise<SkillSourceInfo[
 
   const results = await Promise.allSettled(
     environments.map(async (env) => {
-      const skills = await Promise.race([
-        listWorkspaceSkills(env.workspacePath),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("TIMEOUT")), WORKSPACE_SCAN_TIMEOUT_MS),
-        ),
-      ]);
-      return { env, skills };
+      let timer: ReturnType<typeof setTimeout>;
+      try {
+        const skills = await Promise.race([
+          listWorkspaceSkills(env.workspacePath),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error("TIMEOUT")), WORKSPACE_SCAN_TIMEOUT_MS);
+          }),
+        ]);
+        return { env, skills };
+      } finally {
+        clearTimeout(timer!);
+      }
     }),
   );
 
@@ -407,10 +412,10 @@ export async function importWorkspaceSkillDirectories(
     const imported = await buildImportedSkillInfos(targetDir, writtenNames);
 
     return { imported, skipped, conflicts: [] };
-  } catch (error) {
+  } catch (err) {
     await cleanupWrittenSkills(targetDir, attemptedNames);
     await restoreFromBackup(snapshots, targetDir);
-    throw error;
+    throw err;
   } finally {
     await cleanupBackupDir(backupRoot);
   }

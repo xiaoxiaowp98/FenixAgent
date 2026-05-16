@@ -116,10 +116,16 @@ export async function buildLaunchSpec(input: BuildLaunchSpecInput): Promise<Agen
 
   const mcpServers: McpServerConfig[] = [];
   for (const server of fullConfig.mcpServers) {
-    const raw = typeof server.config === "string"
-      ? JSON.parse(server.config)
-      : server.config;
-    const sdkConfig = toSdkMcpConfig(server.name, raw as Record<string, unknown>);
+    let raw: Record<string, unknown>;
+    try {
+      raw = typeof server.config === "string"
+        ? JSON.parse(server.config)
+        : server.config as Record<string, unknown>;
+    } catch {
+      log(`[launch-spec-builder] 跳过无效 JSON 配置: ${server.name}`);
+      continue;
+    }
+    const sdkConfig = toSdkMcpConfig(server.name, raw);
     if (sdkConfig) {
       mcpServers.push(sdkConfig);
     }

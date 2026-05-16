@@ -101,7 +101,7 @@ export async function deleteSkill(
 export async function enableSkill(userId: string, name: string): Promise<boolean> {
   const result = await db.update(skill)
     .set({ enabled: true, updatedAt: new Date() })
-    .where(and(eq(skill.userId, userId), eq(skill.name, name)))
+    .where(and(eq(skill.userId, userId), eq(skill.name, name), isNull(skill.environmentId)))
     .returning({ id: skill.id });
   return result.length > 0;
 }
@@ -109,7 +109,7 @@ export async function enableSkill(userId: string, name: string): Promise<boolean
 export async function disableSkill(userId: string, name: string): Promise<boolean> {
   const result = await db.update(skill)
     .set({ enabled: false, updatedAt: new Date() })
-    .where(and(eq(skill.userId, userId), eq(skill.name, name)))
+    .where(and(eq(skill.userId, userId), eq(skill.name, name), isNull(skill.environmentId)))
     .returning({ id: skill.id });
   return result.length > 0;
 }

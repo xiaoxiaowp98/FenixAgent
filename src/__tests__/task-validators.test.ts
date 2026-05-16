@@ -33,8 +33,11 @@ function validateTaskInput(
     const cronErr = validateCron(data.cron);
     if (cronErr) return cronErr;
   }
-  if (data.method && !["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"].includes(data.method.toUpperCase())) {
-    return "不支持的 HTTP 方法";
+  if (data.method !== undefined) {
+    if (typeof data.method !== "string" || data.method.trim().length === 0) return "HTTP 方法不能为空";
+    if (!["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"].includes(data.method.toUpperCase())) {
+      return "不支持的 HTTP 方法";
+    }
   }
   return null;
 }
@@ -154,5 +157,15 @@ describe("validateTaskInput", () => {
 
   it("拒绝非法 HTTP 方法", () => {
     expect(validateTaskInput({ name: "t", url: "http://x", cron: "* * * * *", method: "INVALID" })).not.toBeNull();
+  });
+
+  // 空字符串 method 被拦截
+  it("拒绝空字符串 method", () => {
+    expect(validateTaskInput({ name: "t", url: "http://x", cron: "* * * * *", method: "" })).not.toBeNull();
+  });
+
+  // 纯空白 method 被拦截
+  it("拒绝纯空白 method", () => {
+    expect(validateTaskInput({ name: "t", url: "http://x", cron: "* * * * *", method: "  " })).not.toBeNull();
   });
 });

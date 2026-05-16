@@ -489,7 +489,6 @@ describe("V2 Code Session Routes", () => {
     expect(bridgeRes.status).toBe(200);
     const body = await bridgeRes.json();
     expect(body.api_base_url).toBe("http://localhost:3000");
-    expect(body.worker_epoch).toBe(1);
     expect(body.worker_jwt).toBeTruthy();
     expect(body.expires_in).toBe(3600);
   });
@@ -527,7 +526,7 @@ describe("V2 Worker Routes", () => {
     });
     expect(regRes.status).toBe(200);
     const body = await regRes.json();
-    expect(body.worker_epoch).toBe(1);
+    expect(body.status).toBe("ok");
   });
 
   test("POST /v1/code/sessions/:id/worker/register — 404 for unknown", async () => {
@@ -739,7 +738,6 @@ describe("Web Session Routes", () => {
       method: "PUT",
       headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({
-        worker_epoch: 1,
         external_metadata: {
           automation_state: {
             enabled: true,
@@ -1298,7 +1296,6 @@ describe("V2 Worker Events Routes", () => {
       method: "POST",
       headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({
-        worker_epoch: 1,
         events: [{ payload: { type: "assistant", content: "response" } }],
       }),
     });
@@ -1324,10 +1321,8 @@ describe("V2 Worker Events Routes", () => {
       method: "PUT",
       headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({
-        worker_epoch: 1,
         worker_status: "running",
         external_metadata: {
-          permission_mode: "default",
           automation_state: {
             enabled: true,
             phase: "sleeping",
@@ -1345,7 +1340,6 @@ describe("V2 Worker Events Routes", () => {
     expect(getRes.status).toBe(200);
     const body = await getRes.json();
     expect(body.worker.worker_status).toBe("running");
-    expect(body.worker.external_metadata.permission_mode).toBe("default");
     expect(body.worker.external_metadata.automation_state).toEqual({
       enabled: true,
       phase: "sleeping",
@@ -1374,7 +1368,7 @@ describe("V2 Worker Events Routes", () => {
     const heartbeatRes = await request(app, `/v1/code/sessions/${id}/worker/heartbeat`, {
       method: "POST",
       headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-      body: JSON.stringify({ worker_epoch: 1 }),
+      body: JSON.stringify({}),
     });
     expect(heartbeatRes.status).toBe(200);
 
@@ -1591,7 +1585,7 @@ describe("V2 Worker Events Routes", () => {
     const res = await request(app, `/v1/code/sessions/${id}/worker/events/delivery`, {
       method: "POST",
       headers: { ...AUTH_HEADERS, "Content-Type": "application/json" },
-      body: JSON.stringify({ worker_epoch: 1, updates: [{ event_id: "evt123", status: "received" }] }),
+      body: JSON.stringify({ updates: [{ event_id: "evt123", status: "received" }] }),
     });
     expect(res.status).toBe(200);
   });

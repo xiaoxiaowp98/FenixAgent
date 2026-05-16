@@ -1,9 +1,4 @@
-/**
- * environment-web — Web 控制面板专用接口
- *
- * 从 environment.ts 拆分出的 Web 控制面板 CRUD 模块，
- * 仅被 src/routes/web/environments.ts 调用。
- */
+import { randomBytes } from "node:crypto";
 import { environmentRepo } from "../repositories";
 import { ValidationError, ConflictError, ConfigWriteError } from "../errors";
 import * as configPg from "./config-pg";
@@ -11,18 +6,18 @@ import { listInstancesByEnvironment } from "./instance";
 import {
   validateWorkspacePath,
   ensureWorkspaceDir,
+  KEBAB_CASE_RE,
   generateEnvSecret,
   sanitizeResponse,
   getOwnedEnvironment,
-  KEBAB_CASE_RE,
+  deleteEnvironment,
 } from "./environment-core";
 import type {
   CreateWebEnvironmentParams,
   UpdateWebEnvironmentParams,
 } from "./environment-core";
 
-// re-export 共享类型，方便 barrel 导出
-export type { CreateWebEnvironmentParams, UpdateWebEnvironmentParams } from "./environment-core";
+export type { CreateWebEnvironmentParams, UpdateWebEnvironmentParams };
 
 /** 创建 Web 控制面板 Environment — 包含完整的参数校验、Agent 配置解析、目录初始化 */
 export async function createWebEnvironment(params: CreateWebEnvironmentParams) {

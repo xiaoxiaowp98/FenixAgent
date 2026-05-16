@@ -1,31 +1,15 @@
-/**
- * environment-core — 共享常量、类型、工具函数
- *
- * 从 environment.ts 拆分出的基础模块，被 environment-web 和 environment-acp 共同依赖。
- */
 import { randomBytes } from "node:crypto";
 import { isAbsolute, resolve } from "node:path";
 import { mkdirSync, realpathSync } from "node:fs";
 import { environmentRepo } from "../repositories";
+import type { EnvironmentResponse } from "../types/api";
 import type { EnvironmentRecord } from "../repositories";
 import { NotFoundError } from "../errors";
 
-// ────────────────────────────────────────────
-// 常量
-// ────────────────────────────────────────────
-
-/** 禁止作为 workspace 的系统目录 */
-export const BLOCKED_PATHS = [
+const BLOCKED_PATHS = [
   "/", "/etc", "/usr", "/bin", "/sbin", "/var", "/sys", "/proc",
   "/dev", "/boot", "/lib", "/root",
 ];
-
-/** kebab-case 名称校验正则 */
-export const KEBAB_CASE_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
-
-// ────────────────────────────────────────────
-// 工具函数
-// ────────────────────────────────────────────
 
 /** 校验 workspace 路径是否安全（不在系统目录下） */
 export function validateWorkspacePath(p: string): string | null {
@@ -47,18 +31,15 @@ export function ensureWorkspaceDir(workspacePath: string): string {
   return realpathSync(workspacePath);
 }
 
-/** 生成 Web 控制面板 Environment 的 secret */
+/** kebab-case 格式校验正则 */
+export const KEBAB_CASE_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+
+/** 生成 Web 控制面板环境 secret（env_secret_ 前缀） */
 export function generateEnvSecret(): string {
   return `env_secret_${randomBytes(24).toString("hex")}`;
 }
 
-// ────────────────────────────────────────────
-// v1 格式响应转换
-// ────────────────────────────────────────────
-
-import type { EnvironmentResponse } from "../types/api";
-
-/** 将 EnvironmentRecord 转为 v1 API 响应格式 */
+/** 将 EnvironmentRecord 转为 v1 格式响应 */
 export function toResponse(row: EnvironmentRecord): EnvironmentResponse {
   return {
     id: row.id,
@@ -72,10 +53,6 @@ export function toResponse(row: EnvironmentRecord): EnvironmentResponse {
     capabilities: row.capabilities,
   };
 }
-
-// ────────────────────────────────────────────
-// Web 格式响应转换
-// ────────────────────────────────────────────
 
 /** 将 EnvironmentRecord 转为 Web 控制面板 API 响应格式 */
 export function sanitizeResponse(row: EnvironmentRecord) {
@@ -98,10 +75,6 @@ export function sanitizeResponse(row: EnvironmentRecord) {
   };
 }
 
-// ────────────────────────────────────────────
-// 共享所有权校验 & 删除
-// ────────────────────────────────────────────
-
 /** 获取 Environment 并验证归属，未找到或不属于该用户时抛出 NotFoundError */
 export async function getOwnedEnvironment(envId: string, userId: string) {
   const env = await environmentRepo.getById(envId);
@@ -111,16 +84,12 @@ export async function getOwnedEnvironment(envId: string, userId: string) {
   return env;
 }
 
-/** 删除 Environment */
+/** 删除 environment */
 export async function deleteEnvironment(envId: string): Promise<boolean> {
   return environmentRepo.delete(envId);
 }
 
-// ────────────────────────────────────────────
-// 共享类型
-// ────────────────────────────────────────────
-
-/** 创建 Web 控制面板 Environment 的参数 */
+/** Web 控制面板创建 Environment 的参数 */
 export interface CreateWebEnvironmentParams {
   name: string;
   description?: string;
@@ -130,7 +99,7 @@ export interface CreateWebEnvironmentParams {
   userId: string;
 }
 
-/** 更新 Web 控制面板 Environment 的参数 */
+/** Web 控制面板更新 Environment 的参数 */
 export interface UpdateWebEnvironmentParams {
   name?: string;
   description?: string | null;

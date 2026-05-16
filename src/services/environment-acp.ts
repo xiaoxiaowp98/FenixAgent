@@ -1,0 +1,315 @@
+/**
+ * environment-acp — ACP/Bridge 注册编排 + Transport 状态操作
+ *
+ * 从 environment.ts 拆分出的 ACP 协议模块，
+ * 被 transport/acp-ws-handler.ts、routes/v1/environments.ts 等调用。
+ */
+import { randomBytes } from "node:crypto";
+import { environmentRepo, sessionRepo } from "../repositories";
+import type { EnvironmentRecord } from "../repositories";
+import { NotFoundError } from "../errors";
+import { findOrCreateForEnvironment } from "./session";
+import { deleteEnvironment, toResponse } from "./environment-core";
+import type { EnvironmentResponse } from "../types/api";
+import type { RegisterEnvironmentRequest } from "../types/api";
+
+// ────────────────────────────────────────────
+// V1 REST 注册接口
+// ────────────────────────────────────────────
+
+export async function registerEnvironment(req: RegisterEnvironmentRequest & { metadata?: { worker_type?: string }; username?: string; userId?: string }) {
+  const secret = `env_${randomBytes(24).toString("hex")}`;
+  const workerType = req.worker_type || req.metadata?.worker_type;
+  const record = await environmentRepo.create({
+    secret,
+    userId: req.userId || "system",
+    machineName: req.machine_name,
+    directory: req.directory,
+    branch: req.branch,
+    gitRepoUrl: req.git_repo_url,
+    maxSessions: req.max_sessions,
+    workerType,
+    username: req.username,
+    capabilities: req.capabilities,
+  });
+
+  // Session 由 acp-link 管理，RCS 不再创建
+  return { environment_id: record.id, environment_secret: record.secret, status: record.status as "active", session_id: undefined };
+}
+
+export async function deregisterEnvironment(envId: string) {
+  await environmentRepo.update(envId, { status: "deregistered" });
+}
+
+export async function getEnvironment(envId: string) {
+  return environmentRepo.getById(envId);
+}
+
+export async function updatePollTime(envId: string) {
+  await environmentRepo.update(envId, { lastPollAt: new Date() });
+}
+
+export async function listActiveEnvironments() {
+  return environmentRepo.listActive();
+}
+
+export async function listActiveEnvironmentsResponse(): Promise<EnvironmentResponse[]> {
+  const envs = await environmentRepo.listActive();
+  return envs.map(toResponse);
+}
+
+export async function listActiveEnvironmentsByUsername(username: string): Promise<EnvironmentResponse[]> {
+  const envs = await environmentRepo.listActiveByUsername(username);
+  return envs.map(toResponse);
+}
+
+export async function reconnectEnvironment(envId: string) {
+  await environmentRepo.update(envId, { status: "active" });
+}
+
+// ────────────────────────────────────────────
+// Transport 层状态操作
+// ────────────────────────────────────────────
+
+/** 标记 Environment 为 active 并更新 poll 时间 */
+export async function markEnvironmentActive(envId: string): Promise<void> {
+  await environmentRepo.update(envId, { status: "active", lastPollAt: new Date() });
+}
+
+/** 标记 Environment 为 idle */
+export async function markEnvironmentIdle(envId: string): Promise<void> {
+  await environmentRepo.update(envId, { status: "idle" });
+}
+
+/** 更新 Environment 的 lastPollAt */
+export async function touchEnvironmentPoll(envId: string): Promise<void> {
+  await environmentRepo.update(envId, { lastPollAt: new Date() });
+}
+
+/** 更新 Environment capabilities 和 maxSessions */
+export async function updateEnvironmentCapabilities(
+  envId: string,
+  patch: { capabilities?: Record<string, unknown> | null; maxSessions?: number },
+): Promise<void> {
+  await environmentRepo.update(envId, {
+    capabilities: patch.capabilities ?? undefined,
+    maxSessions: patch.maxSessions,
+  });
+}
+
+/** 创建临时 Environment（WS 注册用） */
+export async function createTemporaryEnvironment(params: {
+  secret: string;
+  userId: string;
+  machineName: string;
+  directory?: string;
+  maxSessions?: number;
+  capabilities?: Record<string, unknown>;
+}): Promise<EnvironmentRecord> {
+  return environmentRepo.create({
+    secret: params.secret,
+    userId: params.userId,
+    machineName: params.machineName,
+    workerType: "acp",
+    directory: params.directory,
+    maxSessions: params.maxSessions,
+    capabilities: params.capabilities,
+  });
+}
+
+// ────────────────────────────────────────────
+// Bridge 注册编排（v1/environments 路由用）
+// ────────────────────────────────────────────
+
+/** Bridge 注册请求参数 */
+export interface BridgeRegistrationInput {
+  authEnvironmentId?: string;
+  userId: string;
+  machine_name?: string;
+  directory?: string;
+  branch?: string;
+  git_repo_url?: string;
+  max_sessions?: number;
+  worker_type?: string;
+  capabilities?: Record<string, unknown>;
+  metadata?: { worker_type?: string };
+}
+
+/** Bridge 注册结果 */
+export interface BridgeRegistrationResult {
+  environment_id: string;
+  environment_secret: string;
+  status: string;
+  session_id?: string;
+}
+
+/** Bridge 注册编排：已认证环境更新 + 新环境创建 + 自动会话 */
+export async function registerBridge(input: BridgeRegistrationInput): Promise<BridgeRegistrationResult> {
+  const {
+    authEnvironmentId,
+    userId,
+    machine_name,
+    directory,
+    branch,
+    git_repo_url,
+    max_sessions,
+    capabilities,
+    metadata,
+  } = input;
+
+  // 已认证环境：更新并返回
+  if (authEnvironmentId) {
+    const existing = await environmentRepo.getById(authEnvironmentId);
+    if (existing) {
+      await environmentRepo.update(authEnvironmentId, {
+        status: "active",
+        lastPollAt: new Date(),
+        capabilities: capabilities || undefined,
+        maxSessions: max_sessions,
+      });
+
+      const sessions = await sessionRepo.listByEnvironment(authEnvironmentId);
+      return {
+        environment_id: existing.id,
+        environment_secret: existing.secret,
+        status: "active",
+        session_id: sessions.length > 0 ? sessions[0].id : undefined,
+      };
+    }
+  }
+
+  // 新环境：创建 + 自动会话
+  const workerType = input.worker_type || metadata?.worker_type || "acp";
+  const secret = `rest_${randomBytes(24).toString("hex")}`;
+
+  const record = await environmentRepo.create({
+    secret,
+    userId,
+    machineName: machine_name,
+    directory,
+    branch,
+    gitRepoUrl: git_repo_url,
+    maxSessions: max_sessions,
+    workerType,
+    capabilities,
+  });
+
+  let sessionId: string | undefined;
+  if (workerType === "acp") {
+    const sessionResult = await findOrCreateForEnvironment(
+      record.id,
+      machine_name || "ACP Agent",
+      userId,
+      "acp",
+    );
+    sessionId = sessionResult.id;
+  }
+
+  return {
+    environment_id: record.id,
+    environment_secret: record.secret,
+    status: record.status,
+    session_id: sessionId,
+  };
+}
+
+/** Bridge 重连编排：校验归属 + 标记 active */
+export async function reconnectBridge(envId: string, userId: string): Promise<void> {
+  const env = await environmentRepo.getById(envId);
+  if (!env || env.userId !== userId) {
+    throw new NotFoundError("Environment not found");
+  }
+  await environmentRepo.update(envId, { status: "active" });
+}
+
+/** Bridge 注销编排：校验归属 + 删除 */
+export async function deregisterBridge(envId: string, userId: string): Promise<void> {
+  const env = await environmentRepo.getById(envId);
+  if (!env || env.userId !== userId) {
+    throw new NotFoundError("Environment not found");
+  }
+  await deleteEnvironment(envId);
+}
+
+// ────────────────────────────────────────────
+// ACP 连接生命周期管理
+// ────────────────────────────────────────────
+
+/**
+ * ACP 连接建立时激活环境（bound 环境）。
+ */
+export async function handleAcpConnect(boundEnvId: string | null): Promise<void> {
+  if (boundEnvId) {
+    await markEnvironmentActive(boundEnvId);
+  }
+}
+
+/**
+ * ACP register 消息处理：bound 环境 → active + 更新 capabilities；unbound → 创建临时环境
+ */
+export async function handleAcpRegister(params: {
+  wsId: string;
+  userId: string;
+  agentName: string;
+  capabilities?: Record<string, unknown>;
+  maxSessions?: number;
+  directory?: string;
+  boundEnvId: string | null;
+}): Promise<{ envId: string; isNew: boolean }> {
+  if (params.boundEnvId) {
+    await markEnvironmentActive(params.boundEnvId);
+    await updateEnvironmentCapabilities(params.boundEnvId, {
+      capabilities: params.capabilities || null,
+      maxSessions: params.maxSessions,
+    });
+    return { envId: params.boundEnvId, isNew: false };
+  }
+
+  const record = await createTemporaryEnvironment({
+    secret: `ws_${params.wsId}`,
+    userId: params.userId,
+    machineName: params.agentName,
+    directory: params.directory,
+    maxSessions: params.maxSessions,
+    capabilities: params.capabilities,
+  });
+
+  return { envId: record.id, isNew: true };
+}
+
+/**
+ * ACP identify 消息处理：bound → active；unbound → 验证 + active
+ */
+export async function handleAcpIdentify(params: {
+  agentId: string;
+  userId: string;
+  boundEnvId: string | null;
+}): Promise<{ envId: string; capabilities: Record<string, unknown> | null }> {
+  if (params.boundEnvId) {
+    await markEnvironmentActive(params.boundEnvId);
+    const env = await getEnvironment(params.boundEnvId);
+    return { envId: params.boundEnvId, capabilities: env?.capabilities || null };
+  }
+
+  const record = await getEnvironment(params.agentId);
+  if (!record || record.workerType !== "acp") {
+    throw Object.assign(new Error("Agent not found"), { code: "NOT_FOUND" });
+  }
+  if (record.userId && record.userId !== params.userId) {
+    throw Object.assign(new Error("Agent not owned by you"), { code: "FORBIDDEN" });
+  }
+
+  await markEnvironmentActive(params.agentId);
+  return { envId: record.id, capabilities: record.capabilities || null };
+}
+
+/**
+ * ACP 断连处理：bound → idle；unbound → 删除
+ */
+export async function handleAcpDisconnect(agentId: string, isBound: boolean): Promise<void> {
+  if (isBound) {
+    await markEnvironmentIdle(agentId);
+  } else {
+    await deleteEnvironment(agentId);
+  }
+}

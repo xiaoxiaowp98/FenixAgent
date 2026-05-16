@@ -271,9 +271,11 @@ export async function handleAcpRegister(params: {
   boundEnvId: string | null;
 }): Promise<{ envId: string; isNew: boolean }> {
   if (params.boundEnvId) {
-    await markEnvironmentActive(params.boundEnvId);
-    await updateEnvironmentCapabilities(params.boundEnvId, {
-      capabilities: params.capabilities ?? null,
+    // 合并 markEnvironmentActive + updateEnvironmentCapabilities 为单次 UPDATE
+    await environmentRepo.update(params.boundEnvId, {
+      status: "active",
+      lastPollAt: new Date(),
+      capabilities: params.capabilities ?? undefined,
       maxSessions: params.maxSessions,
     });
     return { envId: params.boundEnvId, isNew: false };

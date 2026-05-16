@@ -38,19 +38,13 @@ export async function createAgentConfig(
   name: string,
   data: Record<string, unknown>,
 ) {
-  const values: Partial<typeof agentConfig.$inferInsert> = { userId, name, updatedAt: new Date() };
-  for (const field of AGENT_SETTABLE_FIELDS) {
-    if (data[field] !== undefined) {
-      (values as Record<string, unknown>)[field] = data[field] ?? null;
-    }
-  }
-  const set: Partial<typeof agentConfig.$inferInsert> = {};
+  const set: Partial<typeof agentConfig.$inferInsert> = { updatedAt: new Date() };
   for (const field of AGENT_SETTABLE_FIELDS) {
     if (data[field] !== undefined) {
       (set as Record<string, unknown>)[field] = data[field] ?? null;
     }
   }
-  set.updatedAt = new Date();
+  const values = { userId, name, ...set } as typeof agentConfig.$inferInsert;
 
   await db.insert(agentConfig).values(values as typeof agentConfig.$inferInsert)
     .onConflictDoUpdate({

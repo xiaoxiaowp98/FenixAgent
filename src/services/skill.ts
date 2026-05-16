@@ -230,9 +230,8 @@ export async function importSkillDirectories(
       const backed = await backupSkillDirs(backupRoot, SKILLS_DIR, overwriteNames);
       for (const [bName, bPath] of backed) snapshots.set(bName, bPath);
       await cleanupWrittenSkills(SKILLS_DIR, overwriteNames);
-      for (const name of overwriteNames) {
-        await configPg.deleteSkill(userId, name);
-      }
+      // 并行清理 PG 记录
+      await Promise.all(overwriteNames.map((name) => configPg.deleteSkill(userId, name)));
     }
 
     const writtenNames = await writeImportFiles(SKILLS_DIR, pendingEntries);
@@ -250,11 +249,11 @@ export async function importSkillDirectories(
     return { imported, skipped, conflicts: [] };
   } catch (err) {
     try { await cleanupWrittenSkills(SKILLS_DIR, attemptedNames); } catch (e) { logError("[Skill] Failed to cleanup written skills:", e); }
-    for (const name of attemptedNames) {
-      await configPg.deleteSkill(userId, name).catch((e) => {
+    await Promise.all(attemptedNames.map((name) =>
+      configPg.deleteSkill(userId, name).catch((e) => {
         logError(`[Skill] Failed to cleanup skill ${name}:`, e);
-      });
-    }
+      }),
+    ));
     try { await restoreFromBackup(snapshots, SKILLS_DIR); } catch (e) { logError("[Skill] Failed to restore from backup:", e); }
     throw err;
   } finally {

@@ -273,3 +273,13 @@
 3. **PERF — skill.ts importSkillDirectories N+1**：冲突检测循环中 `getSkill` 从串行改为 `Promise.all` 并行查询。
 4. **CLEANUP — session.ts 不必要 async**：`getSession`/`resolveExistingSessionId`/`createSession` 移除 `async` 关键字，改为显式 `Promise.resolve`。
 5. 新增 `mcp-agent-config-upsert.test.ts`（6 用例）、`session-sync-functions.test.ts`（5 用例）。24 轮累计 266 个测试。
+
+## 2026-05-17 第二十五次审查
+
+审查范围：全量 CRUD 层（environment-acp、config/agent-config、skill）
+
+修复（1 PERF + 1 DRY + 1 PERF）：
+1. **PERF — handleAcpRegister bound 路径 2 queries → 1**：合并 `markEnvironmentActive` + `updateEnvironmentCapabilities` 为单次 `environmentRepo.update`，减少 ACP register 时的 DB 往返。
+2. **DRY — createAgentConfig 字段循环 2→1**：提取 `set` 后直接展开为 `values`，消除 `AGENT_SETTABLE_FIELDS` 的重复遍历。
+3. **PERF — importSkillDirectories PG deletes 串行→并行**：overwrite 清理和 rollback 路径的 `configPg.deleteSkill` 调用从 for 循环改为 `Promise.all`，减少 N 个 skill 时的串行等待。
+4. 新增 `acp-register-combined-update.test.ts`（4 用例）、`agent-config-create-single-loop.test.ts`（3 用例）、`skill-import-parallel-deletes.test.ts`（4 用例）。25 轮累计 277 个测试。

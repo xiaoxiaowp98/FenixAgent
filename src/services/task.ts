@@ -218,9 +218,7 @@ export async function updateTask(userId: string, taskId: string, data: UpdateTas
   if (data.body !== undefined) updates.body = data.body;
   if (data.enabled !== undefined) updates.enabled = data.enabled;
 
-  await scheduledTaskRepo.update(taskId, updates);
-
-  const row = await scheduledTaskRepo.getById(taskId);
+  const row = await scheduledTaskRepo.update(taskId, updates);
   if (!row) return { success: false, error: { code: "NOT_FOUND", message: "任务不存在（更新后未找到）" } };
   const result = sanitizeTask(row);
   rescheduleTask({ id: result.id, cron: result.cron, timezone: result.timezone, enabled: result.enabled });

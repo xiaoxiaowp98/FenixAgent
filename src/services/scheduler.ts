@@ -62,7 +62,7 @@ async function executeTask(taskId: string): Promise<void> {
       return;
     }
 
-    await executeTaskById(taskId, "cron");
+    await executeTaskById(taskId, "cron", task ?? undefined);
   } catch (err) {
     error(`[Scheduler] Unexpected error executing task ${taskId}:`, err);
   } finally {

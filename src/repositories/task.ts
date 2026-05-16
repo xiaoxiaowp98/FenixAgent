@@ -16,7 +16,7 @@ export interface IScheduledTaskRepo {
   getById(taskId: string): Promise<ScheduledTaskRow | null>;
   getByUserAndId(userId: string, taskId: string): Promise<ScheduledTaskRow | null>;
   create(data: ScheduledTaskInsert): Promise<ScheduledTaskRow>;
-  update(taskId: string, data: Partial<ScheduledTaskInsert>): Promise<void>;
+  update(taskId: string, data: Partial<ScheduledTaskInsert>): Promise<ScheduledTaskRow | null>;
   delete(taskId: string): Promise<boolean>;
   deleteByUserAndId(userId: string, taskId: string): Promise<boolean>;
   listEnabled(): Promise<ScheduledTaskRow[]>;
@@ -59,7 +59,8 @@ class PgScheduledTaskRepo implements IScheduledTaskRepo {
   }
 
   async update(taskId: string, data: Partial<ScheduledTaskInsert>) {
-    await db.update(scheduledTask).set(data).where(eq(scheduledTask.id, taskId));
+    const rows = await db.update(scheduledTask).set(data).where(eq(scheduledTask.id, taskId)).returning();
+    return rows[0] ?? null;
   }
 
   async delete(taskId: string): Promise<boolean> {

@@ -229,3 +229,14 @@
 2. **WARNING — task.ts Content-Type 大小写不敏感**：`executeTaskById` 检查 `headers["Content-Type"]` 改为 `Object.keys().some(k => k.toLowerCase() === "content-type")`，避免用户传 `content-type` 小写时重复添加 header。
 3. **CLEANUP — task.ts triggerTask 双查询优化**：`executeTaskById` 新增 `prefetchedTask` 可选参数，`triggerTask` 直接传入已获取的 task 数据，消除冗余 DB 查询。
 4. 新增 `aggregate-parallel-queries.test.ts`（3 用例）、`task-prefetch-content-type.test.ts`（7 用例）。20 轮累计 227 个测试。
+
+## 2026-05-17 第二十一次审查
+
+审查范围：全量 CRUD 层 + repositories/task.ts
+
+修复（2 PERFORMANCE + 1 CLEANUP + 1 DEAD IMPORT）：
+1. **PERFORMANCE — scheduler.ts executeTask 传递 prefetchedTask**：`executeTask` 将已获取的 task 传给 `executeTaskById(taskId, "cron", task)`，消除每次 cron 触发的冗余 DB 查询。
+2. **PERFORMANCE — task.ts updateTask 三重→双重查询**：`scheduledTaskRepo.update` 改用 `.returning()` 返回更新行，`updateTask` 直接使用返回值，省去单独的 `getById` 调用。
+3. **PERFORMANCE — skill.ts listSkillSources 并行查询**：`listSkills` 和 `environmentRepo.listByUserId` 从串行改为 `Promise.all` 并行。
+4. **DEAD IMPORT — environment-web.ts 移除未使用的 `randomBytes` import**。
+5. 新增 `scheduler-prefetch.test.ts`（3 用例）、`update-task-no-requery.test.ts`（3 用例）。21 轮累计 233 个测试。

@@ -273,9 +273,12 @@ export async function listWorkspaceSkills(workspacePath: string): Promise<SkillI
 
 export async function listSkillSources(userId: string): Promise<SkillSourceInfo[]> {
   const { environmentRepo } = await import("../repositories");
-  const environments = await environmentRepo.listByUserId(userId);
 
-  const globalSkills = await listSkills(userId);
+  // 两个查询无依赖关系，并行执行
+  const [environments, globalSkills] = await Promise.all([
+    environmentRepo.listByUserId(userId),
+    listSkills(userId),
+  ]);
   const sources: SkillSourceInfo[] = [{
     type: "global",
     name: "全局技能",

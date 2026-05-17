@@ -13,6 +13,12 @@ ALTER TABLE "user_config" DROP CONSTRAINT IF EXISTS "user_config_pkey";
 ALTER TABLE "user_config" ADD PRIMARY KEY ("team_id");
 
 -- Fix unique indexes (were created as regular INDEX instead of UNIQUE INDEX)
+-- Also drop old user-based unique indexes that conflict with new team-based ones
+DROP INDEX IF EXISTS "idx_provider_user_name";
+DROP INDEX IF EXISTS "idx_agent_config_user_name";
+DROP INDEX IF EXISTS "idx_mcp_server_user_name";
+DROP INDEX IF EXISTS "idx_knowledge_base_user_slug";
+
 DROP INDEX IF EXISTS "idx_provider_team_name";
 CREATE UNIQUE INDEX "idx_provider_team_name" ON "provider" ("team_id", "name");
 DROP INDEX IF EXISTS "idx_agent_config_team_name";

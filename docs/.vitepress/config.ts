@@ -23,7 +23,7 @@ export default defineConfig({
     siteTitle: "RCS",
     nav: [
       { text: "用户文档", link: "/user/" },
-      { text: "开发者文档", link: "/developer/architecture/overview" },
+      { text: "开发者文档", link: "/developer/" },
     ],
     sidebar: {
       "/user/": [
@@ -59,27 +59,19 @@ export default defineConfig({
       ],
       "/developer/": [
         {
-          text: "架构设计",
+          text: "首页",
           items: [
-            { text: "概览", link: "/developer/architecture/overview" },
-            { text: "ACP 协议", link: "/developer/architecture/acp-protocol" },
-            { text: "认证授权", link: "/developer/architecture/auth" },
-            { text: "事件总线", link: "/developer/architecture/event-bus" },
+            { text: "开发者指南", link: "/developer/" },
           ],
         },
         {
-          text: "API 参考",
+          text: "使用指南",
           items: [
-            { text: "Config API", link: "/developer/api/config" },
-            { text: "Sessions API", link: "/developer/api/sessions" },
-            { text: "Files API", link: "/developer/api/files" },
-            { text: "Environments API", link: "/developer/api/environments" },
-          ],
-        },
-        {
-          text: "贡献指南",
-          items: [
-            { text: "开发指南", link: "/developer/contributing" },
+            { text: "系统提示词", link: "/developer/guide/system-prompt" },
+            { text: "Skill 开发", link: "/developer/guide/skill-development" },
+            { text: "多智能体协作", link: "/developer/guide/multi-agent" },
+            { text: "MCP 工具集成", link: "/developer/guide/mcp-integration" },
+            { text: "知识库", link: "/developer/guide/knowledge-base" },
           ],
         },
       ],
@@ -92,16 +84,16 @@ export default defineConfig({
       options: {
         translations: {
           button: {
-            buttonText: "Search",
-            buttonAriaLabel: "Search docs",
+            buttonText: "搜索",
+            buttonAriaLabel: "搜索文档",
           },
           modal: {
-            noResultsText: "No results found",
-            resetButtonTitle: "Clear",
+            noResultsText: "无法找到相关结果",
+            resetButtonTitle: "清除查询",
             footer: {
-              selectText: "Select",
-              navigateText: "Navigate",
-              closeText: "Close",
+              selectText: "选择",
+              navigateText: "切换",
+              closeText: "关闭",
             },
           },
         },
@@ -109,20 +101,20 @@ export default defineConfig({
     },
     editLink: {
       pattern: "https://github.com/konghayao/remote-control-server/edit/main/docs/:path",
-      text: "Edit this page on GitHub",
+      text: "在 GitHub 上编辑此页",
     },
     outline: {
       level: [2, 3],
-      label: "On This Page",
+      label: "本页目录",
     },
     docFooter: {
-      prev: "Prev",
-      next: "Next",
+      prev: "上一篇",
+      next: "下一篇",
     },
-    returnToTopLabel: "Back to top",
-    sidebarMenuLabel: "Menu",
-    darkModeSwitchLabel: "Theme",
-    lightModeSwitchTitle: "Switch to light theme",
-    darkModeSwitchTitle: "Switch to dark theme",
+    returnToTopLabel: "回到顶部",
+    sidebarMenuLabel: "菜单",
+    darkModeSwitchLabel: "主题",
+    lightModeSwitchTitle: "切换到亮色主题",
+    darkModeSwitchTitle: "切换到暗色主题",
   },
 });

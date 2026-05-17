@@ -1,17 +1,14 @@
-import { describe, test, expect, beforeEach, mock } from "bun:test";
+import { setConfig, resetConfig } from "../config";
+import { describe, test, expect, beforeEach, afterAll } from "bun:test";
 
-// Mock config before imports
-mock.module("../config", () => ({
-  config: { port: 3000, host: "0.0.0.0", apiKeys: ["test-api-key"], baseUrl: "http://localhost:3000", disconnectTimeout: 300 },
-  getBaseUrl: () => "http://localhost:3000",
-}));
+setConfig({ apiKeys: ["test-api-key"] });
 
-const { resetAllRepos, environmentRepo } = await import("../repositories");
-const { deleteEnvironment } = await import("../services/environment");
-const { db } = await import("../db");
-const { user, team } = await import("../db/schema");
-const { eq } = await import("drizzle-orm");
-const { runDisconnectMonitorSweep } = await import("../services/disconnect-monitor");
+import { resetAllRepos, environmentRepo } from "../repositories";
+import { deleteEnvironment } from "../services/environment";
+import { db } from "../db";
+import { user, team } from "../db/schema";
+import { eq } from "drizzle-orm";
+import { runDisconnectMonitorSweep } from "../services/disconnect-monitor";
 
 const TEST_TEAM_ID = "d0000000-0000-0000-0000-000000000001";
 
@@ -49,6 +46,10 @@ async function ensureTeam() {
 }
 
 describe("ACP Token Match", () => {
+  afterAll(() => {
+    resetConfig();
+  });
+
   beforeEach(async () => {
     resetAllRepos();
     await ensureUser("u-acp-test");

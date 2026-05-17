@@ -1,41 +1,35 @@
-import { describe, test, expect, beforeEach, afterAll, mock } from "bun:test";
-
-// Mock config before imports
-mock.module("../config", () => ({
-  config: {
-    port: 3000,
-    host: "0.0.0.0",
-    apiKeys: ["test-api-key"],
-    baseUrl: "http://localhost:3000",
-    pollTimeout: 8,
-    heartbeatInterval: 20,
-    jwtExpiresIn: 3600,
-    disconnectTimeout: 300,
-  },
-  getBaseUrl: () => "http://localhost:3000",
-}));
+import { describe, test, expect, beforeEach, afterAll } from "bun:test";
 
 import Elysia from "elysia";
 import { db } from "../db";
-import { user as userTable } from "../db/schema";
+import { user as userTable, team as teamTable } from "../db/schema";
 import { eq } from "drizzle-orm";
-import { resetAllRepos } from "../repositories";
+import { resetAllRepos, environmentRepo } from "../repositories";
 import { authGuardPlugin } from "../plugins/auth";
 import { generateWorkerJwt } from "../auth/jwt";
 
-// Ensure system user exists for apiKeyAuth's ensureSystemUser fallback
-async function ensureSystemUser() {
-  const existing = await db.select().from(userTable).where(eq(userTable.email, "system@rcs.local")).limit(1);
-  if (existing.length > 0) return;
+const TEST_USER_ID = "u-mw-test";
+const TEST_TEAM_SLUG = "mw-test-team";
+let TEST_TEAM_ID: string | undefined;
+
+// 创建测试用 user + team
+async function ensureTestData() {
   const now = new Date();
-  try {
+  const existingUser = await db.select().from(userTable).where(eq(userTable.id, TEST_USER_ID)).limit(1);
+  if (existingUser.length === 0) {
     await db.insert(userTable).values({
-      id: "system", name: "System", email: "system@rcs.local",
+      id: TEST_USER_ID, name: "MW Test", email: "mw-test@rcs.local",
       emailVerified: false, createdAt: now, updatedAt: now,
-    });
-  } catch {}
+    }).catch(() => {});
+  }
+  const existing = await db.select().from(teamTable).where(eq(teamTable.slug, TEST_TEAM_SLUG)).limit(1);
+  if (existing.length > 0) { TEST_TEAM_ID = existing[0].id; return; }
+  const [created] = await db.insert(teamTable).values({
+    name: "MW Test Team", slug: TEST_TEAM_SLUG, createdBy: TEST_USER_ID,
+  }).returning();
+  TEST_TEAM_ID = created.id;
 }
-await ensureSystemUser();
+await ensureTestData();
 
 function createTestApp() {
   return new Elysia()
@@ -58,16 +52,33 @@ describe("Auth Middleware", () => {
     app = createTestApp();
   });
 
+  // apiKeyAuth 通过 environment secret 认证
   describe("apiKeyAuth", () => {
-    test("accepts valid legacy global API key via Bearer header", async () => {
+    test("accepts valid environment secret via Bearer header", async () => {
+      const env = await environmentRepo.create({
+        name: `test-env-${Date.now()}`,
+        workspacePath: "/tmp/ws",
+        userId: TEST_USER_ID,
+        teamId: TEST_TEAM_ID!,
+        status: "idle",
+      });
+
       const res = await request(app, "/api-key-test", {
-        headers: { Authorization: "Bearer test-api-key" },
+        headers: { Authorization: `Bearer ${env.secret}` },
       });
       expect(res.status).toBe(200);
     });
 
-    test("accepts valid legacy global API key via query param", async () => {
-      const res = await request(app, "/api-key-test?token=test-api-key");
+    test("accepts valid environment secret via query param", async () => {
+      const env = await environmentRepo.create({
+        name: `test-env-qp-${Date.now()}`,
+        workspacePath: "/tmp/ws",
+        userId: TEST_USER_ID,
+        teamId: TEST_TEAM_ID!,
+        status: "idle",
+      });
+
+      const res = await request(app, `/api-key-test?token=${env.secret}`);
       expect(res.status).toBe(200);
     });
 
@@ -84,6 +95,7 @@ describe("Auth Middleware", () => {
     });
   });
 
+  // sessionIngressAuth 仅接受 Worker JWT
   describe("sessionIngressAuth", () => {
     const originalKeys = process.env.RCS_API_KEYS;
     beforeEach(() => {
@@ -91,13 +103,6 @@ describe("Auth Middleware", () => {
     });
     afterAll(() => {
       process.env.RCS_API_KEYS = originalKeys;
-    });
-
-    test("accepts valid API key", async () => {
-      const res = await request(app, "/ingress/ses_123", {
-        headers: { Authorization: "Bearer test-api-key" },
-      });
-      expect(res.status).toBe(200);
     });
 
     test("accepts valid worker JWT", async () => {

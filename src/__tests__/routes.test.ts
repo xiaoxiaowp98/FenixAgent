@@ -3,23 +3,6 @@ import { db } from "../db";
 import { user as userTable } from "../db/schema";
 import { eq } from "drizzle-orm";
 
-// Mock config
-const mockConfig = {
-  port: 3000,
-  host: "0.0.0.0",
-  apiKeys: ["test-api-key"],
-  baseUrl: "http://localhost:3000",
-  pollTimeout: 1,
-  heartbeatInterval: 20,
-  jwtExpiresIn: 3600,
-  disconnectTimeout: 300,
-};
-
-mock.module("../config", () => ({
-  config: mockConfig,
-  getBaseUrl: () => "http://localhost:3000",
-}));
-
 import Elysia from "elysia";
 import { resetAllRepos, sessionRepo, environmentRepo } from "../repositories";
 import { removeEventBus, getAllEventBuses, getEventBus } from "../transport/event-bus";

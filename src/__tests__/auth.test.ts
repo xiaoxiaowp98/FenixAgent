@@ -1,20 +1,4 @@
-import { describe, test, expect, beforeEach, afterAll, mock, spyOn } from "bun:test";
-
-// Mock config before importing modules that depend on it
-const mockConfig = {
-  port: 3000,
-  host: "0.0.0.0",
-  baseUrl: "",
-  pollTimeout: 8,
-  heartbeatInterval: 20,
-  jwtExpiresIn: 3600,
-  disconnectTimeout: 300,
-};
-
-mock.module("../config", () => ({
-  config: mockConfig,
-  getBaseUrl: () => "http://localhost:3000",
-}));
+import { describe, test, expect, beforeEach, afterAll, spyOn } from "bun:test";
 
 import { hashApiKey } from "../auth/api-key-service";
 import { generateWorkerJwt, verifyWorkerJwt } from "../auth/jwt";

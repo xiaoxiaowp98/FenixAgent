@@ -1,21 +1,4 @@
-import { describe, test, expect, beforeEach, mock } from "bun:test";
-
-// Mock config before importing modules
-const mockConfig = {
-  port: 3000,
-  host: "0.0.0.0",
-  apiKeys: ["test-api-key"],
-  baseUrl: "http://localhost:3000",
-  pollTimeout: 8,
-  heartbeatInterval: 20,
-  jwtExpiresIn: 3600,
-  disconnectTimeout: 300,
-};
-
-mock.module("../config", () => ({
-  config: mockConfig,
-  getBaseUrl: () => "http://localhost:3000",
-}));
+import { describe, test, expect, beforeEach } from "bun:test";
 
 import { resetAllRepos, environmentRepo } from "../repositories";
 import { db } from "../db";

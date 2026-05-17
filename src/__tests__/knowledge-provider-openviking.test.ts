@@ -1,3 +1,4 @@
+import { setConfig, resetConfig } from "../config";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 mock.module("../config", () => ({

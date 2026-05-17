@@ -1,4 +1,4 @@
-export const config = {
+const _defaultConfig = {
   version: process.env.RCS_VERSION || "0.1.0",
   port: parseInt(process.env.RCS_PORT || "3000"),
   host: process.env.RCS_HOST || "0.0.0.0",
@@ -40,7 +40,22 @@ export const config = {
     presignExpires: parseInt(process.env.RCS_S3_PRESIGN_EXPIRES || "3600"),
     presignUploadExpires: parseInt(process.env.RCS_S3_PRESIGN_UPLOAD_EXPIRES || "600"),
   },
-} as const;
+};
+
+export type AppConfig = typeof _defaultConfig;
+
+/** 可替换的配置实例（测试时覆盖） */
+export let config: AppConfig = _defaultConfig;
+
+/** 测试用：注入自定义配置 */
+export function setConfig(c: Partial<AppConfig>) {
+  config = { ..._defaultConfig, ...c, s3: { ..._defaultConfig.s3, ...c.s3 } } as AppConfig;
+}
+
+/** 测试用：恢复默认配置 */
+export function resetConfig() {
+  config = _defaultConfig;
+}
 
 export function getBaseUrl(): string {
   const url = config.baseUrl || `http://localhost:${config.port}`;

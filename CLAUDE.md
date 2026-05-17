@@ -7,13 +7,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Remote Control Server (RCS) 是一个基于 Elysia + Bun 的 AI Agent 控制面板后端（package name: `mothership`），配合 React + Vite 前端，使用 PostgreSQL + Drizzle ORM 持久化。核心功能包括：
 
 - **ACP 协议支持**：通过 WebSocket 与 acp-link Agent通信，实现远程 Agent 控制和事件流转发
-- **配置管理**：Providers/Models/Agents/Skills/MCP 的动态配置，存储于 PostgreSQL（`config-pg.ts` 服务层）
+- **配置管理**：Providers/Models/Agents/Skills/MCP 的动态配置，存储于 PostgreSQL（`src/services/config/` 子模块）
+- **多租户**：Team Layer 隔离，所有配置和资源以 `teamId` 为范围，通过 `AuthContext` 传递
 - **会话管理**：通过 SSE 向前端推送会话事件（user/assistant/tool_use/permission_request 等），支持 ACP session/list 按 cwd 过滤
 - **认证授权**：better-auth (PostgreSQL) + API Key 认证，支持用户会话和 acp-link 的 Bearer token
 - **定时 HTTP 任务**：cron 调度、执行历史记录、失败重试（Drizzle ORM + node-schedule）
 - **用户文件系统**：会话级文件读写上传，支持 iframe 预览（`/web/sessions/:id/user/*`）
 - **Channel 层**：多频道通信支持（`/web/channels`）
 - **会话分享**：share link 表已创建（readonly/writable 模式），功能开发中
+- **Workspace Packages**：`packages/` 下有 acp-link、core、plugin-sdk、opencode 四个内部包，通过 Bun workspaces + tsconfig paths 管理
+- **知识库**：知识库管理（`src/services/knowledge-base.ts`），通过 provider 抽象（`src/services/knowledge-provider/`）对接外部知识服务
 
 ## 常用命令
 
@@ -94,17 +97,18 @@ cd web && bunx vite build && cd .. && ls src/
 
 - `src/auth/better-auth.ts`：better-auth 实例，session + email/password
 - `src/auth/api-key-service.ts`：per-user API Key（PostgreSQL），用于 acp-link 认证
-- `src/auth/middleware.ts`：`sessionAuth` 中间件，验证 better-auth session
-- `src/auth/jwt.ts`：JWT 工具（遗留代码，部分功能仍在使用）
+- `src/auth/jwt.ts`：JWT 工具（worker token 生成）
+- `src/auth/token.ts`：token 辅助工具
+- `src/plugins/auth.ts`：Elysia 插件，`authGuardPlugin`（macro 方式提供 `sessionAuth` 装饰器）+ `AuthContext` 类型（`teamId`/`userId`/`role`）
 
-**配置服务**：`src/services/config-pg.ts`
+**配置服务**：`src/services/config/`（`config-pg.ts` 为兼容桶文件，re-export 所有函数）
 
 - 存储：PostgreSQL 数据库，6 张配置表（provider, model, agent_config, mcp_server, skill, user_config）
-- 多租户：所有 CRUD 函数以 `userId` 为首参数，WHERE 条件包含 user_id
+- 多租户：所有 CRUD 函数以 `ctx: AuthContext`（含 `teamId`/`userId`/`role`）为首参数，WHERE 条件包含 `team_id`
+- 子模块拆分：`provider.ts`、`model.ts`、`agent-config.ts`、`mcp-server.ts`、`skill.ts`、`user-config.ts`、`aggregate.ts`（批量配置聚合）
 - JSONB 字段：permission、knowledge、config 等复杂结构用 JSONB 存储
 - 返回值约定：delete → boolean（`.returning()` 检查长度），get → 对象 | null，list → 数组
-- 旧 `src/services/config.ts` 已清理为空壳，无活跃导出
-- **子服务**：`skill.ts`、`instance.ts`、`task.ts`、`scheduler.ts`、`session.ts` 负责特定功能的 CRUD 和调度
+- **其他服务**：`skill.ts`（skill-fs）、`instance.ts`、`task.ts`、`scheduler.ts`、`session.ts`、`environment.ts` 负责特定功能的 CRUD 和调度
 
 **传输层**：`src/transport/`
 
@@ -116,6 +120,34 @@ cd web && bunx vite build && cd .. && ls src/
 - `ws-handler.ts`：通用 WebSocket 处理
 - `ws-types.ts`：WebSocket 类型定义
 - `client-payload.ts`：客户端消息载荷处理
+
+**Elysia 插件层**：`src/plugins/`
+
+- `auth.ts`：`authGuardPlugin`（提供 `sessionAuth` macro）+ `authPlugin`（better-auth 路由）+ `AuthContext` 类型
+- `cors.ts`：跨域配置
+- `error-handler.ts`：全局错误处理（`AppError` → HTTP 状态码映射）
+- `logger.ts`：请求日志
+- `static.ts`：静态文件挂载
+
+**Repository 层**：`src/repositories/`（数据访问抽象，介于 services 和 DB 之间）
+
+- `environment.ts`：环境持久化 CRUD（`IEnvironmentRepo` 接口）
+- `session.ts`：会话记录（`ISessionRepo`）
+- `session-worker.ts`：Worker 状态
+- `task.ts`：定时任务 + 执行日志（`IScheduledTaskRepo`、`ITaskExecutionLogRepo`）
+- `knowledge-base.ts`：知识库 + 资源 + Agent 绑定
+- `share-link.ts`：分享链接
+- `token.ts`：遗留 token 存储
+- `work-item.ts`：工作项
+- `channel-binding.ts`：频道绑定
+- `index.ts`：桶文件，统一 re-export 所有 repo 实例和类型
+
+**错误类**：`src/errors.ts`
+
+- `AppError`：基础错误类（`message`、`code`、`statusCode`）
+- `ValidationError`：400
+- `NotFoundError`：404
+- `ConflictError`：409
 
 **内存存储**：`src/store.ts`
 
@@ -210,13 +242,23 @@ acp-link 有两种认证方式（优先级从高到低）：
 - **自动会话**：注册时若无 session，自动创建一个默认 session
 - **超时清理**：`disconnect-monitor` 检测到 ACP agent 超时也会直接删除记录
 
+### Workspace Packages
+
+项目使用 Bun workspaces，`packages/` 下有 4 个内部包（均 `private: true`，通过 `tsconfig.base.json` 的 `paths` 做 TypeScript 路径映射）：
+
+- **`acp-link`**（`packages/acp-link/`）：ACP stdio-to-WebSocket 桥接器，spawn 一个 ACP agent 并通过 WebSocket 暴露。包含 CLI、client、server 端代码
+- **`@mothership/core`**（`packages/core/`）：核心运行时抽象 — 类型定义（`types/`）、注册表（`registry/`：core-node、engine-plugin）、运行时编排（`runtime/`：instance-orchestrator）、门面（`facade/`）
+- **`@mothership/plugin-sdk`**（`packages/plugin-sdk/`）：插件开发 SDK — engine-plugin 接口、engine-relay 接口、agent-launch-spec 类型
+- **`@mothership/opencode`**（`packages/plugin-opencode/`）：opencode 引擎插件实现，依赖 core 和 plugin-sdk
+
 ### 前端架构 (React + Vite)
 
 **构建配置**：`web/vite.config.ts`
 
 - Tailwind CSS v4 使用 `@tailwindcss/vite` 插件（**不是** tailwind.config.js）
 - base path: `/ctrl/`
-- 路径别名：`@/src` → `web/src`，`@/components` → `web/components`
+- 路径别名：`@/src` → `web/src`，`@/components` → `web/components`，`@server` → `../../src`（前端引用后端类型）
+- 开发代理：`/web`、`/api`、`/acp` → `http://localhost:3000`
 
 **样式系统**：`web/src/index.css`
 
@@ -230,8 +272,8 @@ acp-link 有两种认证方式（优先级从高到低）：
 - `web/src/components/shell/`：AppShell、Sidebar（应用外壳）
 - `web/src/components/config/`：DataTable、FormDialog、StatusBadge（配置页通用组件）
 - `web/src/components/`：FilePickerDialog、PermissionTab、SessionDetail 等功能组件
-- `web/src/pages/`：Dashboard、ModelsPage、AgentsPage、SkillsPage、McpPage、TasksPage、ChannelsPage、LoginPage、ApiKeyManager 等
-- `web/src/acp/`：ACP 客户端（`client.ts`、`types.ts`），处理 session/list、session/load、session/resume 等 ACP 协议
+- `web/src/pages/`：Dashboard、ModelsPage、AgentsPage、SkillsPage、McpPage、TasksPage、ChannelsPage、LoginPage、ApiKeyManager、TeamsPage、KnowledgeBasesPage、WorkflowPage、EnvironmentsPage 等
+- `web/src/acp/`：ACP 客户端（`client.ts`、`relay-client.ts`、`types.ts`），处理 session/list、session/load、session/resume 等 ACP 协议
 
 **状态管理**：
 
@@ -255,9 +297,7 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<T> 
 
 ## 配置存储
 
-配置数据存储在 PostgreSQL 中，通过 `src/services/config-pg.ts` 服务层统一管理。旧版文件 `~/.config/opencode/opencode.json` 已废弃。
-
-### 配置 API 规范
+配置数据存储在 PostgreSQL 中，通过 `src/services/config/` 子模块管理（`config-pg.ts` 为兼容桶文件）。旧版文件 `~/.config/opencode/opencode.json` 已废弃。
 
 ### 配置 API 规范
 
@@ -378,12 +418,47 @@ MCP (Model Context Protocol) 支持两种类型：
 
 - PostgreSQL（通过 `DATABASE_URL` 环境变量连接，默认 `postgres://rcs:rcs@localhost:5432/rcs`）
 - ORM：Drizzle ORM（`drizzle-orm/postgres-js` 驱动）
-- Schema：`src/db/schema.ts`
+- Schema：`src/db/schema.ts`（**唯一的表结构定义来源**）
 - 表：
+  - Team 权限：`team`、`team_member`
   - better-auth：`user`、`session`、`account`、`verification`
   - 自定义：`apiKey`、`mcpTool`（MCP Tool 缓存）、`scheduledTask`（定时任务）、`taskExecutionLog`（执行日志）、`shareLink`（分享链接）、`shareEventSnapshot`（分享事件快照）、`environment`（环境持久化）
-  - 配置表（F002）：`provider`、`model`、`agent_config`、`mcp_server`、`skill`、`user_config`
-- 迁移：使用 Drizzle Kit（`bunx drizzle-kit generate && bunx drizzle-kit migrate`）
+  - 配置表（F002）：`provider`、`model`、`agentConfig`、`mcpServer`、`skill`、`userConfig`
+  - IM 通道：`imChannel`、`imChannelRoute`、`channelBinding`（遗留兼容）
+  - 知识库：`knowledgeBase`、`knowledgeResource`、`agentKnowledgeBinding`
+  - Workflow：`workflow`、`workflowRun`
+
+### 数据库开发流程
+
+**Schema → 生成迁移 → 推送到数据库**，严禁手写 SQL 迁移文件。
+
+```bash
+# 1. 修改 src/db/schema.ts（添加/修改列、索引、约束等）
+# 2. 生成迁移文件（比较最新快照与当前 schema 的差异）
+bunx drizzle-kit generate --name <描述性名称>
+
+# 3. 推送到数据库（直接同步 schema 到 DB，开发环境推荐）
+bunx drizzle-kit push
+
+# 或用迁移文件逐步应用（生产环境推荐）
+bunx drizzle-kit migrate
+```
+
+**关键规则**：
+
+1. **`src/db/schema.ts` 是唯一的真相来源** — 所有表结构、索引、约束都在这里定义。永远不要手动编写或编辑 `drizzle/*.sql` 文件
+2. **禁止手写 SQL 迁移** — 所有 DDL 变更必须通过 `drizzle-kit generate` 生成。手写 SQL 会导致快照不一致，后续 `generate` 会出错（需要 TTY 交互解决列冲突）
+3. **`drizzle-kit push` vs `drizzle-kit migrate`**：
+   - `push`：直接推送 schema 到 DB，适合开发环境快速迭代。会产生数据丢失警告（需要交互确认）
+   - `migrate`：按 `drizzle/` 目录中的 SQL 文件顺序执行，适合生产环境。新项目需要先 `push` 建基线再用 `migrate`
+4. **添加 team_id 列时的注意事项**：
+   - 新列设为 `NOT NULL` 时，需要先 `ADD COLUMN ... DEFAULT <值>` 回填现有数据，再 `ALTER COLUMN SET NOT NULL`
+   - 或先删除 NULL 行再 push
+5. **索引命名规范**：team-scoped 唯一索引统一用 `idx_<表名>_team_<字段>` 格式（如 `idx_provider_team_name`）
+6. **`drizzle-kit generate` 可能需要 TTY 交互**（处理列冲突）。在非 TTY 环境中用 `expect` 驱动：
+   ```bash
+   expect -c 'spawn bunx drizzle-kit generate --name xxx; expect "team_id" { send "\r" }; expect eof'
+   ```
 
 ## 测试策略
 
@@ -405,10 +480,10 @@ bun test web/src/__tests__/app-i18n.test.ts
 
 ### tsconfig
 
-后端 `tsconfig.json` 已配置为自包含（不依赖外部 `tsconfig.base.json`）：
+后端 `tsconfig.json` extends `tsconfig.base.json`（定义 workspace 包路径别名 `@mothership/plugin-sdk`、`@mothership/core` 等）：
 - `target: ES2022`、`module: ES2022`、`moduleResolution: bundler`
 - `types: ["bun"]`（依赖 `@types/bun`，已安装在 devDependencies）
-- 前端有独立的 `web/tsconfig.json`
+- 前端有独立的 `web/tsconfig.json`（`jsx: "react-jsx"`，路径别名 `@/*` → `./*`）
 
 ### 后端测试 (Bun test)
 
@@ -421,12 +496,12 @@ bun test web/src/__tests__/app-i18n.test.ts
 
 1. **mock.module 必须在 import 之前调用**：Bun test 要求 mock 在模块加载前注册
 2. **mock 隔离限制**：`mock.module()` 在同一进程中全局生效。当多个测试文件 mock 同一模块（如 `../config`）时，后加载的测试可能继承前一个测试的 mock 缓存，导致导入失败。表现为 `SyntaxError: Export named 'xxx' not found`
-3. **db/better-auth mock**：测试中若需要 mock 中间件链，必须同时 mock `../db`、`../auth/better-auth`、`../auth/api-key-service`，否则动态导入会失败
+3. **db/better-auth mock**：测试中若需要 mock 中间件链，必须同时 mock `../db`、`../auth/better-auth`、`../auth/api-key-service`，否则动态导入会失败。注意 `plugins/auth.ts` 会间接依赖这些模块
 4. **store 函数无 mock**：`src/store.ts` 是纯内存 Map，测试直接调用 `storeReset()` 清理状态
 
 #### 已知测试问题
 
-- **`middleware.test.ts` 和 `routes.test.ts`**：在 `bun test src/__tests__/` 全局运行时，因 mock 缓存污染可能无法加载 `auth/middleware.ts`（报 `Export named 'xxx' not found`）。单独运行这两个文件时正常。这是 bun test 的 mock 隔离限制，非代码 bug
+- **`middleware.test.ts` 和 `routes.test.ts`**：在 `bun test src/__tests__/` 全局运行时，因 mock 缓存污染可能无法加载 `plugins/auth.ts`（报 `Export named 'xxx' not found`）。单独运行这两个文件时正常。这是 bun test 的 mock 隔离限制，非代码 bug
 - **`routes.test.ts` Web Session Routes**：32 个测试预期 UUID-based 认证（`?uuid=` query param），但当前 `/web/sessions` 路由使用 `sessionAuth`（better-auth cookie）。需要更新测试或实现新的 API 端点
 - **文件路由测试**：`files-route.test.ts` 和 `file-api.test.ts` 中路由路径已从 `/files` 更新为 `/user`，需确保同步
 
@@ -531,10 +606,14 @@ Permission 选项（`web/src/components/PermissionTab.tsx`）：
 ### 目录结构约定
 
 - **后端**：
-  - `src/routes/`：按 API 版本或功能分组（`v1/`, `v2/`, `web/`, `acp/`）
-  - `src/services/`：业务逻辑层（`config-pg.ts`, `skill.ts`, `instance.ts`, `task.ts`, `scheduler.ts`, `session.ts`, `environment.ts`）
+  - `src/routes/`：按 API 版本或功能分组（`v1/`, `v2/`, `web/`, `acp/`, `mcp/`）
+  - `src/services/`：业务逻辑层（`environment.ts`、`session.ts`、`instance.ts`、`task.ts`、`scheduler.ts`、`team.ts`、`knowledge-base.ts` 等）
+  - `src/services/config/`：配置 CRUD 子模块（`provider.ts`、`agent-config.ts`、`mcp-server.ts`、`model.ts`、`skill.ts`、`user-config.ts`、`aggregate.ts`），桶文件 `config-pg.ts`
+  - `src/repositories/`：数据访问层（`environment.ts`、`session.ts`、`task.ts`、`knowledge-base.ts` 等），接口 + 实现
+  - `src/plugins/`：Elysia 插件（`auth.ts`、`cors.ts`、`error-handler.ts`、`logger.ts`、`static.ts`）
   - `src/transport/`：WebSocket/传输层（`acp-ws-handler.ts`, `acp-relay-handler.ts`, `event-bus.ts`）
-  - `src/auth/`：认证相关（`better-auth.ts`, `api-key-service.ts`, `middleware.ts`）
+  - `src/auth/`：认证相关（`better-auth.ts`, `api-key-service.ts`, `jwt.ts`, `token.ts`）
+  - `src/db/`：Drizzle ORM schema（`schema.ts`）+ 连接（`index.ts`）
   - `src/__tests__/`：测试文件与源码同名，加 `.test.ts` 后缀
 
 - **前端**：
@@ -594,15 +673,17 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
 ```typescript
 import Elysia from "elysia";
 import { authGuardPlugin } from "../../plugins/auth";
+import { loadTeamContext } from "../../services/team-context";
 
-const app = new Elysia({ name: "web-config-resource", prefix: "/web" })
+const app = new Elysia({ name: "web-resource", prefix: "/web" })
   .use(authGuardPlugin);
 
 // POST /web/resource（Elysia 统一用 POST + action 分发）
-app.post("/resource", async ({ store, body, error }) => {
+app.post("/resource", async ({ store, body, request }) => {
   const user = store.user!;
-  const b = (body as any) ?? {};
-  // ... 业务逻辑
+  const authCtx = (await loadTeamContext(user, request))!;
+  // authCtx.teamId, authCtx.userId, authCtx.role
+  // ... 业务逻辑（传 authCtx 给 config service 层）
   return { success: true, data: { ... } };
 }, { sessionAuth: true });
 

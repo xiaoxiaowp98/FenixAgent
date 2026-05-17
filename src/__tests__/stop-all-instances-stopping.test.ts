@@ -1,51 +1,44 @@
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
+import type { RuntimeInstanceSnapshot } from "@mothership/core";
 
-// ── stopAllInstances stopping 状态跳过 ──
+import { _deps, _resetDeps } from "../services/instance";
+import { resetCoreRuntime } from "../services/core-bootstrap";
+import { setBuildLaunchSpec } from "../services/launch-spec-builder";
 
-interface FakeSnapshot {
-  instanceId: string;
-  status: string;
-  errorMessage: string | null;
-  pluginMetadata: Record<string, unknown>;
-  createdAt: Date;
-}
-
-const mockListInstances = mock((): FakeSnapshot[] => []);
+const mockListInstances = mock((): RuntimeInstanceSnapshot[] => []);
 const mockStopInstance = mock(async (_id: string) => {});
 
-mock.module("../services/core-bootstrap", () => ({
-  getCoreRuntime: () => ({
-    listInstances: mockListInstances,
-    getInstance: mock(() => null),
-    stopInstance: mockStopInstance,
-    launchInstance: mock(async () => ({})),
-  }),
-}));
+const fakeFacade = {
+  listInstances: mockListInstances,
+  getInstance: mock(() => null),
+  stopInstance: mockStopInstance,
+  launchInstance: mock(async () => ({})),
+};
 
-mock.module("../services/launch-spec-builder", () => ({
-  buildLaunchSpec: mock(async () => ({})),
-}));
+beforeEach(() => {
+  resetCoreRuntime();
+  _deps.getCoreRuntime = () => fakeFacade as any;
+  _deps.getAgentConfigById = mock(async () => null);
+  _deps.getAgentFullConfig = mock(async () => ({ agentConfig: null, providers: [], skills: [], mcpServers: [] }));
+  _deps.environmentRepo = { getById: mock(async () => null) } as any;
+  _deps.findOrCreateForEnvironment = mock(async () => ({ id: "ses_1" })) as any;
+  setBuildLaunchSpec(mock(async () => ({})) as any);
+});
 
-mock.module("../services/config-pg", () => ({
-  getAgentConfigById: mock(async () => null),
-  getAgentFullConfig: mock(async () => ({
-    agentConfig: null,
-    providers: [],
-    skills: [],
-    mcpServers: [],
-  })),
-}));
+afterEach(() => {
+  _resetDeps();
+  setBuildLaunchSpec(null);
+});
 
-mock.module("../repositories", () => ({
-  environmentRepo: {
-    getById: mock(async () => null),
-  },
-}));
+import { stopAllInstances, listInstances } from "../services/instance";
 
-mock.module("../services/session", () => ({
-  findOrCreateForEnvironment: mock(async () => ({ id: "ses_1" })),
-}));
-const { stopAllInstances, listInstances } = await import("../services/instance");
+function snap(id: string, status: string): RuntimeInstanceSnapshot {
+  return {
+    instanceId: id, status: status as any, errorMessage: null,
+    pluginMetadata: {}, createdAt: new Date(), engineType: "opencode",
+    nodeId: "local-default", launchSpec: {}, relayConnected: false, updatedAt: new Date(),
+  };
+}
 
 describe("stopAllInstances skips stopping status", () => {
   beforeEach(() => {
@@ -56,15 +49,14 @@ describe("stopAllInstances skips stopping status", () => {
   // 跳过 stopped/stopping，只 stop running 和 error
   test("skips stopped and stopping instances, only stops running ones", async () => {
     mockListInstances.mockReturnValueOnce([
-      { instanceId: "inst_1", status: "running", errorMessage: null, pluginMetadata: {}, createdAt: new Date() },
-      { instanceId: "inst_2", status: "stopped", errorMessage: null, pluginMetadata: {}, createdAt: new Date() },
-      { instanceId: "inst_3", status: "stopping", errorMessage: null, pluginMetadata: {}, createdAt: new Date() },
-      { instanceId: "inst_4", status: "error", errorMessage: "boom", pluginMetadata: {}, createdAt: new Date() },
-    ] as FakeSnapshot[]);
+      snap("inst_1", "running"),
+      snap("inst_2", "stopped"),
+      snap("inst_3", "stopping"),
+      snap("inst_4", "error"),
+    ]);
 
     await stopAllInstances();
 
-    // running (inst_1) 和 error (inst_4) 应被 stop；stopped/stopping 跳过
     expect(mockStopInstance).toHaveBeenCalledTimes(2);
     expect(mockStopInstance.mock.calls[0][0] as string).toBe("inst_1");
     expect(mockStopInstance.mock.calls[1][0] as string).toBe("inst_4");
@@ -73,9 +65,9 @@ describe("stopAllInstances skips stopping status", () => {
   // 全部 stopped/stopping 时无需 stop
   test("no stops when all instances are stopped", async () => {
     mockListInstances.mockReturnValueOnce([
-      { instanceId: "inst_a", status: "stopped", errorMessage: null, pluginMetadata: {}, createdAt: new Date() },
-      { instanceId: "inst_b", status: "stopping", errorMessage: null, pluginMetadata: {}, createdAt: new Date() },
-    ] as FakeSnapshot[]);
+      snap("inst_a", "stopped"),
+      snap("inst_b", "stopping"),
+    ]);
 
     await stopAllInstances();
     expect(mockStopInstance).not.toHaveBeenCalled();
@@ -83,13 +75,11 @@ describe("stopAllInstances skips stopping status", () => {
 
   // 无实例时正常退出
   test("handles empty instance list", async () => {
-    mockListInstances.mockReturnValueOnce([] as FakeSnapshot[]);
+    mockListInstances.mockReturnValueOnce([]);
     await stopAllInstances();
     expect(mockStopInstance).not.toHaveBeenCalled();
   });
 });
-
-// ── listInstances 过滤无 supplement 的实例 ──
 
 describe("listInstances filters entries without supplement", () => {
   beforeEach(() => {
@@ -97,9 +87,7 @@ describe("listInstances filters entries without supplement", () => {
   });
 
   test("returns empty when no supplements match", () => {
-    mockListInstances.mockReturnValueOnce([
-      { instanceId: "inst_orphan", status: "running", errorMessage: null, pluginMetadata: {}, createdAt: new Date() },
-    ] as FakeSnapshot[]);
+    mockListInstances.mockReturnValueOnce([snap("inst_orphan", "running")]);
     const result = listInstances("user_1");
     expect(result).toEqual([]);
   });

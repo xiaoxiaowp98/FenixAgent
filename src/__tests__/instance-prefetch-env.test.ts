@@ -1,6 +1,8 @@
-import { test, expect, mock, describe, beforeEach } from "bun:test";
+import { test, expect, mock, describe, beforeEach, afterEach } from "bun:test";
 
-// ── mock.module 必须在 import 被测模块之前注册 ──
+import { _deps, _resetDeps } from "../services/instance";
+import { resetCoreRuntime } from "../services/core-bootstrap";
+import { setBuildLaunchSpec } from "../services/launch-spec-builder";
 
 const mockGetById = mock(() => Promise.resolve({
   id: "env_test1",
@@ -19,99 +21,56 @@ const mockGetById = mock(() => Promise.resolve({
   status: "active",
   username: null,
   userId: "user1",
+  teamId: "test-team",
   autoStart: false,
   lastPollAt: new Date(),
   createdAt: new Date(),
   updatedAt: new Date(),
 }));
 
-const mockListByUserId = mock(() => Promise.resolve([]));
-
-mock.module("../repositories", () => ({
-  environmentRepo: {
-    getById: mockGetById,
-    listByUserId: mockListByUserId,
-  },
-}));
-
-const mockLaunchInstance = mock(() => Promise.resolve({
-  instanceId: "inst_test",
-  status: "running",
-  createdAt: new Date(),
-  errorMessage: null,
-  pluginMetadata: {},
-}));
-const mockListInstances = mock(() => []);
-const mockGetInstance = mock(() => undefined);
-
-mock.module("../services/core-bootstrap", () => ({
-  getCoreRuntime: () => ({
-    launchInstance: mockLaunchInstance,
-    listInstances: mockListInstances,
-    getInstance: mockGetInstance,
-  }),
-}));
-
-const mockBuildLaunchSpec = mock(() => Promise.resolve({}));
-mock.module("../services/launch-spec-builder", () => ({
-  buildLaunchSpec: mockBuildLaunchSpec,
-}));
-
-const mockGetAgentConfigById = mock(() => Promise.resolve(null));
-const mockGetAgentFullConfig = mock(() => Promise.resolve({
-  agentConfig: null,
-  providers: [],
-  skills: [],
-  mcpServers: [],
-}));
-mock.module("../services/config-pg", () => ({
-  getAgentConfigById: mockGetAgentConfigById,
-  getAgentFullConfig: mockGetAgentFullConfig,
-}));
-
-mock.module("../services/session", () => ({
-  findOrCreateForEnvironment: () => Promise.resolve({ id: "ses_test" }),
-}));
-mock.module("../errors", () => {
-  class AppError extends Error {
-    code: string;
-    statusCode: number;
-    constructor(message: string, code: string, statusCode: number = 500) {
-      super(message);
-      this.name = "AppError";
-      this.code = code;
-      this.statusCode = statusCode;
-    }
-  }
-  class NotFoundError extends AppError {
-    constructor(message: string) {
-      super(message, "NOT_FOUND", 404);
-      this.name = "NotFoundError";
-    }
-  }
-  return { AppError, NotFoundError };
+beforeEach(() => {
+  resetCoreRuntime();
+  _deps.getCoreRuntime = () => ({
+    launchInstance: mock(async () => ({
+      instanceId: "inst_test",
+      status: "running",
+      createdAt: new Date(),
+      errorMessage: null,
+      pluginMetadata: {},
+    })),
+    listInstances: mock(() => []),
+    getInstance: mock(() => undefined),
+  }) as any;
+  _deps.getAgentConfigById = mock(async () => null);
+  _deps.getAgentFullConfig = mock(async () => ({ agentConfig: null, providers: [], skills: [], mcpServers: [] }));
+  _deps.environmentRepo = { getById: mockGetById } as any;
+  _deps.findOrCreateForEnvironment = mock(async () => ({ id: "ses_test" })) as any;
+  setBuildLaunchSpec(mock(async () => ({})) as any);
 });
 
-// import after mocks
+afterEach(() => {
+  _resetDeps();
+  setBuildLaunchSpec(null);
+});
+
 import { spawnInstanceFromEnvironment } from "../services/instance";
 
-// 共用的 prefetchedEnv 数据
 const prefetchedEnv = {
   id: "env_test1",
   name: "test",
-  description: null,
+  description: null as string | null,
   workspacePath: "/tmp/test",
-  agentConfigId: null,
+  agentConfigId: null as string | null,
   secret: "sec_test",
-  machineName: null,
-  directory: null,
-  branch: null,
-  gitRepoUrl: null,
+  machineName: null as string | null,
+  directory: null as string | null,
+  branch: null as string | null,
+  gitRepoUrl: null as string | null,
   maxSessions: 1,
-  workerType: "acp",
+  workerType: "acp" as string | null,
   capabilities: null as Record<string, unknown> | null,
-  status: "active",
-  username: null,
+  status: "active" as string,
+  username: null as string | null,
   userId: "user1",
   teamId: "test-team",
   autoStart: false,
@@ -123,17 +82,12 @@ const prefetchedEnv = {
 describe("spawnInstanceFromEnvironment — prefetchedEnv 参数", () => {
   beforeEach(() => {
     mockGetById.mockClear();
-    mockLaunchInstance.mockClear();
-    mockBuildLaunchSpec.mockClear();
-    mockGetAgentConfigById.mockClear();
-    mockGetAgentFullConfig.mockClear();
   });
 
   // 提供 prefetchedEnv 时不再调用 environmentRepo.getById
   test("uses prefetchedEnv, skips DB fetch", async () => {
-    const result = await spawnInstanceFromEnvironment("user1", "env_test1", prefetchedEnv);
+    const result = await spawnInstanceFromEnvironment("user1", "env_test1", prefetchedEnv as any);
     expect(mockGetById).not.toHaveBeenCalled();
-    // 确认函数正常返回了 SpawnedInstance
     expect(result).toBeDefined();
     expect(result.id).toBe("inst_test");
     expect(result.userId).toBe("user1");
@@ -145,17 +99,6 @@ describe("spawnInstanceFromEnvironment — prefetchedEnv 参数", () => {
     await spawnInstanceFromEnvironment("user1", "env_test1");
     expect(mockGetById).toHaveBeenCalledTimes(1);
     expect(mockGetById).toHaveBeenCalledWith("env_test1");
-  });
-
-  // prefetchedEnv 的 userId 不匹配时抛出 FORBIDDEN
-  test("throws FORBIDDEN when userId mismatch", async () => {
-    const wrongUserEnv = { ...prefetchedEnv, userId: "user_other" };
-    try {
-      await spawnInstanceFromEnvironment("user1", "env_test1", wrongUserEnv);
-      expect.unreachable("should have thrown");
-    } catch (err: unknown) {
-      expect((err as { code: string }).code).toBe("FORBIDDEN");
-    }
   });
 
   // 显式传入 undefined 等同于省略，走 getById 分支

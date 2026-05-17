@@ -105,7 +105,16 @@ export interface BuildLaunchSpecInput {
   environmentSecret: string;
 }
 
+/** 可替换的 buildLaunchSpec 实现（测试时注入 mock） */
+let _buildLaunchSpec: ((input: BuildLaunchSpecInput) => Promise<AgentLaunchSpec>) | null = null;
+
+/** 测试用：注入自定义 buildLaunchSpec。传 null 恢复默认。 */
+export function setBuildLaunchSpec(fn: ((input: BuildLaunchSpecInput) => Promise<AgentLaunchSpec>) | null) {
+  _buildLaunchSpec = fn;
+}
+
 export async function buildLaunchSpec(input: BuildLaunchSpecInput): Promise<AgentLaunchSpec> {
+  if (_buildLaunchSpec) return _buildLaunchSpec(input);
   const { workspacePath, agentName, agentConfigId, agentPrompt, modelRef, fullConfig, environmentSecret } = input;
 
   const agent = {

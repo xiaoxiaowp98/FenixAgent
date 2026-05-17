@@ -1,43 +1,33 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, mock, beforeEach, afterEach } from "bun:test";
 
-// mock core-bootstrap
-const mockListInstances = mock(() => []);
-const mockGetInstance = mock(() => undefined);
-mock.module("../services/core-bootstrap", () => ({
-  getCoreRuntime: () => ({
-    listInstances: mockListInstances,
-    getInstance: mockGetInstance,
-  }),
-}));
+import { _deps, _resetDeps } from "../services/instance";
+import { resetCoreRuntime } from "../services/core-bootstrap";
+import { setBuildLaunchSpec } from "../services/launch-spec-builder";
 
-// mock launch-spec-builder
-mock.module("../services/launch-spec-builder", () => ({
-  buildLaunchSpec: mock(() => Promise.resolve({})),
-}));
-
-// mock config-pg — 必须导出 instance.ts 实际引用的名称
-mock.module("../services/config-pg", () => ({
-  getAgentConfigById: mock(() => Promise.resolve(null)),
-  getAgentFullConfig: mock(() => Promise.resolve({ agentConfig: null, providers: [], skills: [], mcpServers: [] })),
-}));
-
-// mock repositories
 const mockEnvGetById = mock(() => Promise.resolve(undefined as any));
-mock.module("../repositories", () => ({
-  environmentRepo: { getById: mockEnvGetById },
-  sessionRepo: {},
-}));
 
-// mock errors
-mock.module("../errors", () => ({
-  NotFoundError: class extends Error { code = "NOT_FOUND"; statusCode = 404; constructor(m: string) { super(m); } },
-  AppError: class extends Error { code: string; statusCode: number; constructor(m: string, code: string, status = 500) { super(m); this.code = code; this.statusCode = status; } },
-}));
+beforeEach(() => {
+  resetCoreRuntime();
+  _deps.getCoreRuntime = () => ({
+    listInstances: mock(() => []),
+    getInstance: mock(() => undefined),
+    launchInstance: mock(async () => ({})),
+    stopInstance: mock(async () => {}),
+  }) as any;
+  _deps.getAgentConfigById = mock(async () => null);
+  _deps.getAgentFullConfig = mock(async () => ({ agentConfig: null, providers: [], skills: [], mcpServers: [] }));
+  _deps.environmentRepo = { getById: mockEnvGetById } as any;
+  _deps.findOrCreateForEnvironment = mock(async () => ({ id: "ses_test" })) as any;
+  setBuildLaunchSpec(mock(async () => ({})) as any);
+});
 
-const { spawnInstanceFromEnvironment } = await import("../services/instance");
+afterEach(() => {
+  _resetDeps();
+  setBuildLaunchSpec(null);
+});
 
-// 补充 supplement 中 teamId 的默认值：env.teamId ?? userId
-// mockEnvGetById 需要返回含 teamId 的记录
+import { spawnInstanceFromEnvironment } from "../services/instance";
+
 function makeEnv(overrides: Record<string, unknown>) {
   return {
     userId: "user-1",
@@ -56,8 +46,6 @@ describe("instance workspacePath ?? vs || 语义", () => {
         secret: "secret",
       })),
     );
-    // workspacePath=null, directory="/home/user/project" → cwd="/home/user/project"
-    // 不应抛 "Workspace directory not set" 错误（会因 launchInstance mock 缺失抛其他错误）
     try {
       await spawnInstanceFromEnvironment("user-1", "env-test");
     } catch (err: unknown) {
@@ -85,8 +73,6 @@ describe("instance workspacePath ?? vs || 语义", () => {
   });
 
   it("workspacePath 为空字符串时 ?? 保留空串、触发 !cwd 校验", async () => {
-    // ?? 语义：空字符串不被 fallback 到 directory，保留 ""
-    // 然后 !cwd（!""）为 true → VALIDATION_ERROR
     mockEnvGetById.mockImplementation(() =>
       Promise.resolve(makeEnv({
         id: "env-test3",

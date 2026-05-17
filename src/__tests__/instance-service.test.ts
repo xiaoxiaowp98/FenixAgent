@@ -1,5 +1,9 @@
-import { describe, test, expect, beforeEach, mock, afterEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
 import type { RuntimeInstanceSnapshot } from "@mothership/core";
+
+import { _deps, _resetDeps } from "../services/instance";
+import { resetCoreRuntime } from "../services/core-bootstrap";
+import { setBuildLaunchSpec } from "../services/launch-spec-builder";
 
 // ────────────────────────────────────────────
 // Mock 依赖
@@ -13,7 +17,6 @@ const mockLaunchInstance = mock(async (req: { instanceId: string; engineType: st
   launchSpec: req.launchSpec,
   relayConnected: false,
   errorMessage: undefined,
-  // port/token/pid 由 onInstanceStarted 回调写入 pluginMetadata
   pluginMetadata: {
     port: 8888,
     token: "test_token_acquired_from_runtime",
@@ -27,60 +30,54 @@ const mockStopInstance = mock(async (_id: string) => {});
 const mockListInstances = mock((): RuntimeInstanceSnapshot[] => []);
 const mockGetInstance = mock((_id: string): RuntimeInstanceSnapshot | null => null);
 
-// Mock core-bootstrap — getCoreRuntime 现在直接返回 CoreRuntimeFacade
-mock.module("../services/core-bootstrap", () => ({
-  getCoreRuntime: () => ({
-    launchInstance: mockLaunchInstance,
-    stopInstance: mockStopInstance,
-    listInstances: mockListInstances,
-    getInstance: mockGetInstance,
-    getPlugin: () => null,
-    registerPlugin: () => {},
-    registerNode: () => {},
-    connectInstanceRelay: mock(async () => ({})),
-    getNode: () => null,
-    listNodes: () => [],
-    listPlugins: () => [],
-  }),
-  resetCoreRuntime: () => {},
-}));
+const fakeFacade = {
+  launchInstance: mockLaunchInstance,
+  stopInstance: mockStopInstance,
+  listInstances: mockListInstances,
+  getInstance: mockGetInstance,
+  getPlugin: () => null,
+  registerPlugin: () => {},
+  registerNode: () => {},
+  connectInstanceRelay: mock(async () => ({})),
+  getNode: () => null,
+  listNodes: () => [],
+  listPlugins: () => [],
+};
 
-// Mock config-pg
-mock.module("../services/config-pg", () => ({
-  getAgentConfigById: mock(async (id: string) => ({ name: "test-agent", id })),
-  getAgentFullConfig: mock(async () => ({
+// envId → userId 映射
+const envOwnerMap = new Map<string, string>();
+
+beforeEach(() => {
+  mockLaunchInstance.mockClear();
+  mockStopInstance.mockClear();
+  mockListInstances.mockClear();
+  mockGetInstance.mockClear();
+  envOwnerMap.clear();
+
+  // 注入 fake facade
+  resetCoreRuntime();
+  _deps.getCoreRuntime = () => fakeFacade as any;
+
+  // 注入 fake config-pg
+  _deps.getAgentConfigById = mock(async (id: string) => ({ name: "test-agent", id }));
+  _deps.getAgentFullConfig = mock(async () => ({
     agentConfig: { name: "test-agent", model: "openai/gpt-4", prompt: "test" },
     providers: [{ name: "openai", baseUrl: "https://api.openai.com/v1", apiKey: "sk-test", npm: "@ai-sdk/openai" }],
     skills: [],
     mcpServers: [],
-  })),
-}));
+  }));
 
-// Mock launch-spec-builder
-mock.module("../services/launch-spec-builder", () => ({
-  buildLaunchSpec: mock(async () => ({
+  // 注入 fake launch-spec-builder
+  setBuildLaunchSpec(mock(async () => ({
     workspace: "/tmp/test-workspace",
     agent: { name: "test-agent" },
     model: { provider: "openai", protocol: "openai", baseUrl: "https://api.openai.com/v1", apiKey: "sk-test", model: "gpt-4" },
     skills: [],
     mcpServers: [],
-  })),
-}));
+  })) as any);
 
-// Mock config
-mock.module("../config", () => ({
-  config: { knowledgeProvider: "openviking" },
-  getBaseUrl: () => "http://localhost:3000",
-}));
-
-// Mock agent-knowledge
-mock.module("../services/agent-knowledge", () => ({
-  listAgentKnowledgeBindingsById: mock(async () => []),
-}));
-
-// Mock repositories
-mock.module("../repositories", () => ({
-  environmentRepo: {
+  // 注入 fake repos
+  _deps.environmentRepo = {
     getById: mock(async (id: string) => ({
       id,
       userId: envOwnerMap.get(id) ?? "test-user",
@@ -91,6 +88,7 @@ mock.module("../repositories", () => ({
       secret: "env_secret_test123",
       maxSessions: 5,
       status: "active",
+      teamId: "team-test",
     })),
     update: mock(async () => true),
     create: mock(async (params: any) => ({
@@ -102,27 +100,20 @@ mock.module("../repositories", () => ({
     listActive: mock(async () => []),
     listAll: mock(async () => []),
     listByUserId: mock(async () => []),
-  },
-  sessionRepo: {
-    listByEnvironment: mock(async () => []),
-    create: mock(async (params: any) => ({
-      id: `session_${Date.now()}`,
-      ...params,
-      status: "idle",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })),
-  },
-}));
+  } as any;
+
+  _deps.findOrCreateForEnvironment = mock(async () => ({ id: "session_test" })) as any;
+});
+
+afterEach(() => {
+  _resetDeps();
+  setBuildLaunchSpec(null);
+});
 
 // ────────────────────────────────────────────
-// 导入被测模块
+// 导入被测模块（无 mock.module，直接导入）
 // ────────────────────────────────────────────
 
-// envId → userId 映射，让 environmentRepo.getById 返回正确的 owner
-const envOwnerMap = new Map<string, string>();
-
-/** 生成满足 RuntimeInstanceSnapshot 必需字段的最小 mock */
 function mockSnapshot(overrides: Partial<RuntimeInstanceSnapshot> & { instanceId: string }): RuntimeInstanceSnapshot {
   return {
     engineType: "opencode",
@@ -136,7 +127,7 @@ function mockSnapshot(overrides: Partial<RuntimeInstanceSnapshot> & { instanceId
   };
 }
 
-const {
+import {
   spawnInstanceFromEnvironment,
   listInstances,
   getInstance,
@@ -146,11 +137,7 @@ const {
   listInstancesByEnvironment,
   getRunningInstancesByEnvironment,
   ensureRunning,
-} = await import("../services/instance");
-
-// ────────────────────────────────────────────
-// 测试
-// ────────────────────────────────────────────
+} from "../services/instance";
 
 /** 注册 envId→userId 映射并执行 spawn */
 async function spawnForUser(userId: string, envId: string) {
@@ -161,19 +148,11 @@ async function spawnForUser(userId: string, envId: string) {
 describe("CoreInstanceAdapter — spawn", () => {
   const createdInstanceIds: string[] = [];
 
-  beforeEach(() => {
-    mockLaunchInstance.mockClear();
-    mockStopInstance.mockClear();
-    mockListInstances.mockClear();
-    mockGetInstance.mockClear();
-    envOwnerMap.clear();
-    createdInstanceIds.length = 0;
-  });
-
   afterEach(async () => {
     for (const id of createdInstanceIds) {
       try { await stopInstance(id, "test-user"); } catch {}
     }
+    createdInstanceIds.length = 0;
   });
 
   // spawnInstanceFromEnvironment 委托给 core.launchInstance
@@ -186,7 +165,6 @@ describe("CoreInstanceAdapter — spawn", () => {
     expect(call.nodeId).toBe("local-default");
     expect(call.instanceId).toMatch(/^inst_/);
 
-    // port/token/pid 来自 pluginMetadata
     expect(inst.id).toMatch(/^inst_/);
     expect(inst.port).toBe(8888);
     expect(inst.apiKey).toBe("test_token_acquired_from_runtime");
@@ -214,15 +192,8 @@ describe("CoreInstanceAdapter — spawn", () => {
 });
 
 describe("CoreInstanceAdapter — query", () => {
-  beforeEach(() => {
-    mockLaunchInstance.mockClear();
-    mockStopInstance.mockClear();
-    mockListInstances.mockClear();
-    mockGetInstance.mockClear();
-  });
-
-  // listInstances 按用户过滤
-  test("listInstances 按用户过滤", async () => {
+  // listInstances 按 teamId 过滤
+  test("listInstances 按 teamId 过滤", async () => {
     const inst1 = await spawnForUser("user-a", "env_list_a");
     const inst2 = await spawnForUser("user-b", "env_list_b");
 
@@ -231,18 +202,16 @@ describe("CoreInstanceAdapter — query", () => {
       mockSnapshot({ instanceId: inst2.id, pluginMetadata: { port: 8889, token: "t2", pid: 2 } }),
     ]);
 
-    const userA = listInstances("user-a");
-    expect(userA).toHaveLength(1);
-    expect(userA[0].userId).toBe("user-a");
+    const teamTest = listInstances("team-test");
+    expect(teamTest).toHaveLength(2);
 
     mockListInstances.mockReturnValueOnce([
       mockSnapshot({ instanceId: inst1.id, pluginMetadata: { port: 8888, token: "t", pid: 1 } }),
       mockSnapshot({ instanceId: inst2.id, pluginMetadata: { port: 8889, token: "t2", pid: 2 } }),
     ]);
 
-    const userB = listInstances("user-b");
-    expect(userB).toHaveLength(1);
-    expect(userB[0].userId).toBe("user-b");
+    const otherTeam = listInstances("other-team");
+    expect(otherTeam).toHaveLength(0);
   });
 
   // findRunningInstanceByEnvironment 按 environmentId 过滤
@@ -317,13 +286,6 @@ describe("CoreInstanceAdapter — query", () => {
 });
 
 describe("CoreInstanceAdapter — stop", () => {
-  beforeEach(() => {
-    mockLaunchInstance.mockClear();
-    mockStopInstance.mockClear();
-    mockListInstances.mockClear();
-    mockGetInstance.mockClear();
-  });
-
   // stopInstance 成功
   test("stopInstance 委托给 core.stopInstance", async () => {
     const inst = await spawnForUser("test-user", "env_stop");
@@ -332,7 +294,7 @@ describe("CoreInstanceAdapter — stop", () => {
       mockSnapshot({ instanceId: inst.id }),
     );
 
-    const result = await stopInstance(inst.id, "test-user");
+    const result = await stopInstance(inst.id, "team-test");
     expect(result.ok).toBe(true);
     expect(mockStopInstance).toHaveBeenCalledTimes(1);
   });
@@ -341,14 +303,14 @@ describe("CoreInstanceAdapter — stop", () => {
   test("stopInstance 拒绝非 owner", async () => {
     const inst = await spawnForUser("owner-user", "env_owner_stop");
 
-    const result = await stopInstance(inst.id, "other-user");
+    const result = await stopInstance(inst.id, "wrong-team");
     expect(result.ok).toBe(false);
     expect(result.error).toBe("Not your instance");
   });
 
   // stopInstance 不存在
   test("stopInstance 不存在时返回错误", async () => {
-    const result = await stopInstance("inst_nonexistent", "test-user");
+    const result = await stopInstance("inst_nonexistent", "team-test");
     expect(result.ok).toBe(false);
     expect(result.error).toBe("Instance not found");
   });
@@ -361,25 +323,17 @@ describe("CoreInstanceAdapter — stop", () => {
       mockSnapshot({ instanceId: inst.id, status: "stopped" }),
     );
 
-    const result = await stopInstance(inst.id, "test-user");
+    const result = await stopInstance(inst.id, "team-test");
     expect(result.ok).toBe(false);
     expect(result.error).toBe("Already stopped");
   });
 });
 
 describe("CoreInstanceAdapter — ensureRunning", () => {
-  beforeEach(() => {
-    mockLaunchInstance.mockClear();
-    mockStopInstance.mockClear();
-    mockListInstances.mockClear();
-    mockGetInstance.mockClear();
-  });
-
   // 复用已有 running 实例
   test("ensureRunning 复用已有 running 实例", async () => {
     const inst = await spawnForUser("test-user", "env_ensure");
 
-    // spawnForUser 触发了一次 launchInstance，清除它以确保后续断言准确
     mockLaunchInstance.mockClear();
 
     mockListInstances.mockReturnValueOnce([

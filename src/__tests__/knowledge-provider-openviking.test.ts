@@ -1,13 +1,11 @@
 import { setConfig, resetConfig } from "../config";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-mock.module("../config", () => ({
-  config: {
-    knowledgeApiKey: "test-key",
-    knowledgeBaseUrl: "http://openviking.test",
-    knowledgeRequestTimeoutMs: 15000,
-  },
-}));
+setConfig({
+  knowledgeApiKey: "test-key",
+  knowledgeBaseUrl: "http://openviking.test",
+  knowledgeRequestTimeoutMs: 15000,
+});
 
 const { OpenVikingKnowledgeProvider } = await import("../services/knowledge-provider/openviking");
 
@@ -16,10 +14,16 @@ const originalFetch = globalThis.fetch;
 describe("OpenVikingKnowledgeProvider", () => {
   beforeEach(() => {
     globalThis.fetch = originalFetch;
+    setConfig({
+      knowledgeApiKey: "test-key",
+      knowledgeBaseUrl: "http://openviking.test",
+      knowledgeRequestTimeoutMs: 15000,
+    });
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    resetConfig();
   });
 
   test("createKnowledgeBase stays local and leaves remoteId empty until first resource", async () => {

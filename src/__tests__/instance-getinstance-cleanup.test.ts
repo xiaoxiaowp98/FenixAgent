@@ -1,70 +1,39 @@
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
+import type { RuntimeInstanceSnapshot } from "@mothership/core";
 
-// ── getInstance supplement 清理验证 ──
-// R36 修复：getInstance 发现 core 无实例时清理 supplements Map
+import { _deps, _resetDeps } from "../services/instance";
+import { resetCoreRuntime } from "../services/core-bootstrap";
+import { setBuildLaunchSpec } from "../services/launch-spec-builder";
 
-interface FakeSnapshot {
-  instanceId: string;
-  status: string;
-  errorMessage: string | null;
-  pluginMetadata: Record<string, unknown>;
-  createdAt: Date;
-}
+const mockGetInstance = mock((): RuntimeInstanceSnapshot | null => null);
+const mockListInstances = mock((): RuntimeInstanceSnapshot[] => []);
+const fakeFacade = {
+  listInstances: mockListInstances,
+  getInstance: mockGetInstance,
+  stopInstance: mock(async () => {}),
+  launchInstance: mock(async () => ({})),
+};
 
-const mockListInstances = mock((): FakeSnapshot[] => []);
-const mockGetInstance = mock((): FakeSnapshot | null => null);
-const mockStopInstance = mock(async () => {});
-const mockLaunchInstance = mock(async (_params: unknown) => ({
-  instanceId: "inst_test",
-  status: "running",
-  errorMessage: null,
-  pluginMetadata: {},
-  createdAt: new Date(),
-}));
+beforeEach(() => {
+  resetCoreRuntime();
+  _deps.getCoreRuntime = () => fakeFacade as any;
+  _deps.getAgentConfigById = mock(async () => null);
+  _deps.getAgentFullConfig = mock(async () => ({ agentConfig: null, providers: [], skills: [], mcpServers: [] }));
+  _deps.environmentRepo = { getById: mock(async () => null) } as any;
+  _deps.findOrCreateForEnvironment = mock(async () => ({ id: "ses_1" })) as any;
+  setBuildLaunchSpec(mock(async () => ({})) as any);
+});
 
-mock.module("../services/core-bootstrap", () => ({
-  getCoreRuntime: () => ({
-    listInstances: mockListInstances,
-    getInstance: mockGetInstance,
-    stopInstance: mockStopInstance,
-    launchInstance: mockLaunchInstance,
-  }),
-}));
+afterEach(() => {
+  _resetDeps();
+  setBuildLaunchSpec(null);
+});
 
-mock.module("../services/launch-spec-builder", () => ({
-  buildLaunchSpec: mock(async () => ({})),
-}));
-
-mock.module("../services/config-pg", () => ({
-  getAgentConfigById: mock(async () => null),
-  getAgentFullConfig: mock(async () => ({
-    agentConfig: null, providers: [], skills: [], mcpServers: [],
-  })),
-}));
-
-mock.module("../repositories", () => ({
-  environmentRepo: {
-    getById: mock(async () => ({
-      id: "env_1",
-      userId: "user1",
-      workspacePath: "/tmp/test",
-      secret: "env_secret_test",
-      maxSessions: 3,
-    })),
-  },
-  sessionRepo: { listByEnvironment: mock(async () => []) },
-}));
-
-mock.module("../services/session", () => ({
-  findOrCreateForEnvironment: mock(async () => ({ id: "ses_1" })),
-}));
-const { getInstance } = await import("../services/instance");
+import { getInstance } from "../services/instance";
 
 describe("getInstance supplement cleanup on stale core", () => {
   beforeEach(() => {
     mockGetInstance.mockClear();
-    mockLaunchInstance.mockClear();
-    mockListInstances.mockClear();
   });
 
   // core 中不存在实例时返回 undefined
@@ -82,7 +51,7 @@ describe("getInstance supplement cleanup on stale core", () => {
       errorMessage: null,
       pluginMetadata: {},
       createdAt: new Date(),
-    });
+    } as RuntimeInstanceSnapshot);
     const result = getInstance("inst_1", "other_user");
     expect(result).toBeUndefined();
   });
@@ -102,7 +71,7 @@ describe("getInstance supplement cleanup on stale core", () => {
       errorMessage: null,
       pluginMetadata: {},
       createdAt: new Date(),
-    });
+    } as RuntimeInstanceSnapshot);
     const result = getInstance("inst_orphan");
     expect(result).toBeUndefined();
   });

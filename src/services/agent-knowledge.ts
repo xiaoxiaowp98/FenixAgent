@@ -83,7 +83,15 @@ export async function countBindingsByKnowledgeBaseIds(
 /**
  * Lists enabled knowledge base bindings for an agent config in priority order.
  */
+let _listAgentKnowledgeBindingsById: ((agentConfigId: string) => Promise<AgentKnowledgeBindingRecord[]>) | null = null;
+
+/** 测试用：注入自定义实现。传 null 恢复默认。 */
+export function setListAgentKnowledgeBindingsById(fn: ((agentConfigId: string) => Promise<AgentKnowledgeBindingRecord[]>) | null) {
+  _listAgentKnowledgeBindingsById = fn;
+}
+
 export async function listAgentKnowledgeBindingsById(agentConfigId: string): Promise<AgentKnowledgeBindingRecord[]> {
+  if (_listAgentKnowledgeBindingsById) return _listAgentKnowledgeBindingsById(agentConfigId);
   const rows = await agentKnowledgeBindingRepo.listEnabledByAgentConfigId(agentConfigId);
   return rows.map((row) => ({
     knowledgeBaseId: row.knowledgeBaseId,

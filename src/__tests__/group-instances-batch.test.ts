@@ -1,69 +1,58 @@
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
+import type { RuntimeInstanceSnapshot } from "@mothership/core";
 
-// ─�� groupActiveInstancesByEnvironment 单次遍历分组验证 ──
+import { _deps, _resetDeps } from "../services/instance";
+import { resetCoreRuntime } from "../services/core-bootstrap";
+import { setBuildLaunchSpec } from "../services/launch-spec-builder";
 
-interface FakeSnapshot {
-  instanceId: string;
-  status: string;
-  errorMessage: string | null;
-  pluginMetadata: Record<string, unknown>;
-  createdAt: Date;
+const mockListInstances = mock((): RuntimeInstanceSnapshot[] => []);
+
+const fakeFacade = {
+  listInstances: mockListInstances,
+  getInstance: mock(() => null),
+  stopInstance: mock(async () => {}),
+  launchInstance: mock(async () => ({})),
+};
+
+beforeEach(() => {
+  resetCoreRuntime();
+  _deps.getCoreRuntime = () => fakeFacade as any;
+  _deps.getAgentConfigById = mock(async () => null);
+  _deps.getAgentFullConfig = mock(async () => ({ agentConfig: null, providers: [], skills: [], mcpServers: [] }));
+  _deps.environmentRepo = { getById: mock(async () => null) } as any;
+  _deps.findOrCreateForEnvironment = mock(async () => ({ id: "ses_1" })) as any;
+  setBuildLaunchSpec(mock(async () => ({})) as any);
+});
+
+afterEach(() => {
+  _resetDeps();
+  setBuildLaunchSpec(null);
+});
+
+import { groupActiveInstancesByEnvironment } from "../services/instance";
+
+function snap(id: string, status: string): RuntimeInstanceSnapshot {
+  return {
+    instanceId: id, status: status as any, errorMessage: null,
+    pluginMetadata: {}, createdAt: new Date(), engineType: "opencode",
+    nodeId: "local-default", launchSpec: {}, relayConnected: false, updatedAt: new Date(),
+  };
 }
-
-const mockListInstances = mock((): FakeSnapshot[] => []);
-
-mock.module("../services/core-bootstrap", () => ({
-  getCoreRuntime: () => ({
-    listInstances: mockListInstances,
-    getInstance: mock(() => null),
-    stopInstance: mock(async () => {}),
-    launchInstance: mock(async () => ({})),
-  }),
-}));
-
-mock.module("../services/launch-spec-builder", () => ({
-  buildLaunchSpec: mock(async () => ({})),
-}));
-
-mock.module("../services/config-pg", () => ({
-  getAgentConfigById: mock(async () => null),
-  getAgentFullConfig: mock(async () => ({
-    agentConfig: null,
-    providers: [],
-    skills: [],
-    mcpServers: [],
-  })),
-}));
-
-mock.module("../repositories", () => ({
-  environmentRepo: {
-    getById: mock(async () => null),
-  },
-  sessionRepo: {
-    listByEnvironment: mock(async () => []),
-  },
-}));
-
-mock.module("../services/session", () => ({
-  findOrCreateForEnvironment: mock(async () => ({ id: "ses_1" })),
-}));
-const { groupActiveInstancesByEnvironment } = await import("../services/instance");
 
 describe("groupActiveInstancesByEnvironment", () => {
   beforeEach(() => {
     mockListInstances.mockClear();
   });
 
-  // 多环境实例正确分组
+  // 多环境实例正确分组（无 supplement 匹配时跳过）
   test("groups active instances by environmentId", () => {
     mockListInstances.mockReturnValueOnce([
-      { instanceId: "i1", status: "running", errorMessage: null, pluginMetadata: {}, createdAt: new Date() },
-      { instanceId: "i2", status: "running", errorMessage: null, pluginMetadata: {}, createdAt: new Date() },
-      { instanceId: "i3", status: "starting", errorMessage: null, pluginMetadata: {}, createdAt: new Date() },
-    ] as FakeSnapshot[]);
+      snap("i1", "running"),
+      snap("i2", "running"),
+      snap("i3", "starting"),
+    ]);
 
     const result = groupActiveInstancesByEnvironment();
-    // 无 supplement 匹配，所有实例被跳过
     expect(result.size).toBe(0);
   });
 
@@ -83,13 +72,10 @@ describe("groupActiveInstancesByEnvironment", () => {
 
   // 过滤掉 stopped 和 error 状态
   test("filters out stopped and error instances", () => {
-    // 需要有 supplement 才能进入分组逻辑
-    // groupActiveInstancesByEnvironment 只过滤 status，supplement 查找是独立逻辑
-    // 此测试验证 stopped/error 状态不会进入结果
     mockListInstances.mockReturnValueOnce([
-      { instanceId: "stopped_1", status: "stopped", errorMessage: null, pluginMetadata: {}, createdAt: new Date() },
-      { instanceId: "error_1", status: "error", errorMessage: "crash", pluginMetadata: {}, createdAt: new Date() },
-    ] as FakeSnapshot[]);
+      snap("stopped_1", "stopped"),
+      snap("error_1", "error"),
+    ]);
 
     const result = groupActiveInstancesByEnvironment();
     expect(result.size).toBe(0);

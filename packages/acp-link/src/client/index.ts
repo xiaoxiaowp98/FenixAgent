@@ -10,6 +10,8 @@ export type {
   ErrorMessageHandler,
   ModelChangedHandler,
   ModelStateChangedHandler,
+  ModeChangedHandler,
+  ModeStateChangedHandler,
   AvailableCommandsChangedHandler,
   SessionLoadedHandler,
   SessionSwitchingHandler,

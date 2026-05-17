@@ -16,6 +16,7 @@ import type {
   PromptUsage,
   ResumeSessionRequest,
   SessionModelState,
+  SessionModeState,
   SessionUpdate,
   AvailableCommand,
   ModelInfo,
@@ -41,6 +42,8 @@ export type BrowserToolCallHandler = (params: BrowserToolParams) => Promise<Brow
 export type ErrorMessageHandler = (message: string) => void;
 export type ModelChangedHandler = (modelId: string) => void;
 export type ModelStateChangedHandler = (state: SessionModelState | null) => void;
+export type ModeChangedHandler = (modeId: string) => void;
+export type ModeStateChangedHandler = (state: SessionModeState | null) => void;
 export type AvailableCommandsChangedHandler = (commands: AvailableCommand[]) => void;
 export type SessionLoadedHandler = (sessionId: string) => void;
 export type SessionSwitchingHandler = (sessionId: string) => void;
@@ -81,6 +84,8 @@ export class ACPClient {
   private authFailureHandler: (() => void) | null = null;
   private modelChangedHandler: ModelChangedHandler | null = null;
   private modelStateChangedHandler: ModelStateChangedHandler | null = null;
+  private modeChangedHandler: ModeChangedHandler | null = null;
+  private modeStateChangedHandler: ModeStateChangedHandler | null = null;
   private availableCommandsChangedHandler: AvailableCommandsChangedHandler | null = null;
   private sessionLoadedHandler: SessionLoadedHandler | null = null;
   private sessionSwitchingHandler: SessionSwitchingHandler | null = null;
@@ -179,6 +184,9 @@ export class ACPClient {
     this.protocol.on("model_changed", ({ modelId }) => {
       this.modelChangedHandler?.(modelId);
     });
+    this.protocol.on("mode_changed", ({ modeId }) => {
+      this.modeChangedHandler?.(modeId);
+    });
 
     // State events → backward-compatible handlers
     this.state.on("connectionStateChange", ({ state, error }) => {
@@ -189,6 +197,9 @@ export class ACPClient {
     });
     this.state.on("modelStateChange", (ms: SessionModelState | null) => {
       this.modelStateChangedHandler?.(ms);
+    });
+    this.state.on("modeStateChange", (ms: SessionModeState | null) => {
+      this.modeStateChangedHandler?.(ms);
     });
     this.state.on("availableCommandsChange", (cmds) => {
       this.availableCommandsChangedHandler?.(cmds);
@@ -289,6 +300,11 @@ export class ACPClient {
     this.sendRaw({ type: "set_session_model", payload: { modelId } });
   }
 
+  setSessionMode(modeId: string): void {
+    if (!this.state.sessionId) throw new Error("No active session");
+    this.sendRaw({ type: "set_session_mode", payload: { modeId } });
+  }
+
   respondToPermission(requestId: string, optionId: string | null): void {
     const outcome = optionId
       ? { outcome: "selected" as const, optionId }
@@ -346,6 +362,7 @@ export class ACPClient {
   get supportsImages(): boolean { return this.state.supportsImages; }
   getPromptCapabilities() { return this.state.promptCapabilities; }
   get modelState(): SessionModelState | null { return this.state.modelState; }
+  get modeState(): SessionModeState | null { return this.state.modeState; }
   get availableCommands(): AvailableCommand[] { return this.state.availableCommands; }
   get supportsModelSelection(): boolean { return this.state.supportsModelSelection; }
   get agentCapabilities() { return this.state.agentCapabilities; }
@@ -391,6 +408,13 @@ export class ACPClient {
   setModelStateChangedHandler(handler: ModelStateChangedHandler | null): void {
     this.modelStateChangedHandler = handler;
     if (handler) handler(this.state.modelState);
+  }
+  setModeChangedHandler(handler: ModeChangedHandler | null): void {
+    this.modeChangedHandler = handler;
+  }
+  setModeStateChangedHandler(handler: ModeStateChangedHandler | null): void {
+    this.modeStateChangedHandler = handler;
+    if (handler) handler(this.state.modeState);
   }
   setAvailableCommandsChangedHandler(handler: AvailableCommandsChangedHandler | null): void {
     this.availableCommandsChangedHandler = handler;

@@ -50,9 +50,12 @@ export class AcpLinkProcessManager {
         const handle = createAcpServer({
             port: input.port,
             host: DEFAULT_HOST,
-            // command: "peri",
             command: opencodeExecutable,
             args: ["acp"],
+            // command: "peri",
+            // args: ["acp"],
+            // command: "sh",
+            // args: ["/Users/konghayao/code/ai/perihelion/dev-acp.sh"],
             cwd: input.workspace,
         });
 

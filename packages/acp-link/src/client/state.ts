@@ -5,6 +5,7 @@ import type {
   AgentCapabilities,
   PromptCapabilities,
   SessionModelState,
+  SessionModeState,
   AvailableCommand,
   ConnectionState,
 } from "../types.js";
@@ -15,6 +16,7 @@ export interface StateEvents {
   capabilitiesChange: AgentCapabilities | null;
   promptCapabilitiesChange: PromptCapabilities | null;
   modelStateChange: SessionModelState | null;
+  modeStateChange: SessionModeState | null;
   availableCommandsChange: AvailableCommand[];
 }
 
@@ -30,6 +32,7 @@ export class ACPState extends EventEmitter<StateEvents> {
   private _agentCapabilities: AgentCapabilities | null = null;
   private _promptCapabilities: PromptCapabilities | null = null;
   private _modelState: SessionModelState | null = null;
+  private _modeState: SessionModeState | null = null;
   private _availableCommands: AvailableCommand[] = [];
 
   // Getters
@@ -38,6 +41,7 @@ export class ACPState extends EventEmitter<StateEvents> {
   get agentCapabilities(): AgentCapabilities | null { return this._agentCapabilities; }
   get promptCapabilities(): PromptCapabilities | null { return this._promptCapabilities; }
   get modelState(): SessionModelState | null { return this._modelState; }
+  get modeState(): SessionModeState | null { return this._modeState; }
   get availableCommands(): AvailableCommand[] { return this._availableCommands; }
 
   // Derived getters
@@ -95,25 +99,28 @@ export class ACPState extends EventEmitter<StateEvents> {
       }
     };
 
-    const onSessionCreated = (payload: { sessionId: string; promptCapabilities?: PromptCapabilities; models?: SessionModelState | null }) => {
+    const onSessionCreated = (payload: { sessionId: string; promptCapabilities?: PromptCapabilities; models?: SessionModelState | null; modes?: SessionModeState | null }) => {
       this._sessionId = payload.sessionId;
       this.emit("sessionIdChange", this._sessionId);
       this.setPromptCapabilities(payload.promptCapabilities ?? null);
       this.setModelState(payload.models ?? null);
+      this.setModeState(payload.modes ?? null);
     };
 
-    const onSessionLoaded = (payload: { sessionId: string; promptCapabilities?: PromptCapabilities; models?: SessionModelState | null }) => {
+    const onSessionLoaded = (payload: { sessionId: string; promptCapabilities?: PromptCapabilities; models?: SessionModelState | null; modes?: SessionModeState | null }) => {
       this._sessionId = payload.sessionId;
       this.emit("sessionIdChange", this._sessionId);
       this.setPromptCapabilities(payload.promptCapabilities ?? null);
       this.setModelState(payload.models ?? null);
+      this.setModeState(payload.modes ?? null);
     };
 
-    const onSessionResumed = (payload: { sessionId: string; promptCapabilities?: PromptCapabilities; models?: SessionModelState | null }) => {
+    const onSessionResumed = (payload: { sessionId: string; promptCapabilities?: PromptCapabilities; models?: SessionModelState | null; modes?: SessionModeState | null }) => {
       this._sessionId = payload.sessionId;
       this.emit("sessionIdChange", this._sessionId);
       this.setPromptCapabilities(payload.promptCapabilities ?? null);
       this.setModelState(payload.models ?? null);
+      this.setModeState(payload.modes ?? null);
     };
 
     const onSessionUpdate = ({ update }: { sessionId: string; update: any }) => {
@@ -130,12 +137,20 @@ export class ACPState extends EventEmitter<StateEvents> {
       }
     };
 
+    const onModeChanged = ({ modeId }: { modeId: string }) => {
+      if (this._modeState) {
+        this._modeState = { ...this._modeState, currentModeId: modeId };
+        this.emit("modeStateChange", this._modeState);
+      }
+    };
+
     protocol.on("status", onStatus);
     protocol.on("session_created", onSessionCreated);
     protocol.on("session_loaded", onSessionLoaded);
     protocol.on("session_resumed", onSessionResumed);
     protocol.on("session_update", onSessionUpdate);
     protocol.on("model_changed", onModelChanged);
+    protocol.on("mode_changed", onModeChanged);
 
     // 返回 cleanup
     return () => {
@@ -146,6 +161,7 @@ export class ACPState extends EventEmitter<StateEvents> {
       protocol.off("session_resumed", onSessionResumed);
       protocol.off("session_update", onSessionUpdate);
       protocol.off("model_changed", onModelChanged);
+      protocol.off("mode_changed", onModeChanged);
     };
   }
 
@@ -175,17 +191,24 @@ export class ACPState extends EventEmitter<StateEvents> {
     this.emit("modelStateChange", state);
   }
 
+  private setModeState(state: SessionModeState | null): void {
+    this._modeState = state;
+    this.emit("modeStateChange", state);
+  }
+
   private resetSessionState(): void {
     this._sessionId = null;
     this._agentCapabilities = null;
     this._promptCapabilities = null;
     this._modelState = null;
+    this._modeState = null;
     this._availableCommands = [];
 
     this.emit("sessionIdChange", null);
     this.emit("capabilitiesChange", null);
     this.emit("promptCapabilitiesChange", null);
     this.emit("modelStateChange", null);
+    this.emit("modeStateChange", null);
     this.emit("availableCommandsChange", []);
   }
 }

@@ -45,6 +45,7 @@ interface ClientState {
   agentCapabilities: AgentCapabilities | null
   promptCapabilities: PromptCapabilities | null
   modelState: SessionModelState | null
+  modeState: { availableModes: Array<{ id: string; name: string; description?: string | null }>; currentModeId: string } | null
   isAlive: boolean
 }
 
@@ -186,6 +187,16 @@ function decodeClientMessage(message: Record<string, unknown>): ProxyMessage {
       return {
         type: 'set_session_model',
         payload: { modelId: payload.modelId },
+      }
+    }
+    case 'set_session_mode': {
+      const payload = payloadRecord(message.payload, 'set_session_mode')
+      if (typeof payload.modeId !== 'string') {
+        throw new Error('Invalid set_session_mode payload')
+      }
+      return {
+        type: 'set_session_mode',
+        payload: { modeId: payload.modeId },
       }
     }
     case 'list_sessions': {
@@ -445,12 +456,14 @@ export function createAcpServer(config: ServerConfig): AcpServerHandle {
 
       state.sessionId = result.sessionId
       state.modelState = result.models ?? null
+      state.modeState = result.modes ?? null
       console.log('session created:', result.sessionId, 'cwd:', sessionCwd)
 
       send(ws, 'session_created', {
         ...result,
         promptCapabilities: state.promptCapabilities,
         models: state.modelState,
+        modes: state.modeState,
       })
     } catch (error) {
       console.error('session create failed:', (error as Error).message)
@@ -540,12 +553,14 @@ export function createAcpServer(config: ServerConfig): AcpServerHandle {
 
       state.sessionId = sessionId
       state.modelState = result.models ?? null
+      state.modeState = result.modes ?? null
       console.log('session loaded:', sessionId, 'cwd:', sessionCwd)
 
       send(ws, 'session_loaded', {
         sessionId,
         promptCapabilities: state.promptCapabilities,
         models: state.modelState,
+        modes: state.modeState,
       })
     } catch (error) {
       console.error('session load failed:', (error as Error).message)
@@ -583,12 +598,14 @@ export function createAcpServer(config: ServerConfig): AcpServerHandle {
 
       state.sessionId = sessionId
       state.modelState = result.models ?? null
+      state.modeState = result.modes ?? null
       console.log('session resumed:', sessionId, 'cwd:', sessionCwd)
 
       send(ws, 'session_resumed', {
         sessionId,
         promptCapabilities: state.promptCapabilities,
         models: state.modelState,
+        modes: state.modeState,
       })
     } catch (error) {
       console.error('session resume failed:', (error as Error).message)
@@ -693,6 +710,39 @@ export function createAcpServer(config: ServerConfig): AcpServerHandle {
     }
   }
 
+  async function handleSetSessionMode(
+    ws: ServerWebSocket,
+    params: { modeId: string },
+  ): Promise<void> {
+    const state = clients.get(ws)
+    if (!state?.connection || !state.sessionId) {
+      send(ws, 'error', { message: 'No active session' })
+      return
+    }
+
+    if (!state.modeState) {
+      send(ws, 'error', {
+        message: 'Mode selection not supported by this agent',
+      })
+      return
+    }
+
+    try {
+      await state.connection.setSessionMode({
+        sessionId: state.sessionId,
+        modeId: params.modeId,
+      })
+      state.modeState = { ...state.modeState, currentModeId: params.modeId }
+      send(ws, 'mode_changed', { modeId: params.modeId })
+      console.log('mode changed:', params.modeId)
+    } catch (error) {
+      console.error('set mode failed:', (error as Error).message)
+      send(ws, 'error', {
+        message: `Failed to set mode: ${(error as Error).message}`,
+      })
+    }
+  }
+
   async function dispatchClientMessage(
     ws: ServerWebSocket,
     data: ProxyMessage,
@@ -719,6 +769,9 @@ export function createAcpServer(config: ServerConfig): AcpServerHandle {
         break
       case 'set_session_model':
         await handleSetSessionModel(ws, data.payload)
+        break
+      case 'set_session_mode':
+        await handleSetSessionMode(ws, data.payload)
         break
       case 'list_sessions':
         await handleListSessions(ws, data.payload ?? {})
@@ -766,6 +819,7 @@ export function createAcpServer(config: ServerConfig): AcpServerHandle {
           agentCapabilities: null,
           promptCapabilities: null,
           modelState: null,
+          modeState: null,
           isAlive: true,
         }
         clients.set(ws, state)

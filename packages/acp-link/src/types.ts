@@ -208,6 +208,7 @@ export type ProxyMessage =
   | { type: "permission_response"; payload: PermissionResponsePayload }
   | { type: "browser_tool_result"; callId: string; result: BrowserToolResult | { error: string } }
   | { type: "set_session_model"; payload: { modelId: string } }
+  | { type: "set_session_mode"; payload: { modeId: string } }
   | { type: "list_sessions"; payload?: ListSessionsRequest }
   | { type: "load_session"; payload: LoadSessionRequest }
   | { type: "resume_session"; payload: ResumeSessionRequest }
@@ -237,6 +238,7 @@ export interface ProxySessionCreatedMessage {
     sessionId: string;
     promptCapabilities?: PromptCapabilities;
     models?: SessionModelState | null;
+    modes?: SessionModeState | null;
   };
 }
 
@@ -295,6 +297,7 @@ export interface ProxySessionLoadedMessage {
     sessionId: string;
     promptCapabilities?: PromptCapabilities;
     models?: SessionModelState | null;
+    modes?: SessionModeState | null;
   };
 }
 
@@ -304,6 +307,14 @@ export interface ProxySessionResumedMessage {
     sessionId: string;
     promptCapabilities?: PromptCapabilities;
     models?: SessionModelState | null;
+    modes?: SessionModeState | null;
+  };
+}
+
+export interface ProxyModeChangedMessage {
+  type: "mode_changed";
+  payload: {
+    modeId: string;
   };
 }
 
@@ -316,6 +327,7 @@ export type ProxyResponse =
   | ProxyPermissionRequestMessage
   | ProxyBrowserToolCallMessage
   | ProxyModelChangedMessage
+  | ProxyModeChangedMessage
   | ProxyPongMessage
   | ProxySessionListMessage
   | ProxySessionLoadedMessage
@@ -544,6 +556,21 @@ export interface ModelInfo {
 export interface SessionModelState {
   availableModels: ModelInfo[];
   currentModelId: string;
+}
+
+// ============================================================================
+// Session Mode Types
+// ============================================================================
+
+export interface SessionMode {
+  id: string;
+  name: string;
+  description?: string | null;
+}
+
+export interface SessionModeState {
+  availableModes: SessionMode[];
+  currentModeId: string;
 }
 
 // ============================================================================

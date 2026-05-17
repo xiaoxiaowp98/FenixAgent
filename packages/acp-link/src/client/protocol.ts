@@ -91,6 +91,9 @@ export class ACPProtocol extends EventEmitter<ProtocolEvents> {
       case "model_changed":
         this.emit("model_changed", response.payload);
         break;
+      case "mode_changed":
+        this.emit("mode_changed", response.payload);
+        break;
       case "pong":
         this.emit("pong");
         break;

@@ -23,6 +23,8 @@ interface RelayConnectionEntry {
   instanceId: string | null;
   relayHandle: EngineRelayHandle | null;
   relayUnsub: (() => void) | null;
+  // Buffer for outbound messages arriving before relay handle is ready
+  outboundBuffer: Record<string, unknown>[];
 }
 
 const relayConnections = new Map<string, RelayConnectionEntry>();
@@ -110,6 +112,7 @@ function openInstanceRelay(ws: WsConnection, relayWsId: string, agentId: string,
     instanceId,
     relayHandle: null,
     relayUnsub: null,
+    outboundBuffer: [],
   };
   relayConnections.set(relayWsId, entry);
 
@@ -126,6 +129,25 @@ function openInstanceRelay(ws: WsConnection, relayWsId: string, agentId: string,
     }
 
     entry.relayHandle = handle;
+
+    // Flush buffered outbound messages (e.g. frontend's "connect" sent before relay was ready)
+    if (entry.outboundBuffer.length > 0) {
+      const buffered = entry.outboundBuffer.splice(0);
+      log(`[ACP-Relay] Flushing ${buffered.length} buffered outbound messages for instance ${instanceId}`);
+      for (const msg of buffered) {
+        if (msg.type === "connect") {
+          // Relay handle already sent connect; skip
+          log("[ACP-Relay] Skipping buffered connect (relay handle auto-connects)");
+          continue;
+        }
+        try {
+          handle.send(msg as any);
+        } catch {
+          // relay closed during flush — stop
+          break;
+        }
+      }
+    }
 
     // Subscribe to inbound messages from engine
     if ("onMessage" in handle && typeof (handle as any).onMessage === "function") {
@@ -187,6 +209,7 @@ function openEventBusRelay(ws: WsConnection, relayWsId: string, agentId: string,
     instanceId: null,
     relayHandle: null,
     relayUnsub: null,
+    outboundBuffer: [],
   });
 
   log(`[ACP-Relay] EventBus relay established: relayWsId=${relayWsId} → agentId=${agentId}`);
@@ -212,7 +235,7 @@ export async function handleRelayMessage(ws: WsConnection, relayWsId: string, da
     parsed = data;
   }
 
-  log(`[ACP-Relay] handleRelayMessage: relayWsId=${relayWsId} type=${parsed.type} hasRelayHandle=${!!entry.relayHandle}`);
+  log(`[ACP-Relay] handleRelayMessage: relayWsId=${relayWsId} type=${parsed.type} hasRelayHandle=${!!entry.relayHandle} instanceId=${entry.instanceId ?? "(none)"}`);
 
   // Instance mode: forward messages via core relay handle
   if (entry.relayHandle) {
@@ -227,6 +250,13 @@ export async function handleRelayMessage(ws: WsConnection, relayWsId: string, da
     } catch {
       // relay closed — ignore
     }
+    return;
+  }
+
+  // Instance mode but relay handle not ready yet: buffer the message
+  if (entry.instanceId) {
+    log(`[ACP-Relay] Buffering outbound message (relay handle not ready): type=${parsed.type}`);
+    entry.outboundBuffer.push(parsed);
     return;
   }
 

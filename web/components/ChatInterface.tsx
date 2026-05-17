@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
 import imageCompression from "browser-image-compression";
 import type { ACPClient } from "../src/acp/client";
-import type { SessionUpdate, PermissionRequestPayload, PermissionOption, ContentBlock, ImageContent } from "../src/acp/types";
+import type { SessionUpdate, PermissionRequestPayload, PermissionOption, ContentBlock, ImageContent, SessionMode } from "../src/acp/types";
 import type { ThreadEntry, ToolCallStatus, ToolCallData, UserMessageImage, UserMessageEntry, AssistantMessageEntry, ToolCallEntry, ChatInputMessage, PendingPermission, PlanDisplayEntry } from "../src/lib/types";
 import { ChatView } from "./chat/ChatView";
 import { ChatInput } from "./chat/ChatInput";
@@ -9,6 +9,7 @@ import { PermissionPanel } from "./chat/PermissionPanel";
 import { ContextPanel } from "./ContextPanel";
 import { ModelSelectorPopover } from "./model-selector";
 import { useCommands } from "../src/hooks/useCommands";
+import { useModes } from "../src/hooks/useModes";
 
 // Image compression options
 // Claude API has a 5MB limit, so we target 2MB to be safe
@@ -69,27 +70,22 @@ interface ChatInterfaceProps {
 }
 
 // =============================================================================
-// Permission Mode Selector
+// Session Mode Selector (dynamic from agent)
 // =============================================================================
 
-const PERMISSION_MODES = [
-  { value: "default", label: "默认", description: "手动审批权限请求" },
-  { value: "acceptEdits", label: "自动接受编辑", description: "自动允许文件编辑操作" },
-  { value: "bypassPermissions", label: "跳过权限", description: "跳过所有权限检查" },
-  { value: "plan", label: "规划模式", description: "仅规划，不执行工具" },
-  { value: "dontAsk", label: "不询问", description: "不弹出询问，自动拒绝" },
-  { value: "auto", label: "自动判断", description: "AI 自动判断是否批准" },
-] as const;
-
-function PermissionModeSelector({
-  mode,
+function SessionModeSelector({
+  modes,
+  currentModeId,
   onModeChange,
 }: {
-  mode: string;
-  onModeChange: (mode: string) => void;
+  modes: SessionMode[];
+  currentModeId: string | null;
+  onModeChange: (modeId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const current = PERMISSION_MODES.find((m) => m.value === mode) ?? PERMISSION_MODES[0];
+  const current = modes.find((m) => m.id === currentModeId) ?? modes[0];
+
+  if (modes.length === 0) return null;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -100,7 +96,7 @@ function PermissionModeSelector({
           className="gap-1.5 text-muted-foreground hover:text-foreground h-7 px-2"
         >
           <Shield className="h-3 w-3" />
-          <span className="max-w-24 truncate">{current.label}</span>
+          <span className="max-w-24 truncate">{current?.name ?? "默认"}</span>
           {open ? (
             <ChevronUp className="h-3 w-3" />
           ) : (
@@ -109,22 +105,22 @@ function PermissionModeSelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-1" align="start">
-        {PERMISSION_MODES.map((m) => (
+        {modes.map((m) => (
           <button
-            key={m.value}
+            key={m.id}
             type="button"
             onClick={() => {
-              onModeChange(m.value);
+              onModeChange(m.id);
               setOpen(false);
             }}
             className="flex w-full items-start gap-2 rounded-md px-2.5 py-2 text-left hover:bg-surface-2 transition-colors"
           >
             <span className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center">
-              {mode === m.value && <Check className="h-3.5 w-3.5 text-brand" />}
+              {currentModeId === m.id && <Check className="h-3.5 w-3.5 text-brand" />}
             </span>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-text-primary">{m.label}</div>
-              <div className="text-xs text-text-muted">{m.description}</div>
+              <div className="text-sm font-medium text-text-primary">{m.name}</div>
+              {m.description && <div className="text-xs text-text-muted">{m.description}</div>}
             </div>
           </button>
         ))}
@@ -172,20 +168,15 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   const activeSessionIdRef = useRef<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [permissionMode, setPermissionMode] = useState(() => localStorage.getItem("acp_permission_mode") || "default");
-  const permissionModeRef = useRef(permissionMode);
   // Reference: Zed's supports_images() checks prompt_capabilities.image
   const [supportsImages, setSupportsImages] = useState(false);
   const [contextPanelOpen, setContextPanelOpen] = useState(true);
   const { commands: availableCommands } = useCommands(client);
+  const { availableModes, currentModeId, setMode } = useModes(client);
 
   useEffect(() => {
     activeSessionIdRef.current = activeSessionId;
   }, [activeSessionId]);
-
-  useEffect(() => {
-    permissionModeRef.current = permissionMode;
-  }, [permissionMode]);
 
   const resetThreadState = useCallback(() => {
     setEntries([]);
@@ -196,7 +187,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   const storageKey = agentId ? `acp_last_session_${agentId}` : null;
 
   const requestCreateSession = useCallback(async () => {
-    await client.createSession(cwd, permissionModeRef.current);
+    await client.createSession(cwd);
   }, [client, cwd]);
 
   const activateSession = useCallback((sessionId: string, options?: { resetEntries?: boolean }) => {
@@ -852,7 +843,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
         <div className="flex-shrink-0">
           <div className="max-w-3xl mx-auto w-full px-4 sm:px-8 pb-1 flex items-center justify-between">
             <div className="flex items-center gap-1">
-              <PermissionModeSelector mode={permissionMode} onModeChange={(m: string) => { setPermissionMode(m); localStorage.setItem("acp_permission_mode", m); }} />
+              <SessionModeSelector modes={availableModes} currentModeId={currentModeId} onModeChange={setMode} />
               <ModelSelectorPopover client={client} />
             </div>
             {entries.length > 0 && (

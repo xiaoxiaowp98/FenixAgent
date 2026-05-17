@@ -1,10 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type { ACPClient } from "../acp/client";
 import type { ModelInfo, SessionModelState } from "../acp/types";
-import { client as edenClient } from "../api/client";
-import { unwrapConfigData } from "../api/config-response";
-import type { ModelEntry } from "../types/config";
-import { filterConfiguredAcpModels } from "../lib/acp-model-filter";
 
 export interface UseModelsResult {
   supportsModelSelection: boolean;
@@ -23,26 +19,7 @@ export function useModels(client: ACPClient): UseModelsResult {
   const [modelState, setModelState] = useState<SessionModelState | null>(
     client.state.modelState,
   );
-  const [configuredModels, setConfiguredModels] = useState<ModelEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    edenClient.web.config.models.post({ action: "get" })
-      .then(({ data, error }) => {
-        if (!cancelled) {
-          if (error) return;
-          const config = unwrapConfigData(data) ?? data;
-          setConfiguredModels(config?.available ?? []);
-        }
-      })
-      .catch((error) => {
-        console.error("[useModels] Failed to load configured models:", error);
-      });
-
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     const handler = (state: SessionModelState | null) => {
@@ -61,8 +38,8 @@ export function useModels(client: ACPClient): UseModelsResult {
   }, [client]);
 
   const availableModels = useMemo(
-    () => filterConfiguredAcpModels(modelState?.availableModels ?? [], configuredModels),
-    [configuredModels, modelState],
+    () => modelState?.availableModels ?? [],
+    [modelState],
   );
 
   const currentModelId = modelState?.currentModelId ?? null;

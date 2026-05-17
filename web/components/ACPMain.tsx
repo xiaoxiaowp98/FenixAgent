@@ -65,6 +65,15 @@ export function ACPMain({ client, agentId, initialCwd, readonly, rcsSessionId }:
     }
   }, [agentId, cwd]);
 
+  // When capabilities arrive (supportsSessionList flips to true), trigger bootstrap immediately
+  useEffect(() => {
+    if (!cwdReady || bootstrappedRef.current) return;
+    if (client.getState() !== "connected") return;
+    if (!client.supportsSessionList) return;
+    // Capabilities just became available — bump bootstrapAttempt to re-trigger the bootstrap effect
+    setBootstrapAttempt((prev) => prev + 1);
+  }, [cwdReady, client, client.supportsSessionList]);
+
   // Handle session selection
   const handleSelectSession = useCallback(async (session: AgentSessionInfo) => {
     try {
@@ -80,6 +89,8 @@ export function ACPMain({ client, agentId, initialCwd, readonly, rcsSessionId }:
     }
   }, [client]);
 
+  // Bootstrap: load latest session or create new one.
+  // Triggers on connection ready AND when capabilities arrive (via bootstrapAttempt increment).
   useEffect(() => {
     if (!cwdReady) {
       return;
@@ -96,12 +107,12 @@ export function ACPMain({ client, agentId, initialCwd, readonly, rcsSessionId }:
     const bootstrap = async () => {
       try {
         if (!client.supportsSessionList) {
+          // Capabilities not ready yet — retry via timer (not polling, just wait)
           if (bootstrapAttempt < BOOTSTRAP_MAX_ATTEMPTS) {
-            console.log("[ACPMain] Session list capability not ready yet, retrying bootstrap...");
             if (!cancelled) {
               bootstrapRetryTimerRef.current = setTimeout(() => {
                 setBootstrapAttempt((prev) => prev + 1);
-              }, 500);
+              }, 200);
             }
             return;
           }
@@ -280,7 +291,7 @@ function SidebarSessionList({
     if (!cwdReady) {
       return;
     }
-    const interval = setInterval(loadSessions, 10000);
+    const interval = setInterval(loadSessions, 30_000);
     return () => clearInterval(interval);
   }, [cwdReady, loadSessions]);
 

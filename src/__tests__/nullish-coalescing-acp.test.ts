@@ -1,6 +1,6 @@
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
 
-// ── environment-acp.ts || → ?? nullish coalescing 验证 ──
+import { _deps, _resetDeps } from "../services/environment-acp";
 
 const mockEnvRepoCreate = mock(async (d: any) => ({
   id: "env_1",
@@ -9,8 +9,8 @@ const mockEnvRepoCreate = mock(async (d: any) => ({
   ...d,
 }));
 
-mock.module("../repositories", () => ({
-  environmentRepo: {
+beforeEach(() => {
+  _deps.environmentRepo = {
     getById: mock(async () => null),
     create: mockEnvRepoCreate,
     update: mock(async () => {}),
@@ -19,17 +19,20 @@ mock.module("../repositories", () => ({
     listActiveByUsername: mock(async () => []),
     listByUserId: mock(async () => []),
     delete: mock(async () => true),
-  },
-  sessionRepo: {
+  } as any;
+  _deps.sessionRepo = {
     listByEnvironment: mock(async (): Promise<Array<{ id: string }>> => []),
     create: mock(async (d: any) => ({ id: "ses_1", ...d })),
-  },
-}));
-mock.module("../services/session", () => ({
-  findOrCreateForEnvironment: mock(async () => ({ id: "ses_1" })),
-}));
+  } as any;
+  _deps.findOrCreateForEnvironment = mock(async () => ({ id: "ses_1" }));
+  _deps.deleteEnvironment = mock(async () => {});
+});
 
-const { registerEnvironment, registerBridge } = await import("../services/environment-acp");
+afterEach(() => {
+  _resetDeps();
+});
+
+import { registerEnvironment, registerBridge } from "../services/environment-acp";
 
 describe("environment-acp nullish coalescing (|| → ??)", () => {
   beforeEach(() => {
@@ -45,7 +48,6 @@ describe("environment-acp nullish coalescing (|| → ??)", () => {
     });
 
     const call = mockEnvRepoCreate.mock.calls[0] as unknown as [Record<string, unknown>];
-    // ?? 语义："" 不是 nullish，不会被替换为 undefined
     expect(call[0].workerType).toBe("");
   });
 
@@ -57,7 +59,6 @@ describe("environment-acp nullish coalescing (|| → ??)", () => {
     });
 
     const call = mockEnvRepoCreate.mock.calls[0] as unknown as [Record<string, unknown>];
-    // ?? 语义："" 不是 nullish，不 fallback 到 "system"
     expect(call[0].userId).toBe("");
   });
 

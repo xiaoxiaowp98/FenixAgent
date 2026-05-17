@@ -1,5 +1,7 @@
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
 import { AppError } from "../errors";
+
+import { _deps, _resetDeps } from "../services/environment-acp";
 
 const mockEnvRepoGetById = mock(async (): Promise<any> => null);
 const mockEnvRepoCreate = mock(async (d: any) => ({
@@ -11,22 +13,25 @@ const mockEnvRepoCreate = mock(async (d: any) => ({
 const mockEnvRepoUpdate = mock(async () => {});
 const mockSessionRepoList = mock(async () => []);
 
-mock.module("../repositories", () => ({
-  environmentRepo: {
+beforeEach(() => {
+  _deps.environmentRepo = {
     getById: mockEnvRepoGetById,
     create: mockEnvRepoCreate,
     update: mockEnvRepoUpdate,
-  },
-  sessionRepo: {
+  } as any;
+  _deps.sessionRepo = {
     listByEnvironment: mockSessionRepoList,
     create: mock(async (d: any) => ({ id: "ses_new", ...d })),
-  },
-}));
-mock.module("../services/session", () => ({
-  findOrCreateForEnvironment: mock(async () => ({ id: "ses_new" })),
-}));
+  } as any;
+  _deps.findOrCreateForEnvironment = mock(async () => ({ id: "ses_new" }));
+  _deps.deleteEnvironment = mock(async () => {});
+});
 
-const { registerBridge } = await import("../services/environment-acp");
+afterEach(() => {
+  _resetDeps();
+});
+
+import { registerBridge } from "../services/environment-acp";
 
 describe("registerBridge ownership verification", () => {
   beforeEach(() => {
@@ -54,7 +59,6 @@ describe("registerBridge ownership verification", () => {
       expect(err).toBeInstanceOf(AppError);
       expect((err as AppError).code).toBe("FORBIDDEN");
       expect((err as AppError).statusCode).toBe(403);
-      // 不应更新环境
       expect(mockEnvRepoUpdate).not.toHaveBeenCalled();
     }
   });
@@ -88,7 +92,6 @@ describe("registerBridge ownership verification", () => {
       userId: "user_self",
     });
 
-    // 应创建新环境
     expect(result.environment_id).toBe("env_new");
     expect(mockEnvRepoCreate).toHaveBeenCalledTimes(1);
   });
@@ -102,7 +105,6 @@ describe("registerBridge ownership verification", () => {
 
     expect(result.environment_id).toBe("env_new");
     expect(mockEnvRepoCreate).toHaveBeenCalledTimes(1);
-    // 不应尝试查找已有环境
     expect(mockEnvRepoGetById).not.toHaveBeenCalled();
   });
 

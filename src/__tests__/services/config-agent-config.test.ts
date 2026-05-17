@@ -7,17 +7,6 @@ import {
   isBuiltInAgent,
 } from "../../services/config/agent-config";
 
-// 需要 mock agent-knowledge 模块（resolveAgentKnowledgePolicy 被 normalizeKnowledgeConfig 间接调用）
-import { mock } from "bun:test";
-
-mock.module("../../services/agent-knowledge", () => ({
-  resolveAgentKnowledgePolicy: (policy?: { searchFirst?: boolean; maxResults?: number; defaultNamespaces?: string[] } | null) => ({
-    searchFirst: policy?.searchFirst ?? true,
-    maxResults: policy?.maxResults ?? 5,
-    defaultNamespaces: policy?.defaultNamespaces ?? [],
-  }),
-}));
-
 describe("validateAgentData", () => {
   // 有效数据返回 null
   test("有效数据返回 null", () => {

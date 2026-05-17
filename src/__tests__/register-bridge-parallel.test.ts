@@ -1,6 +1,6 @@
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { describe, test, expect, mock, beforeEach, afterEach } from "bun:test";
 
-// ── registerBridge existing env 路径并行查询验证 ──
+import { _deps, _resetDeps } from "../services/environment-acp";
 
 const mockEnvRepoGetById = mock(async (): Promise<any> => null);
 const mockEnvRepoCreate = mock(async (d: any) => ({
@@ -12,22 +12,25 @@ const mockEnvRepoCreate = mock(async (d: any) => ({
 const mockEnvRepoUpdate = mock(async () => {});
 const mockSessionRepoList = mock(async (): Promise<Array<{ id: string }>> => []);
 
-mock.module("../repositories", () => ({
-  environmentRepo: {
+beforeEach(() => {
+  _deps.environmentRepo = {
     getById: mockEnvRepoGetById,
     create: mockEnvRepoCreate,
     update: mockEnvRepoUpdate,
-  },
-  sessionRepo: {
+  } as any;
+  _deps.sessionRepo = {
     listByEnvironment: mockSessionRepoList,
     create: mock(async (d: any) => ({ id: "ses_new", ...d })),
-  },
-}));
-mock.module("../services/session", () => ({
-  findOrCreateForEnvironment: mock(async () => ({ id: "ses_new" })),
-}));
+  } as any;
+  _deps.findOrCreateForEnvironment = mock(async () => ({ id: "ses_new" }));
+  _deps.deleteEnvironment = mock(async () => {});
+});
 
-const { registerBridge } = await import("../services/environment-acp");
+afterEach(() => {
+  _resetDeps();
+});
+
+import { registerBridge } from "../services/environment-acp";
 
 describe("registerBridge existing env parallel queries", () => {
   beforeEach(() => {
@@ -64,16 +67,13 @@ describe("registerBridge existing env parallel queries", () => {
       capabilities: { mode: "advanced" },
     });
 
-    // update 和 list 都被调用
     expect(mockEnvRepoUpdate).toHaveBeenCalledTimes(1);
     expect(mockSessionRepoList).toHaveBeenCalledTimes(1);
     const listCallArgs = mockSessionRepoList.mock.calls[0] as unknown as [string];
     expect(listCallArgs[0]).toBe("env_par1");
 
-    // 并行：list_start 在 update_end 之前
     expect(callOrder.indexOf("list_start")).toBeLessThan(callOrder.indexOf("update_end"));
 
-    // 返回值正确
     expect(result.environment_id).toBe("env_par1");
     expect(result.status).toBe("active");
     expect(result.session_id).toBe("ses_existing");

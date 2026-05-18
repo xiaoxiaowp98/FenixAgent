@@ -47,8 +47,13 @@ export { DAGScheduler, SuspendedError } from "./scheduler/dag-scheduler";
 export type { DAGRunResult, NodeExecutor, NodeExecutionContext, SchedulerContext } from "./scheduler/dag-scheduler";
 export { CancellationManager } from "./scheduler/cancellation";
 export { topologicalSort, identifyParallelGroups, buildReverseAdjacency } from "./scheduler/topological-sort";
+// Transport 接口
+export type { AgentRequest, AgentResponse, AgentSession, Transport } from "./transport/transport";
 // 执行器
 export { ProcessExecutor } from "./executor/process-executor";
+export { ApiExecutor } from "./executor/api-executor";
+export { RemoteExecutorBase } from "./executor/remote-executor";
+export { AgentExecutor } from "./executor/agent-executor";
 export { AuditExecutor, verifyApprovalToken } from "./executor/awaitable-executor";
 export type { PendingApproval } from "./executor/awaitable-executor";
 export { NodeExecutorRegistry, createNodeExecutorRegistry } from "./executor/node-executor";

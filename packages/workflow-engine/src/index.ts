@@ -46,6 +46,8 @@ export { createInMemoryStorage } from "./storage/in-memory-storage";
 export { DAGScheduler, SuspendedError } from "./scheduler/dag-scheduler";
 export type { DAGRunResult, NodeExecutor, NodeExecutionContext, SchedulerContext } from "./scheduler/dag-scheduler";
 export { CancellationManager } from "./scheduler/cancellation";
+export { recoverRun } from "./recovery/snapshot-recovery";
+export type { RecoveryResult } from "./recovery/snapshot-recovery";
 export { topologicalSort, identifyParallelGroups, buildReverseAdjacency } from "./scheduler/topological-sort";
 // Transport 接口
 export type { AgentRequest, AgentResponse, AgentSession, Transport } from "./transport/transport";
@@ -59,3 +61,6 @@ export type { PendingApproval } from "./executor/awaitable-executor";
 export { NodeExecutorRegistry, createNodeExecutorRegistry } from "./executor/node-executor";
 export { LoopExecutor } from "./executor/loop-executor";
 export { SubWorkflowExecutor } from "./executor/sub-workflow-executor";
+// Secrets
+export { SecretsResolver } from "./secrets/secrets-resolver";
+export type { SecretsResolverOptions } from "./secrets/secrets-resolver";

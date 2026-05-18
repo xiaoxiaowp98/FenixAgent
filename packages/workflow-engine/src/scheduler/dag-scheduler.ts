@@ -262,14 +262,21 @@ export class DAGScheduler {
       // 执行节点
       const output = await this.ctx.nodeExecutor.execute(node, execCtx);
 
-      // 成功 → COMPLETED
+      // 成功 → COMPLETED（构造事件对象，由 atomicComplete 原子写入，避免重复）
       this.nodeStates.set(nodeId, 'COMPLETED');
       this.nodeOutputs.set(nodeId, output);
 
-      const eventId = await this.emitEvent('node.completed', nodeId, {
-        exit_code: output.exit_code,
-      });
-      await this.atomicComplete(nodeId, output, eventId);
+      const completedEvent: DAGEvent = {
+        event_id: `evt_${nanoid(10)}`,
+        run_id: this.ctx.runId,
+        timestamp: new Date().toISOString(),
+        type: 'node.completed',
+        node_id: nodeId,
+        node_type: this.nodeMap.get(nodeId)?.type,
+        metadata: { exit_code: output.exit_code },
+      };
+      this.lastEventId = completedEvent.event_id;
+      await this.atomicComplete(nodeId, output, completedEvent);
     } catch (error) {
       // 处理 SUSPENDED
       if (error instanceof SuspendedError) {
@@ -315,11 +322,6 @@ export class DAGScheduler {
         }
         if (node.cwd) {
           resolved.cwd = resolveTemplate(node.cwd, evalContext);
-        }
-        if (node.env) {
-          resolved.env = Object.fromEntries(
-            Object.entries(node.env).map(([k, v]) => [k, resolveTemplate(v, evalContext)]),
-          );
         }
         break;
       }
@@ -448,8 +450,7 @@ export class DAGScheduler {
 
     if (allCompleted) return 'SUCCESS';
     if (hasFailed) return 'FAILED';
-    if (hasSkipped) return 'FAILED';
-    return 'FAILED';
+    return 'FAILED'; // hasSkipped or partial completion
   }
 
   /** 构建运行摘要 */
@@ -521,7 +522,7 @@ export class DAGScheduler {
   private async atomicComplete(
     nodeId: string,
     output: NodeOutput,
-    eventId: string,
+    event: DAGEvent,
   ): Promise<void> {
     const nodeStates: DAGSnapshot['node_states'] = {};
     for (const [id, s] of this.nodeStates) {
@@ -531,18 +532,12 @@ export class DAGScheduler {
     const snapshot: DAGSnapshot = {
       snapshot_id: `snap_${nanoid(10)}`,
       run_id: this.ctx.runId,
-      last_event_id: eventId,
+      last_event_id: event.event_id,
       timestamp: new Date().toISOString(),
       node_states: nodeStates,
       dag_status: 'RUNNING',
     };
 
-    const event = await this.ctx.storage.getEvents(this.ctx.runId, {
-      types: ['node.completed'],
-    }).then((events) => events.find((e) => e.event_id === eventId));
-
-    if (event) {
-      await this.ctx.storage.atomicNodeComplete({ output, snapshot, event });
-    }
+    await this.ctx.storage.atomicNodeComplete({ output, snapshot, event });
   }
 }

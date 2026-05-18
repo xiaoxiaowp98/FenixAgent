@@ -57,3 +57,5 @@ export { AgentExecutor } from "./executor/agent-executor";
 export { AuditExecutor, verifyApprovalToken } from "./executor/awaitable-executor";
 export type { PendingApproval } from "./executor/awaitable-executor";
 export { NodeExecutorRegistry, createNodeExecutorRegistry } from "./executor/node-executor";
+export { LoopExecutor } from "./executor/loop-executor";
+export { SubWorkflowExecutor } from "./executor/sub-workflow-executor";

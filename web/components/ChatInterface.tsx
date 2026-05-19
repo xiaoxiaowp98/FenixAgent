@@ -68,6 +68,7 @@ interface ChatInterfaceProps {
   hideContextPanel?: boolean;
   rcsSessionId?: string;
   onSessionCreated?: (sessionId: string) => void;
+  scenePrompt?: string;
 }
 
 // =============================================================================
@@ -160,13 +161,14 @@ export interface ChatInterfaceHandle {
   newSession: () => void;
 }
 
-export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(function ChatInterface({ client, agentId, cwd, cwdReady = true, readonly, hideContextPanel, rcsSessionId, onSessionCreated }, ref) {
+export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>(function ChatInterface({ client, agentId, cwd, cwdReady = true, readonly, hideContextPanel, rcsSessionId, onSessionCreated, scenePrompt }, ref) {
   // Flat list of entries (like Zed's entries: Vec<AgentThreadEntry>)
   const [entries, setEntries] = useState<ThreadEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
+  const scenePromptUsedRef = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Reference: Zed's supports_images() checks prompt_capabilities.image
@@ -177,6 +179,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
   useEffect(() => {
     activeSessionIdRef.current = activeSessionId;
+    scenePromptUsedRef.current = false;
   }, [activeSessionId]);
 
   const resetThreadState = useCallback(() => {
@@ -783,6 +786,12 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
     if (contentBlocks.length === 0) return;
 
+    // 注入场景提示词（仅第一条消息，隐藏不显示）
+    if (scenePrompt && !scenePromptUsedRef.current) {
+      contentBlocks.unshift({ type: "text", text: scenePrompt });
+      scenePromptUsedRef.current = true;
+    }
+
     // Add user message entry
     const userEntry: UserMessageEntry = {
       type: "user_message",
@@ -799,7 +808,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       console.error("[ChatInterface] Failed to send prompt:", error);
       setIsLoading(false);
     }
-  }, [isLoading, sessionReady, client]);
+  }, [isLoading, sessionReady, client, scenePrompt]);
 
   return (
     <div className="flex h-full">

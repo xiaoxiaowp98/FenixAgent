@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -126,6 +126,19 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
     return saved === "true";
   });
   const [metaAgentId, setMetaAgentId] = useState<string | null>(null);
+
+  const scenePrompt = useMemo(() => {
+    if (!workflowId) return undefined;
+    const lines = [
+      "[工作流上下文]",
+      `- 工作流 ID: ${workflowId}`,
+      `- 名称: ${meta.name || "(未命名)"}`,
+      `- 描述: ${meta.description || "(无)"}`,
+      `- 草稿路径: .agents/workflows/${workflowId}/draft.yaml`,
+      "请先读取草稿文件再响应用户请求。",
+    ];
+    return lines.join("\n");
+  }, [workflowId, meta.name, meta.description]);
 
   useEffect(() => {
     localStorage.setItem("wf-editor:chat-open", String(chatOpen));
@@ -1883,7 +1896,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
             </div>
           </div>
           <div style={{ flex: 1, overflow: "hidden" }}>
-            <ChatPanel agentId={metaAgentId} hideSidebar />
+            <ChatPanel agentId={metaAgentId} hideSidebar scenePrompt={scenePrompt} />
           </div>
         </div>
       )}

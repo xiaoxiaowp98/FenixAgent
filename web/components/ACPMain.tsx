@@ -15,13 +15,14 @@ interface ACPMainProps {
   readonly?: boolean;
   hideSidebar?: boolean;
   rcsSessionId?: string;
+  scenePrompt?: string;
 }
 
 /**
  * Main container — Anthropic sidebar + chat layout.
  * Sidebar: sectioned by recency, orange active state, warm raised bg.
  */
-export function ACPMain({ client, agentId, initialCwd, readonly, hideSidebar, rcsSessionId }: ACPMainProps) {
+export function ACPMain({ client, agentId, initialCwd, readonly, hideSidebar, rcsSessionId, scenePrompt }: ACPMainProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [cwd, setCwd] = useState<string | undefined>(initialCwd?.replace(/\/+$/, ""));
   const [cwdReady, setCwdReady] = useState(!agentId || !!initialCwd);
@@ -236,7 +237,7 @@ export function ACPMain({ client, agentId, initialCwd, readonly, hideSidebar, rc
             </Button>
           </div>
         )}
-        <ChatInterface ref={chatRef} client={client} agentId={agentId} cwd={cwd} cwdReady={cwdReady} readonly={readonly} hideContextPanel={hideSidebar} rcsSessionId={rcsSessionId} onSessionCreated={(sessionId) => setInitialActiveSessionId(sessionId)} />
+        <ChatInterface ref={chatRef} client={client} agentId={agentId} cwd={cwd} cwdReady={cwdReady} readonly={readonly} hideContextPanel={hideSidebar} rcsSessionId={rcsSessionId} scenePrompt={scenePrompt} onSessionCreated={(sessionId) => setInitialActiveSessionId(sessionId)} />
       </div>
     </div>
   );

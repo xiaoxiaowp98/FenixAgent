@@ -45,6 +45,7 @@ import {
   XCircle,
   Copy,
   Check,
+  ChevronRight,
 } from "lucide-react";
 import { nodeTypes } from "./nodes";
 import { autoLayout } from "./layout";
@@ -112,6 +113,31 @@ function WorkflowEditorInner({ workflowId, runId, onViewRuns }: WorkflowEditorPr
   const [nodeOutputLoading, setNodeOutputLoading] = useState(false);
   const [runRightTab, setRunRightTab] = useState<"events" | "output">("events");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Agent 配置联动 ──
+  const [agentList, setAgentList] = useState<Array<{ name: string; model: string | null; description: string | null }>>([]);
+  const [agentOverrideOpen, setAgentOverrideOpen] = useState(false);
+
+  useEffect(() => {
+    fetch("/web/config/agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ action: "list" }),
+    })
+      .then((res) => res.json())
+      .then((json) => {
+        const agents = json?.data?.agents;
+        if (Array.isArray(agents)) {
+          setAgentList(agents.map((a: any) => ({
+            name: a.name,
+            model: a.model ?? null,
+            description: a.description ?? null,
+          })));
+        }
+      })
+      .catch((err) => console.error("加载 agent 列表失败:", err));
+  }, []);
 
   const isRunMode = activeRunId !== null;
   const dagStatus = runSnapshot?.dag_status;
@@ -1410,12 +1436,27 @@ function WorkflowEditorInner({ workflowId, runId, onViewRuns }: WorkflowEditorPr
                     </div>
                     <div className="wf-prop-field">
                       <label>Agent 名称</label>
-                      <input
+                      <select
                         value={String(sd?.agent ?? "")}
                         onChange={(e) => updateNodeData({ agent: e.target.value })}
-                        placeholder="general"
-                        readOnly={readOnly}
-                      />
+                        disabled={readOnly}
+                      >
+                        <option value="">（默认）</option>
+                        {agentList.map((a) => (
+                          <option key={a.name} value={a.name}>{a.name}</option>
+                        ))}
+                      </select>
+                      {sd?.agent && (() => {
+                        const found = agentList.find((a) => a.name === sd.agent);
+                        if (!found) return null;
+                        return (
+                          <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>
+                            {found.model && <span>模型: {found.model}</span>}
+                            {found.model && found.description && <span> · </span>}
+                            {found.description && <span>{found.description}</span>}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div className="wf-prop-field">
                       <label>Skill</label>
@@ -1425,6 +1466,74 @@ function WorkflowEditorInner({ workflowId, runId, onViewRuns }: WorkflowEditorPr
                         placeholder="skill-name"
                         readOnly={readOnly}
                       />
+                    </div>
+                    <div className="wf-prop-field">
+                      <button
+                        type="button"
+                        onClick={() => setAgentOverrideOpen(!agentOverrideOpen)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 11,
+                          color: "#6b7280",
+                          padding: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <ChevronRight
+                          size={11}
+                          style={{
+                            transform: agentOverrideOpen ? "rotate(90deg)" : "rotate(0deg)",
+                            transition: "transform 0.15s",
+                          }}
+                        />
+                        覆盖配置（可选）
+                      </button>
+                      {agentOverrideOpen && (
+                        <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
+                          <div>
+                            <label style={{ fontSize: 10, color: "#9ca3af" }}>模型</label>
+                            <input
+                              value={String(sd?.model ?? "")}
+                              onChange={(e) => updateNodeData({ model: e.target.value || undefined })}
+                              placeholder="沿用 agent 配置"
+                              readOnly={readOnly}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 10, color: "#9ca3af" }}>Temperature</label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="2"
+                              value={sd?.temperature ?? ""}
+                              onChange={(e) => updateNodeData({
+                                temperature: e.target.value ? Number(e.target.value) : undefined,
+                              })}
+                              placeholder="沿用 agent 配置"
+                              readOnly={readOnly}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 10, color: "#9ca3af" }}>最大步数</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="200"
+                              value={sd?.steps ?? ""}
+                              onChange={(e) => updateNodeData({
+                                steps: e.target.value ? Number(e.target.value) : undefined,
+                              })}
+                              placeholder="沿用 agent 配置"
+                              readOnly={readOnly}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </>
                 )}

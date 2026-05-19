@@ -170,7 +170,7 @@ function WorkflowEditorInner({ workflowId, runId, onViewRuns }: WorkflowEditorPr
           setRunSnapshot(snap);
           updateNodesFromSnapshot(snap);
         }
-        if (Array.isArray(evts)) setRunEvents(evts);
+        if (Array.isArray(evts)) setRunEvents(dedupEvents(evts));
       } catch (err) {
         console.error("加载运行记录失败:", err);
       }
@@ -480,7 +480,7 @@ function WorkflowEditorInner({ workflowId, runId, onViewRuns }: WorkflowEditorPr
           setRunSnapshot(snap);
           updateNodesFromSnapshot(snap);
         }
-        if (Array.isArray(evts)) setRunEvents(evts);
+        if (Array.isArray(evts)) setRunEvents(dedupEvents(evts));
       } catch (err) {
         console.error(err);
       }
@@ -1677,6 +1677,16 @@ function WorkflowEditorInner({ workflowId, runId, onViewRuns }: WorkflowEditorPr
       </aside>
     </div>
   );
+}
+
+// ── 事件去重 ──
+function dedupEvents(events: DAGEvent[]): DAGEvent[] {
+  const seen = new Set<string>();
+  return events.filter((e) => {
+    if (seen.has(e.event_id)) return false;
+    seen.add(e.event_id);
+    return true;
+  });
 }
 
 // ── DAG 状态样式 ──

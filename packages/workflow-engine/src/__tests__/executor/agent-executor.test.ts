@@ -480,3 +480,202 @@ describe('AgentExecutor request forwarding', () => {
     expect(lastReq?.cwd).toBe('/tmp/workspace');
   });
 });
+
+// ========== Agent Config 合并测试 ==========
+
+describe('AgentExecutor config merging', () => {
+  let transport: FakeTransport;
+
+  beforeEach(() => {
+    transport = new FakeTransport();
+    transport.setResponse('my-agent', { stdout: 'ok', exit_code: 0 });
+  });
+
+  test('resolveAgentConfig 被调用且 model 合并到 request', async () => {
+    let resolvedName = '';
+    const executor = new AgentExecutor(transport, {
+      resolveAgentConfig: async (name: string) => {
+        resolvedName = name;
+        return { model: 'claude-sonnet-4-6', steps: 20, temperature: 0.7, permission: { bash: 'allow' }, knowledge: null };
+      },
+    });
+
+    const ctx = makeCtx();
+    const node = agentNode('test', { agent: 'my-agent' });
+    await executor.execute(node, ctx);
+
+    expect(resolvedName).toBe('my-agent');
+    const lastReq = transport.getLastRequest('my-agent');
+    expect(lastReq?.model).toBe('claude-sonnet-4-6');
+    expect(lastReq?.temperature).toBe(0.7);
+    expect(lastReq?.steps).toBe(20);
+    expect(lastReq?.permission).toEqual({ bash: 'allow' });
+  });
+
+  test('节点级 model 覆盖 agent config 的 model', async () => {
+    const executor = new AgentExecutor(transport, {
+      resolveAgentConfig: async () => {
+        return { model: 'gpt-4', steps: 10, temperature: 0.5, permission: null, knowledge: null };
+      },
+    });
+
+    const ctx = makeCtx();
+    const node = agentNode('test', { agent: 'my-agent', model: 'claude-opus-4-7' });
+    await executor.execute(node, ctx);
+
+    const lastReq = transport.getLastRequest('my-agent');
+    expect(lastReq?.model).toBe('claude-opus-4-7');
+    expect(lastReq?.temperature).toBe(0.5);
+    expect(lastReq?.steps).toBe(10);
+  });
+
+  test('节点级 temperature 覆盖 agent config', async () => {
+    const executor = new AgentExecutor(transport, {
+      resolveAgentConfig: async () => {
+        return { model: 'gpt-4', steps: 10, temperature: 0.5, permission: null, knowledge: null };
+      },
+    });
+
+    const ctx = makeCtx();
+    const node = agentNode('test', { agent: 'my-agent', temperature: 0.1 });
+    await executor.execute(node, ctx);
+
+    const lastReq = transport.getLastRequest('my-agent');
+    expect(lastReq?.temperature).toBe(0.1);
+    expect(lastReq?.model).toBe('gpt-4');
+  });
+
+  test('agent 字段为空时 resolveAgentConfig 不被调用', async () => {
+    transport.setResponse('default', { stdout: 'ok', exit_code: 0 });
+    let called = false;
+    const executor = new AgentExecutor(transport, {
+      resolveAgentConfig: async () => {
+        called = true;
+        return { model: null, steps: null, temperature: null, permission: null, knowledge: null };
+      },
+    });
+
+    const ctx = makeCtx();
+    const node = agentNode('test');
+    await executor.execute(node, ctx);
+
+    expect(called).toBe(false);
+    const lastReq = transport.getLastRequest('default');
+    expect(lastReq?.model).toBeUndefined();
+  });
+
+  test('resolveAgentConfig 返回 null 时使用节点字段', async () => {
+    const executor = new AgentExecutor(transport, {
+      resolveAgentConfig: async () => null,
+    });
+
+    const ctx = makeCtx();
+    const node = agentNode('test', { agent: 'my-agent', model: 'fallback-model' });
+    await executor.execute(node, ctx);
+
+    const lastReq = transport.getLastRequest('my-agent');
+    expect(lastReq?.model).toBe('fallback-model');
+  });
+});
+
+// ========== Agent Config 合并测试 ==========
+
+describe('AgentExecutor config merging', () => {
+  let transport: FakeTransport;
+
+  beforeEach(() => {
+    transport = new FakeTransport();
+    transport.setResponse('my-agent', { stdout: 'ok', exit_code: 0 });
+  });
+
+  // resolveAgentConfig 被调用且 model 合并到 request
+  test('resolveAgentConfig 被调用且 model 合并到 request', async () => {
+    let resolvedName = '';
+    const executor = new AgentExecutor(transport, {
+      resolveAgentConfig: async (name: string) => {
+        resolvedName = name;
+        return { model: 'claude-sonnet-4-6', steps: 20, temperature: 0.7, permission: { bash: 'allow' }, knowledge: null };
+      },
+    });
+
+    const ctx = makeCtx();
+    const node = agentNode('test', { agent: 'my-agent' });
+    await executor.execute(node, ctx);
+
+    expect(resolvedName).toBe('my-agent');
+    const lastReq = transport.getLastRequest('my-agent');
+    expect(lastReq?.model).toBe('claude-sonnet-4-6');
+    expect(lastReq?.temperature).toBe(0.7);
+    expect(lastReq?.steps).toBe(20);
+    expect(lastReq?.permission).toEqual({ bash: 'allow' });
+  });
+
+  // 节点级 model 覆盖 agent config 的 model
+  test('节点级 model 覆盖 agent config 的 model', async () => {
+    const executor = new AgentExecutor(transport, {
+      resolveAgentConfig: async () => {
+        return { model: 'gpt-4', steps: 10, temperature: 0.5, permission: null, knowledge: null };
+      },
+    });
+
+    const ctx = makeCtx();
+    const node = agentNode('test', { agent: 'my-agent', model: 'claude-opus-4-7' });
+    await executor.execute(node, ctx);
+
+    const lastReq = transport.getLastRequest('my-agent');
+    expect(lastReq?.model).toBe('claude-opus-4-7');
+    expect(lastReq?.temperature).toBe(0.5);
+    expect(lastReq?.steps).toBe(10);
+  });
+
+  // 节点级 temperature 覆盖 agent config
+  test('节点级 temperature 覆盖 agent config', async () => {
+    const executor = new AgentExecutor(transport, {
+      resolveAgentConfig: async () => {
+        return { model: 'gpt-4', steps: 10, temperature: 0.5, permission: null, knowledge: null };
+      },
+    });
+
+    const ctx = makeCtx();
+    const node = agentNode('test', { agent: 'my-agent', temperature: 0.1 });
+    await executor.execute(node, ctx);
+
+    const lastReq = transport.getLastRequest('my-agent');
+    expect(lastReq?.temperature).toBe(0.1);
+    expect(lastReq?.model).toBe('gpt-4');
+  });
+
+  // agent 字段为空时 resolveAgentConfig 不被调用
+  test('agent 字段为空时 resolveAgentConfig 不被调用', async () => {
+    transport.setResponse('default', { stdout: 'ok', exit_code: 0 });
+    let called = false;
+    const executor = new AgentExecutor(transport, {
+      resolveAgentConfig: async () => {
+        called = true;
+        return { model: null, steps: null, temperature: null, permission: null, knowledge: null };
+      },
+    });
+
+    const ctx = makeCtx();
+    const node = agentNode('test');
+    await executor.execute(node, ctx);
+
+    expect(called).toBe(false);
+    const lastReq = transport.getLastRequest('default');
+    expect(lastReq?.model).toBeUndefined();
+  });
+
+  // resolveAgentConfig 返回 null 时使用节点字段
+  test('resolveAgentConfig 返回 null 时使用节点字段', async () => {
+    const executor = new AgentExecutor(transport, {
+      resolveAgentConfig: async () => null,
+    });
+
+    const ctx = makeCtx();
+    const node = agentNode('test', { agent: 'my-agent', model: 'fallback-model' });
+    await executor.execute(node, ctx);
+
+    const lastReq = transport.getLastRequest('my-agent');
+    expect(lastReq?.model).toBe('fallback-model');
+  });
+});

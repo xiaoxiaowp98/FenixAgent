@@ -18,6 +18,21 @@ import type { EvalContext } from '../types/expression';
 import type { Transport, AgentRequest, AgentResponse } from '../transport/transport';
 import { WorkflowError, WorkflowErrorCode } from '../types/errors';
 
+/** 从宿主层获取的 agent 配置 */
+export interface AgentResolvedConfig {
+  model: string | null;
+  steps: number | null;
+  temperature: number | null;
+  permission: unknown;
+  knowledge: unknown;
+}
+
+/** AgentExecutor 构造选项 */
+export interface AgentExecutorOptions {
+  /** 注入的 agent 配置解析回调（方案 A） */
+  resolveAgentConfig?: (agentName: string) => Promise<AgentResolvedConfig | null>;
+}
+
 // ---------- 常量 ----------
 
 const DEFAULT_RETRY_DELAY_MS = 1000;
@@ -26,7 +41,10 @@ const DEFAULT_RETRY_DELAY_MS = 1000;
 
 /** Agent 节点执行器 */
 export class AgentExecutor implements NodeExecutor {
-  constructor(private transport: Transport) {}
+  constructor(
+    private transport: Transport,
+    private options?: AgentExecutorOptions,
+  ) {}
 
   async execute(node: NodeDef, ctx: NodeExecutionContext): Promise<NodeOutput> {
     if (node.type !== 'agent') {
@@ -43,6 +61,9 @@ export class AgentExecutor implements NodeExecutor {
     const resolvedPrompt = resolveTemplate(agentNode.prompt, evalContext);
     const resolvedAgent = agentNode.agent ? resolveTemplate(agentNode.agent, evalContext) : undefined;
     const resolvedSkill = agentNode.skill ? resolveTemplate(agentNode.skill, evalContext) : undefined;
+
+    // 合并 agent config + 节点级覆盖
+    const mergedConfig = await this.resolveAndMergeConfig(agentNode);
 
     // 重试配置：默认 2 次（ShellNode 默认 0 次）
     const retryConfig = agentNode.retry ?? { count: 2, delay: DEFAULT_RETRY_DELAY_MS, backoff: 'exponential' };
@@ -67,7 +88,7 @@ export class AgentExecutor implements NodeExecutor {
       }
 
       try {
-        return await this.executeOnce(agentNode, ctx, resolvedPrompt, resolvedAgent, resolvedSkill);
+        return await this.executeOnce(agentNode, ctx, resolvedPrompt, resolvedAgent, resolvedSkill, mergedConfig);
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
@@ -97,6 +118,7 @@ export class AgentExecutor implements NodeExecutor {
     resolvedPrompt: string,
     resolvedAgent: string | undefined,
     resolvedSkill: string | undefined,
+    mergedConfig: Partial<AgentResolvedConfig>,
   ): Promise<NodeOutput> {
     // 发射 node.started 事件
     await this.emitEvent(ctx, 'node.started', node, {
@@ -117,6 +139,11 @@ export class AgentExecutor implements NodeExecutor {
       skill: resolvedSkill,
       cwd: node.cwd,
       signal: ctx.signal,
+      model: mergedConfig.model ?? undefined,
+      temperature: mergedConfig.temperature ?? undefined,
+      steps: mergedConfig.steps ?? undefined,
+      permission: mergedConfig.permission ?? undefined,
+      knowledge: mergedConfig.knowledge ?? undefined,
     };
 
     // 执行请求
@@ -159,6 +186,39 @@ export class AgentExecutor implements NodeExecutor {
       json,
       exit_code: response.exit_code,
       size: outputSize,
+    };
+  }
+
+  /** 解析 agent config 并合并节点级覆盖 */
+  private async resolveAndMergeConfig(node: AgentNodeDef): Promise<Partial<AgentResolvedConfig>> {
+    if (!node.agent || !this.options?.resolveAgentConfig) {
+      return {
+        model: node.model ?? null,
+        temperature: node.temperature ?? null,
+        steps: node.steps ?? null,
+        permission: null,
+        knowledge: null,
+      };
+    }
+
+    const config = await this.options.resolveAgentConfig(node.agent);
+
+    if (!config) {
+      return {
+        model: node.model ?? null,
+        temperature: node.temperature ?? null,
+        steps: node.steps ?? null,
+        permission: null,
+        knowledge: null,
+      };
+    }
+
+    return {
+      model: node.model ?? config.model,
+      temperature: node.temperature ?? config.temperature,
+      steps: node.steps ?? config.steps,
+      permission: config.permission,
+      knowledge: config.knowledge,
     };
   }
 

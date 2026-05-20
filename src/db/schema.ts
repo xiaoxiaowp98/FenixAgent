@@ -23,40 +23,7 @@ export const user = pgTable("user", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// ────────────────────────────────────────────
-// Team 权限系统
-// ────────────────────────────────────────────
-
-export const team = pgTable("team", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar("name").notNull(),
-  slug: varchar("slug").notNull().unique(),
-  description: text("description"),
-  createdBy: text("created_by")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
-
-export const teamMember = pgTable(
-  "team_member",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    role: varchar("role", { length: 20 }).notNull().default("member"),
-    joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => ({
-    teamUserIdx: uniqueIndex("idx_team_member_team_user").on(table.teamId, table.userId),
-  }),
-);
-
+// better-auth session — activeOrganizationId 由 organization 插件在运行时管理
 export const session = pgTable("session", {
   id: text("id").primaryKey(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -68,7 +35,8 @@ export const session = pgTable("session", {
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-  activeTeamId: uuid("active_team_id").references(() => team.id, { onDelete: "set null" }),
+  // better-auth organization 插件会自动注入 activeOrganizationId 列
+  activeOrganizationId: text("active_organization_id"),
 });
 
 export const account = pgTable("account", {
@@ -98,30 +66,6 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
-// Custom tables — primary keys use uuid with PG auto-generation
-export const apiKey = pgTable(
-  "api_key",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
-    // SHA-256 hash（64 hex chars）
-    keyHash: varchar("key_hash", { length: 64 }).notNull().unique(),
-    // 展示用前缀 "rcs_1234...ab12"
-    keyPrefix: varchar("key_prefix", { length: 20 }).notNull().default(""),
-    label: varchar("label").notNull().default(""),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
-    // 过期时间（null = 永不过期；系统创建的 meta key 设为 1 小时后）
-    expiresAt: timestamp("expires_at", { withTimezone: true }),
-  },
-  (t) => [index("idx_api_key_team_id").on(t.teamId), uniqueIndex("idx_api_key_hash").on(t.keyHash)],
-);
-
 // MCP Tool 缓存表
 export const mcpTool = pgTable("mcp_tool", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -137,9 +81,7 @@ export const shareLink = pgTable(
   "share_link",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     sessionId: varchar("session_id").notNull(),
     environmentId: varchar("environment_id").notNull(),
     token: varchar("token").notNull().unique(),
@@ -151,7 +93,7 @@ export const shareLink = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("idx_share_link_team_id").on(t.teamId)],
+  (t) => [index("idx_share_link_org_id").on(t.organizationId)],
 );
 
 // Share Event Snapshot 分享事件快照表
@@ -183,16 +125,14 @@ export const environment = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     autoStart: boolean("auto_start").notNull().default(false),
     lastPollAt: timestamp("last_poll_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    teamNameIdx: uniqueIndex("idx_environment_team_name").on(table.teamId, table.name),
+    orgNameIdx: uniqueIndex("idx_environment_org_name").on(table.organizationId, table.name),
   }),
 );
 
@@ -203,9 +143,7 @@ export const knowledgeBase = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     name: varchar("name").notNull(),
     slug: varchar("slug").notNull(),
     description: text("description"),
@@ -219,8 +157,8 @@ export const knowledgeBase = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    teamSlugIdx: uniqueIndex("idx_knowledge_base_team_slug").on(table.teamId, table.slug),
-    teamStatusIdx: index("idx_knowledge_base_team_status").on(table.teamId, table.status),
+    orgSlugIdx: uniqueIndex("idx_knowledge_base_org_slug").on(table.organizationId, table.slug),
+    orgStatusIdx: index("idx_knowledge_base_org_status").on(table.organizationId, table.status),
   }),
 );
 
@@ -279,9 +217,7 @@ export const scheduledTask = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     name: varchar("name").notNull(),
     description: text("description"),
     cron: varchar("cron").notNull(),
@@ -299,7 +235,7 @@ export const scheduledTask = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    teamIdx: index("idx_scheduled_task_team_id").on(table.teamId),
+    orgIdx: index("idx_scheduled_task_org_id").on(table.organizationId),
   }),
 );
 
@@ -329,9 +265,7 @@ export const imChannel = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     name: varchar("name").notNull(),
     description: text("description"),
     platform: varchar("platform").notNull(),
@@ -343,7 +277,7 @@ export const imChannel = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    teamPlatformIdx: index("idx_im_channel_team_platform").on(table.teamId, table.platform),
+    orgPlatformIdx: index("idx_im_channel_org_platform").on(table.organizationId, table.platform),
   }),
 );
 
@@ -399,9 +333,7 @@ export const provider = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     name: varchar("name").notNull(),
     displayName: varchar("display_name"),
     npm: varchar("npm"),
@@ -412,7 +344,7 @@ export const provider = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    teamNameIdx: uniqueIndex("idx_provider_team_name").on(table.teamId, table.name),
+    orgNameIdx: uniqueIndex("idx_provider_org_name").on(table.organizationId, table.name),
   }),
 );
 
@@ -446,9 +378,7 @@ export const agentConfig = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     name: varchar("name").notNull(),
     model: varchar("model"),
     prompt: text("prompt"),
@@ -467,7 +397,7 @@ export const agentConfig = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    teamNameIdx: uniqueIndex("idx_agent_config_team_name").on(table.teamId, table.name),
+    orgNameIdx: uniqueIndex("idx_agent_config_org_name").on(table.organizationId, table.name),
   }),
 );
 
@@ -479,9 +409,7 @@ export const mcpServer = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     name: varchar("name").notNull(),
     type: varchar("type", { length: 10 }).notNull(),
     config: jsonb("config").notNull(),
@@ -490,7 +418,7 @@ export const mcpServer = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    teamNameIdx: uniqueIndex("idx_mcp_server_team_name").on(table.teamId, table.name),
+    orgNameIdx: uniqueIndex("idx_mcp_server_org_name").on(table.organizationId, table.name),
   }),
 );
 
@@ -502,9 +430,7 @@ export const skill = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     environmentId: varchar("environment_id").references(() => environment.id, { onDelete: "cascade" }),
     // Agent 专属 Skill：null = 全局，UUID = 仅该 AgentConfig 可用
     agentConfigId: uuid("agent_config_id").references(() => agentConfig.id, { onDelete: "cascade" }),
@@ -517,8 +443,8 @@ export const skill = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    globalIdx: index("idx_skill_global").on(table.teamId, table.name),
-    workspaceIdx: index("idx_skill_workspace").on(table.teamId, table.environmentId, table.name),
+    globalIdx: index("idx_skill_global").on(table.organizationId, table.name),
+    workspaceIdx: index("idx_skill_workspace").on(table.organizationId, table.environmentId, table.name),
     agentIdx: index("idx_skill_agent_config").on(table.agentConfigId),
   }),
 );
@@ -535,9 +461,7 @@ export const workflow = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     name: varchar("name").notNull(),
     description: text("description"),
     latestVersion: integer("latest_version"),
@@ -546,7 +470,7 @@ export const workflow = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    teamNameIdx: uniqueIndex("idx_workflow_team_name").on(table.teamId, table.name),
+    orgNameIdx: uniqueIndex("idx_workflow_org_name").on(table.organizationId, table.name),
   }),
 );
 
@@ -612,14 +536,12 @@ export const workflowEvent = pgTable(
     type: varchar("type").notNull(),
     nodeType: varchar("node_type"),
     metadata: jsonb("metadata"),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
     runIdx: index("idx_workflow_event_run").on(table.runId),
-    teamIdx: index("idx_workflow_event_team").on(table.teamId),
+    orgIdx: index("idx_workflow_event_org").on(table.organizationId),
     typeIdx: index("idx_workflow_event_run_type").on(table.runId, table.type),
     nodeIdx: index("idx_workflow_event_run_node").on(table.runId, table.nodeId),
   }),
@@ -637,14 +559,12 @@ export const workflowSnapshot = pgTable(
     timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
     nodeStates: jsonb("node_states").notNull(),
     dagStatus: varchar("dag_status").notNull(),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
     runIdx: index("idx_workflow_snapshot_run").on(table.runId),
-    teamIdx: index("idx_workflow_snapshot_team").on(table.teamId),
+    orgIdx: index("idx_workflow_snapshot_org").on(table.organizationId),
     workflowIdx: index("idx_workflow_snapshot_workflow").on(table.workflowId),
   }),
 );
@@ -661,22 +581,18 @@ export const workflowNodeOutput = pgTable(
     exitCode: integer("exit_code").notNull(),
     size: integer("size"),
     ref: text("ref"),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => team.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
     runNodeIdx: uniqueIndex("idx_workflow_node_output_run_node").on(table.runId, table.nodeId),
-    teamIdx: index("idx_workflow_node_output_team").on(table.teamId),
+    orgIdx: index("idx_workflow_node_output_org").on(table.organizationId),
   }),
 );
 
 // 用户偏好（单行）
 export const userConfig = pgTable("user_config", {
-  teamId: uuid("team_id")
-    .primaryKey()
-    .references(() => team.id, { onDelete: "cascade" }),
+  organizationId: text("organization_id").primaryKey(),
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),

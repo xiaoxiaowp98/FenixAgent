@@ -3,7 +3,32 @@ import { auth } from "../../auth/better-auth";
 import { authGuardPlugin } from "../../plugins/auth";
 
 const app = new Elysia({ name: "web-organizations", prefix: "/web" }).use(authGuardPlugin);
-const api = auth.api as any;
+
+// 窄化 better-auth API 类型，仅暴露本文件使用的方法
+interface OrgApi {
+  listOrganizations: (opts: { headers: Headers }) => Promise<unknown>;
+  getFullOrganization: (opts: { query: { organizationId: string }; headers: Headers }) => Promise<unknown>;
+  listMembers: (opts: { query: { organizationId: string }; headers: Headers }) => Promise<unknown>;
+  createOrganization: (opts: { body: { name: string; slug: string; metadata?: string | null }; headers: Headers }) => Promise<unknown>;
+  updateOrganization: (opts: { body: { data: Record<string, unknown>; organizationId: string }; headers: Headers }) => Promise<unknown>;
+  deleteOrganization: (opts: { body: { organizationId: string }; headers: Headers }) => Promise<void>;
+  setActiveOrganization: (opts: { body: { organizationId: string }; headers: Headers }) => Promise<void>;
+  createInvitation: (opts: { body: { email: string; role: string; organizationId: string }; headers: Headers }) => Promise<unknown>;
+  removeMember: (opts: { body: { organizationId: string; userId: string }; headers: Headers }) => Promise<void>;
+  updateMemberRole: (opts: { body: { organizationId: string; userId: string; role: string }; headers: Headers }) => Promise<void>;
+  listApiKeys: (opts: { headers: Headers }) => Promise<unknown>;
+  createApiKey: (opts: { body: { name: string; prefix: string; expiresIn: number | null; metadata: unknown }; headers: Headers }) => Promise<unknown>;
+  deleteApiKey: (opts: { body: { id: string }; headers: Headers }) => Promise<void>;
+  updateApiKey: (opts: { body: { id: string; name?: string }; headers: Headers }) => Promise<void>;
+}
+
+const api = auth.api as unknown as OrgApi;
+
+function extractMembers(res: unknown): { id: string; userId: string; role: string; user?: { id: string; name: string; email: string } }[] {
+  if (Array.isArray(res)) return res;
+  if (res && typeof res === "object" && "members" in res) return (res as { members: unknown[] }).members as any[];
+  return [];
+}
 
 // ────────────────────────────────────────────
 // Organization 管理（代理 better-auth organization 插件 API）
@@ -26,10 +51,10 @@ app.post(
             error: { code: "VALIDATION_ERROR", message: "organizationId required" },
           });
         const [org, members] = await Promise.all([
-          auth.api.getFullOrganization({ query: { organizationId: b.organizationId }, headers: request.headers }),
-          auth.api.listMembers({ query: { organizationId: b.organizationId }, headers: request.headers }),
+          api.getFullOrganization({ query: { organizationId: b.organizationId }, headers: request.headers }),
+          api.listMembers({ query: { organizationId: b.organizationId }, headers: request.headers }),
         ]);
-        const memberList: any[] = Array.isArray(members) ? members : (members?.members ?? []);
+        const memberList = extractMembers(members);
         return { success: true, data: { ...org, members: memberList } };
       }
       case "get-full": {
@@ -37,10 +62,10 @@ app.post(
         if (!authCtx) return error(500, { success: false, error: { code: "NO_ORG_CONTEXT" } });
         const orgId = b.organizationId ?? authCtx.organizationId;
         const [org, members] = await Promise.all([
-          auth.api.getFullOrganization({ query: { organizationId: orgId }, headers: request.headers }),
-          auth.api.listMembers({ query: { organizationId: orgId }, headers: request.headers }),
+          api.getFullOrganization({ query: { organizationId: orgId }, headers: request.headers }),
+          api.listMembers({ query: { organizationId: orgId }, headers: request.headers }),
         ]);
-        const memberList: any[] = Array.isArray(members) ? members : (members?.members ?? []);
+        const memberList = extractMembers(members);
         return { success: true, data: { ...org, members: memberList } };
       }
       case "create": {
@@ -100,7 +125,7 @@ app.post(
           query: { organizationId: b.organizationId },
           headers: request.headers,
         });
-        const memberData: any[] = Array.isArray(members) ? members : (members?.members ?? []);
+        const memberData = extractMembers(members);
         return { success: true, data: memberData };
       }
       case "add-member": {

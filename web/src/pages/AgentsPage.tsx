@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { BatchActionBar } from "@/components/config/BatchActionBar";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
@@ -131,6 +132,7 @@ export function buildAgentPayload(input: {
 }
 
 export function AgentsPage() {
+  const { t } = useTranslation("agents");
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [defaultAgent, setDefaultAgent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -165,17 +167,17 @@ export function AgentsPage() {
     setLoading(true);
     try {
       const { data: listData, error: listErr } = await client.web.config.agents.post({ action: "list" });
-      if (listErr) throw new Error(listErr.message ?? "加载Agent列表失败");
+      if (listErr) throw new Error(listErr.message ?? t("loadErrorShort"));
       const data = unwrapConfigData(listData) ?? listData;
       setAgents(Array.isArray(data?.agents) ? data.agents : []);
       setDefaultAgent(data?.default_agent ?? null);
     } catch (e) {
-      console.error("加载Agent列表失败", e);
-      toast.error("加载Agent列表失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("loadErrorShort"), e);
+      toast.error(t("loadError", { message: e instanceof Error ? e.message : t("unknownError") }));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const loadModelOptions = useCallback(async () => {
     try {
@@ -205,30 +207,30 @@ export function AgentsPage() {
   }, [loadAgents, loadModelOptions, loadKnowledgeOptions]);
 
   const columns: Column<AgentInfo>[] = [
-    { key: "name", header: "名称", sortable: true, filterable: true },
+    { key: "name", header: t("columns.name"), sortable: true, filterable: true },
     {
       key: "builtIn",
-      header: "类型",
+      header: t("columns.type"),
       filterable: true,
       render: (row) => <StatusBadge status={row.builtIn ? "builtIn" : "custom"} />,
     },
-    { key: "model", header: "模型", sortable: true },
+    { key: "model", header: t("columns.model"), sortable: true },
     {
       key: "mode",
-      header: "模式",
+      header: t("columns.mode"),
       filterable: true,
-      render: (row) => (row.mode ? <StatusBadge status={row.mode} /> : "—"),
+      render: (row) => (row.mode ? <StatusBadge status={row.mode} /> : "\u2014"),
     },
     {
       key: "knowledgeBaseCount",
-      header: "知识库",
+      header: t("columns.knowledgeBase"),
       sortable: true,
       render: (row) => `${row.knowledgeBaseCount ?? 0}`,
     },
     {
       key: "default",
-      header: "默认",
-      render: (row) => (row.name === defaultAgent ? "★" : ""),
+      header: t("columns.default"),
+      render: (row) => (row.name === defaultAgent ? "\u2605" : ""),
     },
   ];
 
@@ -280,7 +282,7 @@ export function AgentsPage() {
         action: "get",
         name: agent.name,
       });
-      if (agentErr) throw new Error(agentErr.message ?? "加载Agent详情失败");
+      if (agentErr) throw new Error(agentErr.message ?? t("knowledge.loadError", { message: "" }));
       const detail = unwrapConfigData(agentData) ?? agentData;
       setFormSteps(String(detail.steps ?? 50));
       setFormPrompt(detail.prompt || "");
@@ -314,30 +316,30 @@ export function AgentsPage() {
   const handleSave = async () => {
     const name = formName.trim();
     if (!isValidAgentNameInput(name)) {
-      toast.error("名称只能包含小写字母、数字和单连字符，长度 1-64");
+      toast.error(t("form.nameValidationError"));
       return;
     }
     if (!isValidStepsInput(formSteps)) {
-      toast.error("最大轮数须在 1-200 之间");
+      toast.error(t("form.stepsValidationError"));
       return;
     }
     if (formTemperature !== "") {
-      const t = parseFloat(formTemperature);
-      if (isNaN(t) || t < 0 || t > 2) {
-        toast.error("温度须在 0-2 之间");
+      const tv = parseFloat(formTemperature);
+      if (isNaN(tv) || tv < 0 || tv > 2) {
+        toast.error(t("form.temperatureValidationError"));
         return;
       }
     }
     if (formTopP !== "") {
       const p = parseFloat(formTopP);
       if (isNaN(p) || p < 0 || p > 1) {
-        toast.error("Top P 须在 0-1 之间");
+        toast.error(t("form.topPValidationError"));
         return;
       }
     }
     const knowledgeMaxResults = parseInt(formKnowledgeMaxResults);
     if (isNaN(knowledgeMaxResults) || knowledgeMaxResults < 1 || knowledgeMaxResults > 20) {
-      toast.error("知识库检索条数须在 1-20 之间");
+      toast.error(t("knowledge.maxResultsValidationError"));
       return;
     }
     setFormSaving(true);
@@ -372,19 +374,19 @@ export function AgentsPage() {
       });
       if (editingAgent) {
         const { error: setErr } = await client.web.config.agents.post({ action: "set", name, data });
-        if (setErr) throw new Error(setErr.message ?? "更新失败");
-        toast.success("Agent已更新");
+        if (setErr) throw new Error(setErr.message ?? t("save.errorUpdate", { message: "" }));
+        toast.success(t("save.successUpdate"));
       } else {
         const { error: crtErr } = await client.web.config.agents.post({ action: "create", name, data });
-        if (crtErr) throw new Error(crtErr.message ?? "创建失败");
-        toast.success("Agent已创建");
+        if (crtErr) throw new Error(crtErr.message ?? t("save.errorCreate", { message: "" }));
+        toast.success(t("save.successCreate"));
       }
       setDialogOpen(false);
       loadAgents();
       dispatchConfigChange("agents");
     } catch (e) {
-      console.error("保存Agent失败", e);
-      toast.error("保存失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("save.errorGeneric", { message: "" }), e);
+      toast.error(t("save.errorGeneric", { message: e instanceof Error ? e.message : t("unknownError") }));
     } finally {
       setFormSaving(false);
     }
@@ -393,12 +395,12 @@ export function AgentsPage() {
   const handleSetDefault = async (name: string) => {
     try {
       const { error: defErr } = await client.web.config.agents.post({ action: "set_default", name });
-      if (defErr) throw new Error(defErr.message ?? "设置失败");
+      if (defErr) throw new Error(defErr.message ?? t("setDefault.error", { message: "" }));
       setDefaultAgent(name);
-      toast.success(`已将 "${name}" 设为默认Agent`);
+      toast.success(t("setDefault.success", { name }));
     } catch (e) {
-      console.error("设置默认Agent失败", e);
-      toast.error("设置失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("setDefault.error", { message: "" }), e);
+      toast.error(t("setDefault.error", { message: e instanceof Error ? e.message : t("unknownError") }));
     }
   };
 
@@ -406,14 +408,14 @@ export function AgentsPage() {
     if (!deleteTarget) return;
     try {
       const { error: delErr } = await client.web.config.agents.post({ action: "delete", name: deleteTarget });
-      if (delErr) throw new Error(delErr.message ?? "删除失败");
-      toast.success("Agent已删除");
+      if (delErr) throw new Error(delErr.message ?? t("delete.error", { message: "" }));
+      toast.success(t("delete.success"));
       setConfirmOpen(false);
       loadAgents();
       dispatchConfigChange("agents");
     } catch (e) {
-      console.error("删除Agent失败", e);
-      toast.error("删除失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("delete.error", { message: "" }), e);
+      toast.error(t("delete.error", { message: e instanceof Error ? e.message : t("unknownError") }));
     }
   };
 
@@ -423,18 +425,18 @@ export function AgentsPage() {
       await Promise.all(
         customAgents.map((a) =>
           client.web.config.agents.post({ action: "delete", name: a.name }).then((r) => {
-            if (r.error) throw new Error(r.error.message ?? "删除失败");
+            if (r.error) throw new Error(r.error.message ?? t("delete.error", { message: "" }));
           }),
         ),
       );
-      toast.success(`已删除 ${customAgents.length} 个Agent`);
+      toast.success(t("batchDeleteCount", { count: customAgents.length }));
       setBatchConfirmOpen(false);
       setSelected([]);
       loadAgents();
       dispatchConfigChange("agents");
     } catch (e) {
-      console.error("批量删除Agent失败", e);
-      toast.error("批量删除失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("batchDeleteError", { message: "" }), e);
+      toast.error(t("batchDeleteError", { message: e instanceof Error ? e.message : t("unknownError") }));
     }
   };
 
@@ -459,28 +461,28 @@ export function AgentsPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-text-bright">智能体模板</h2>
-          <p className="text-sm text-text-muted mt-0.5">管理 AI Agent 的模型、提示词和权限配置</p>
+          <h2 className="text-xl font-semibold text-text-bright">{t("title")}</h2>
+          <p className="text-sm text-text-muted mt-0.5">{t("subtitle")}</p>
         </div>
-        <Button onClick={handleOpenCreate}>新建智能体模板</Button>
+        <Button onClick={handleOpenCreate}>{t("createButton")}</Button>
       </div>
       <DataTable<AgentInfo>
         columns={columns}
         data={agents}
         searchable
-        searchPlaceholder="搜索智能体..."
+        searchPlaceholder={t("searchPlaceholder")}
         selectable
         onSelectionChange={setSelected}
-        emptyMessage="暂无智能体，点击「新建智能体模板」添加"
+        emptyMessage={t("emptyMessage")}
         actions={(row) => (
           <div className="flex gap-1.5">
             {row.name !== defaultAgent && (
               <Button size="xs" variant="outline" onClick={() => handleSetDefault(row.name)}>
-                设为默认
+                {t("actions.setDefault")}
               </Button>
             )}
             <Button size="xs" variant="outline" onClick={() => handleOpenEdit(row)}>
-              编辑
+              {t("actions.edit")}
             </Button>
             {!row.builtIn && (
               <Button
@@ -491,7 +493,7 @@ export function AgentsPage() {
                   setConfirmOpen(true);
                 }}
               >
-                删除
+                {t("actions.delete")}
               </Button>
             )}
           </div>
@@ -503,7 +505,7 @@ export function AgentsPage() {
           onClear={() => setSelected([])}
           actions={[
             {
-              label: "批量删除",
+              label: t("batchDelete"),
               variant: "destructive",
               onClick: () => setBatchConfirmOpen(true),
             },
@@ -513,7 +515,7 @@ export function AgentsPage() {
       <FormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        title={editingAgent ? "编辑Agent" : "新建Agent"}
+        title={editingAgent ? t("dialog.editTitle") : t("dialog.createTitle")}
         onSubmit={handleSave}
         loading={formSaving}
       >
@@ -523,39 +525,39 @@ export function AgentsPage() {
             className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "basic" ? "bg-surface-1 text-text-primary shadow-sm" : "text-text-muted hover:text-text-secondary"}`}
             onClick={() => setActiveTab("basic")}
           >
-            基础配置
+            {t("dialog.tabs.basic")}
           </button>
           <button
             type="button"
             className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "knowledge" ? "bg-surface-1 text-text-primary shadow-sm" : "text-text-muted hover:text-text-secondary"}`}
             onClick={() => setActiveTab("knowledge")}
           >
-            知识库
+            {t("dialog.tabs.knowledge")}
           </button>
           <button
             type="button"
             className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeTab === "permission" ? "bg-surface-1 text-text-primary shadow-sm" : "text-text-muted hover:text-text-secondary"}`}
             onClick={() => setActiveTab("permission")}
           >
-            权限配置
+            {t("dialog.tabs.permission")}
           </button>
         </div>
         {activeTab === "basic" && (
           <div className="space-y-4 max-h-[55vh] overflow-y-auto">
             <div>
-              <Label>名称</Label>
+              <Label>{t("form.name")}</Label>
               <Input
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 disabled={!!editingAgent}
-                placeholder="例如 my-agent"
+                placeholder={t("form.namePlaceholder")}
               />
             </div>
             <div>
-              <Label>模型</Label>
+              <Label>{t("form.model")}</Label>
               <Select value={formModel} onValueChange={setFormModel}>
                 <SelectTrigger>
-                  <SelectValue placeholder="选择模型" />
+                  <SelectValue placeholder={t("form.modelPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {modelOptions.map((m) => (
@@ -568,7 +570,7 @@ export function AgentsPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>模式</Label>
+                <Label>{t("form.mode")}</Label>
                 <Select value={formMode} onValueChange={setFormMode}>
                   <SelectTrigger>
                     <SelectValue />
@@ -581,7 +583,7 @@ export function AgentsPage() {
                 </Select>
               </div>
               <div>
-                <Label>步数 (1-200)</Label>
+                <Label>{t("form.steps")}</Label>
                 <Input
                   type="number"
                   value={formSteps}
@@ -589,41 +591,39 @@ export function AgentsPage() {
                   min={1}
                   max={200}
                 />
-                <p className="text-xs text-text-muted mt-1">
-                  Agent 最大思考步骤数。建议：简单任务 10-30，复杂任务 50-100
-                </p>
+                <p className="text-xs text-text-muted mt-1">{t("form.stepsHint")}</p>
               </div>
             </div>
             <div>
-              <Label>提示词 (Prompt)</Label>
+              <Label>{t("form.prompt")}</Label>
               <Textarea
                 value={formPrompt}
                 onChange={(e) => setFormPrompt(e.target.value)}
                 rows={4}
-                placeholder="可选，自定义 Agent 提示词"
+                placeholder={t("form.promptPlaceholder")}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>描述</Label>
+                <Label>{t("form.description")}</Label>
                 <Input
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="可选，Agent 的简短描述"
+                  placeholder={t("form.descriptionPlaceholder")}
                 />
               </div>
               <div>
-                <Label>Variant</Label>
+                <Label>{t("form.variant")}</Label>
                 <Input
                   value={formVariant}
                   onChange={(e) => setFormVariant(e.target.value)}
-                  placeholder="可选，例如 thinking"
+                  placeholder={t("form.variantPlaceholder")}
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>温度 (0-2)</Label>
+                <Label>{t("form.temperature")}</Label>
                 <Input
                   type="number"
                   value={formTemperature}
@@ -631,11 +631,11 @@ export function AgentsPage() {
                   min={0}
                   max={2}
                   step={0.1}
-                  placeholder="可选"
+                  placeholder={t("form.temperaturePlaceholder")}
                 />
               </div>
               <div>
-                <Label>Top P (0-1)</Label>
+                <Label>{t("form.topP")}</Label>
                 <Input
                   type="number"
                   value={formTopP}
@@ -643,12 +643,12 @@ export function AgentsPage() {
                   min={0}
                   max={1}
                   step={0.1}
-                  placeholder="可选"
+                  placeholder={t("form.topPPPlaceholder")}
                 />
               </div>
             </div>
             <div>
-              <Label>颜色</Label>
+              <Label>{t("form.color")}</Label>
               <div className="flex gap-2">
                 <Input
                   type="color"
@@ -659,19 +659,19 @@ export function AgentsPage() {
                 <Input
                   value={formColor}
                   onChange={(e) => setFormColor(e.target.value)}
-                  placeholder="hex (#RRGGBB) 或预设色名"
+                  placeholder={t("form.colorPlaceholder")}
                   className="flex-1"
                 />
               </div>
             </div>
             <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2 text-sm" title="不在 Agent 列表中显示，但仍可通过 API 调用">
+              <label className="flex items-center gap-2 text-sm" title={t("form.hiddenTitle")}>
                 <input type="checkbox" checked={formHidden} onChange={(e) => setFormHidden(e.target.checked)} />
-                隐藏
+                {t("form.hidden")}
               </label>
-              <label className="flex items-center gap-2 text-sm" title="Agent 完全不可用，无法在界面或 API 中使用">
+              <label className="flex items-center gap-2 text-sm" title={t("form.disableTitle")}>
                 <input type="checkbox" checked={formDisable} onChange={(e) => setFormDisable(e.target.checked)} />
-                禁用
+                {t("form.disable")}
               </label>
             </div>
           </div>
@@ -681,13 +681,15 @@ export function AgentsPage() {
             <div className="rounded-lg border border-border-subtle p-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium text-text-bright">绑定知识库</p>
-                  <p className="text-xs text-text-muted">已选择 {formKnowledgeBaseIds.length} 个知识库</p>
+                  <p className="text-sm font-medium text-text-bright">{t("knowledge.bindTitle")}</p>
+                  <p className="text-xs text-text-muted">
+                    {t("knowledge.selectedCount", { count: formKnowledgeBaseIds.length })}
+                  </p>
                 </div>
               </div>
               <div className="mt-3 space-y-2">
                 {knowledgeOptions.length === 0 ? (
-                  <p className="text-sm text-text-muted">暂无可选知识库</p>
+                  <p className="text-sm text-text-muted">{t("knowledge.noOptions")}</p>
                 ) : (
                   knowledgeOptions.map((item) => {
                     const checked = formKnowledgeBaseIds.includes(item.id);
@@ -722,10 +724,10 @@ export function AgentsPage() {
                   checked={formKnowledgeSearchFirst}
                   onChange={(e) => setFormKnowledgeSearchFirst(e.target.checked)}
                 />
-                优先检索知识库
+                {t("knowledge.searchFirst")}
               </label>
               <div>
-                <Label>最大返回条数</Label>
+                <Label>{t("knowledge.maxResults")}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -751,16 +753,16 @@ export function AgentsPage() {
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="确认删除"
-        description={`确定要删除Agent "${deleteTarget}" 吗？`}
+        title={t("delete.confirmTitle")}
+        description={t("delete.confirmDesc", { name: deleteTarget ?? "" })}
         variant="destructive"
         onConfirm={confirmDelete}
       />
       <ConfirmDialog
         open={batchConfirmOpen}
         onOpenChange={setBatchConfirmOpen}
-        title="批量删除确认"
-        description={`确定要删除选中的 ${selected.filter((a) => !a.builtIn).length} 个自定义Agent吗？`}
+        title={t("batchDeleteConfirmTitle")}
+        description={t("batchDeleteConfirmDesc", { count: selected.filter((a) => !a.builtIn).length })}
         variant="destructive"
         onConfirm={confirmBatchDelete}
       />

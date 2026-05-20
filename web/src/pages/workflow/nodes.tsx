@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import {
@@ -39,25 +40,33 @@ const NODE_ICONS: Record<string, React.ReactNode> = {
   loop: <RefreshCw size={12} />,
 };
 
-const NODE_LABELS: Record<string, string> = {
-  start: "开始",
-  shell: "Shell",
-  python: "Python",
-  agent: "Agent",
-  api: "API",
-  audit: "审批",
-  workflow: "子流程",
-  loop: "循环",
+const NODE_LABEL_KEYS: Record<string, string> = {
+  start: "nodes.start",
+  shell: "nodes.shell",
+  python: "nodes.python",
+  agent: "nodes.agent",
+  api: "nodes.api",
+  audit: "nodes.audit",
+  workflow: "nodes.workflow",
+  loop: "nodes.loop",
 };
 
-/** 运行状态样式 */
-const RUN_STATUS_CFG: Record<string, { color: string; bg: string; label: string }> = {
-  PENDING: { color: "#94a3b8", bg: "#f1f5f9", label: "等待中" },
-  RUNNING: { color: "#3b82f6", bg: "#eff6ff", label: "运行中" },
-  COMPLETED: { color: "#22c55e", bg: "#f0fdf4", label: "已完成" },
-  FAILED: { color: "#ef4444", bg: "#fef2f2", label: "失败" },
-  CANCELLED: { color: "#94a3b8", bg: "#f8fafc", label: "已取消" },
-  SKIPPED: { color: "#d1d5db", bg: "#f9fafb", label: "已跳过" },
+const RUN_STATUS_COLORS: Record<string, { color: string; bg: string }> = {
+  PENDING: { color: "#94a3b8", bg: "#f1f5f9" },
+  RUNNING: { color: "#3b82f6", bg: "#eff6ff" },
+  COMPLETED: { color: "#22c55e", bg: "#f0fdf4" },
+  FAILED: { color: "#ef4444", bg: "#fef2f2" },
+  CANCELLED: { color: "#94a3b8", bg: "#f8fafc" },
+  SKIPPED: { color: "#d1d5db", bg: "#f9fafb" },
+};
+
+const RUN_STATUS_KEYS: Record<string, string> = {
+  PENDING: "nodes.status_pending",
+  RUNNING: "nodes.status_running",
+  COMPLETED: "nodes.status_completed",
+  FAILED: "nodes.status_failed",
+  CANCELLED: "nodes.status_cancelled",
+  SKIPPED: "nodes.status_skipped",
 };
 
 function StatusDot({ status }: { status: string }) {
@@ -103,29 +112,29 @@ function getPreview(type: string, data: Record<string, unknown>): string {
 }
 
 export function WorkflowNode({ data, id, selected, type }: NodeProps) {
+  const { t } = useTranslation("workflows");
   const nodeType = type ?? "shell";
   const colors = NODE_COLORS[nodeType] ?? NODE_COLORS.shell;
-  const label = NODE_LABELS[nodeType] ?? nodeType;
+  const label = t(NODE_LABEL_KEYS[nodeType] ?? nodeType);
   const icon = NODE_ICONS[nodeType] ?? <Terminal size={12} />;
   const d = data as Record<string, unknown>;
   const isStart = nodeType === "start";
   const preview = getPreview(nodeType, d);
 
-  // 运行状态
   const runStatus = d._runStatus as string | undefined;
   const exitCode = d._exitCode as number | undefined;
-  const statusCfg = runStatus ? (RUN_STATUS_CFG[runStatus] ?? RUN_STATUS_CFG.PENDING) : null;
+  const statusColors = runStatus ? (RUN_STATUS_COLORS[runStatus] ?? RUN_STATUS_COLORS.PENDING) : null;
+  const statusLabel = runStatus ? t(RUN_STATUS_KEYS[runStatus] ?? "nodes.status_pending") : null;
 
-  // 回调（通过 data 注入）
   const onViewOutput = d._onViewOutput as ((nodeId: string) => void) | undefined;
   const onRerunFrom = d._onRerunFrom as ((nodeId: string) => void) | undefined;
 
   const isTerminal = runStatus === "COMPLETED" || runStatus === "FAILED";
   const showActions = isTerminal && !isStart;
 
-  const borderColor = statusCfg ? statusCfg.color : selected ? colors.main : "#e5e7eb";
-  const boxShadow = statusCfg
-    ? `0 0 0 2px ${statusCfg.color}20`
+  const borderColor = statusColors ? statusColors.color : selected ? colors.main : "#e5e7eb";
+  const boxShadow = statusColors
+    ? `0 0 0 2px ${statusColors.color}20`
     : selected
       ? `0 0 0 3px ${colors.main}30`
       : "0 1px 3px rgba(0,0,0,0.08)";
@@ -167,11 +176,11 @@ export function WorkflowNode({ data, id, selected, type }: NodeProps) {
       >
         {icon}
         <span style={{ flex: 1 }}>{label}</span>
-        {statusCfg && !isStart && <StatusDot status={runStatus!} />}
+        {statusColors && !isStart && <StatusDot status={runStatus!} />}
       </div>
 
       {!isStart && (
-        <div style={{ background: statusCfg?.bg ?? colors.light, padding: "6px 10px" }}>
+        <div style={{ background: statusColors?.bg ?? colors.light, padding: "6px 10px" }}>
           {d.description ? (
             <div
               style={{
@@ -200,27 +209,26 @@ export function WorkflowNode({ data, id, selected, type }: NodeProps) {
               {preview.substring(0, 40)}
             </div>
           ) : !d.description ? (
-            <div style={{ color: "#9ca3af", fontSize: 11, fontStyle: "italic" }}>未配置</div>
+            <div style={{ color: "#9ca3af", fontSize: 11, fontStyle: "italic" }}>{t("nodes.not_configured")}</div>
           ) : null}
         </div>
       )}
 
-      {/* 运行状态条 + 操作按钮 */}
-      {statusCfg && !isStart && (
+      {statusColors && !isStart && (
         <div
           style={{
             padding: "3px 10px",
-            background: statusCfg.bg,
-            borderTop: `1px solid ${statusCfg.color}20`,
+            background: statusColors.bg,
+            borderTop: `1px solid ${statusColors.color}20`,
             display: "flex",
             alignItems: "center",
             gap: 4,
             fontSize: 10,
-            color: statusCfg.color,
+            color: statusColors.color,
             fontWeight: 500,
           }}
         >
-          <span style={{ flex: 1 }}>{statusCfg.label}</span>
+          <span style={{ flex: 1 }}>{statusLabel}</span>
           {exitCode != null && <span>exit: {exitCode}</span>}
           {showActions && onViewOutput && (
             <button
@@ -229,17 +237,17 @@ export function WorkflowNode({ data, id, selected, type }: NodeProps) {
                 e.stopPropagation();
                 onViewOutput(id);
               }}
-              title="查看输出"
+              title={t("nodes.view_output")}
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 width: 18,
                 height: 18,
-                border: `1px solid ${statusCfg.color}40`,
+                border: `1px solid ${statusColors.color}40`,
                 borderRadius: 3,
                 background: "#fff",
-                color: statusCfg.color,
+                color: statusColors.color,
                 cursor: "pointer",
                 padding: 0,
               }}
@@ -254,17 +262,17 @@ export function WorkflowNode({ data, id, selected, type }: NodeProps) {
                 e.stopPropagation();
                 onRerunFrom(id);
               }}
-              title="从此节点重跑"
+              title={t("nodes.rerun_from")}
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 width: 18,
                 height: 18,
-                border: `1px solid ${statusCfg.color}40`,
+                border: `1px solid ${statusColors.color}40`,
                 borderRadius: 3,
                 background: "#fff",
-                color: statusCfg.color,
+                color: statusColors.color,
                 cursor: "pointer",
                 padding: 0,
               }}

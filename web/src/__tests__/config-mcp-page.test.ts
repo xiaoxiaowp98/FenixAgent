@@ -7,45 +7,56 @@ import {
   validateMcpForm,
 } from "../pages/McpPage";
 
+// i18n mock: returns the key for English locale
+const t = (key: string, params?: Record<string, unknown>) => {
+  let result = key;
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      result = result.replace(`{{${k}}}`, String(v));
+    }
+  }
+  return result;
+};
+
 describe("validateMcpForm", () => {
   test("空名称", () => {
-    expect(validateMcpForm("", "local", "npx", "")).toBe("名称不能为空");
+    expect(validateMcpForm("", "local", "npx", "", t)).toBe("validation.nameRequired");
   });
 
   test("无效名称（大写）", () => {
-    expect(validateMcpForm("UPPER", "local", "npx", "")).toContain("小写字母");
+    expect(validateMcpForm("UPPER", "local", "npx", "", t)).toBe("validation.namePattern");
   });
 
   test("名称含连字符开头", () => {
-    expect(validateMcpForm("-abc", "local", "npx", "")).toContain("连字符");
+    expect(validateMcpForm("-abc", "local", "npx", "", t)).toBe("validation.namePattern");
   });
 
   test("名称含连续连字符", () => {
-    expect(validateMcpForm("my--server", "local", "npx cmd", "")).toContain("连续连字符");
+    expect(validateMcpForm("my--server", "local", "npx cmd", "", t)).toBe("validation.nameNoDoubleHyphen");
   });
 
   test("名称超长", () => {
-    expect(validateMcpForm("a".repeat(65), "local", "npx", "")).toBe("名称长度不能超过 64 个字符");
+    expect(validateMcpForm("a".repeat(65), "local", "npx", "", t)).toBe("validation.nameTooLong");
   });
 
   test("local 缺少命令", () => {
-    expect(validateMcpForm("test", "local", "", "")).toBe("命令不能为空");
+    expect(validateMcpForm("test", "local", "", "", t)).toBe("validation.commandRequired");
   });
 
   test("remote 缺少 URL", () => {
-    expect(validateMcpForm("test", "remote", "", "")).toBe("URL 不能为空");
+    expect(validateMcpForm("test", "remote", "", "", t)).toBe("validation.urlRequired");
   });
 
   test("remote 无效 URL", () => {
-    expect(validateMcpForm("test", "remote", "", "not-a-url")).toBe("URL 格式不正确");
+    expect(validateMcpForm("test", "remote", "", "not-a-url", t)).toBe("validation.urlInvalid");
   });
 
   test("合法 local", () => {
-    expect(validateMcpForm("my-server", "local", "npx mcp-srv", "")).toBeNull();
+    expect(validateMcpForm("my-server", "local", "npx mcp-srv", "", t)).toBeNull();
   });
 
   test("合法 remote", () => {
-    expect(validateMcpForm("my-server", "remote", "", "https://example.com/mcp")).toBeNull();
+    expect(validateMcpForm("my-server", "remote", "", "https://example.com/mcp", t)).toBeNull();
   });
 });
 
@@ -75,15 +86,15 @@ describe("commandToString", () => {
 
 describe("buildMcpSummary", () => {
   test("local 配置", () => {
-    expect(buildMcpSummary({ type: "local", command: ["npx", "srv"] })).toBe("npx");
+    expect(buildMcpSummary({ type: "local", command: ["npx", "srv"] }, "disabled")).toBe("npx");
   });
 
   test("remote 配置", () => {
-    expect(buildMcpSummary({ type: "remote", url: "https://x.com" })).toBe("https://x.com");
+    expect(buildMcpSummary({ type: "remote", url: "https://x.com" }, "disabled")).toBe("https://x.com");
   });
 
   test("禁用变体", () => {
-    expect(buildMcpSummary({ enabled: false })).toBe("已禁用");
+    expect(buildMcpSummary({ enabled: false }, "disabled")).toBe("disabled");
   });
 });
 

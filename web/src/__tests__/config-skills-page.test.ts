@@ -7,27 +7,38 @@ import {
   validateSkillForm,
 } from "../pages/SkillsPage";
 
+// i18n mock: returns the key for English locale
+const t = (key: string, params?: Record<string, unknown>) => {
+  let result = key;
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      result = result.replace(`{{${k}}}`, String(v));
+    }
+  }
+  return result;
+};
+
 describe("validateSkillForm", () => {
   test("empty name returns error", () => {
-    expect(validateSkillForm("", "content")).toBe("名称不能为空");
+    expect(validateSkillForm("", "content", t)).toBe("form.nameRequired");
   });
 
   test("empty content returns error", () => {
-    expect(validateSkillForm("my-skill", "")).toBe("内容不能为空");
+    expect(validateSkillForm("my-skill", "", t)).toBe("form.contentRequired");
   });
 
   test("valid form returns null", () => {
-    expect(validateSkillForm("my-skill", "# Hello")).toBeNull();
+    expect(validateSkillForm("my-skill", "# Hello", t)).toBeNull();
   });
 });
 
 describe("getUploadResultMessage", () => {
   test("only imported", () => {
-    expect(getUploadResultMessage(2, 0)).toBe("已导入 2 个技能");
+    expect(getUploadResultMessage(2, 0, t)).toBe("toast.importResult");
   });
 
   test("imported with skipped", () => {
-    expect(getUploadResultMessage(2, 1)).toBe("已导入 2 个技能，跳过 1 个冲突技能");
+    expect(getUploadResultMessage(2, 1, t)).toBe("toast.importResultWithSkipped");
   });
 });
 
@@ -51,11 +62,14 @@ describe("getUploadConflictData", () => {
 describe("getUploadItemSummaries", () => {
   test("marks invalid item when SKILL.md is missing", () => {
     expect(
-      getUploadItemSummaries([
-        { skillName: "skill-a", fileCount: 2, hasSkillMd: true, files: [] },
-        { skillName: "broken", fileCount: 1, hasSkillMd: false, files: [] },
-      ]),
-    ).toEqual(["skill-a (2 个文件)", "broken (1 个文件，缺少 SKILL.md)"]);
+      getUploadItemSummaries(
+        [
+          { skillName: "skill-a", fileCount: 2, hasSkillMd: true, files: [] },
+          { skillName: "broken", fileCount: 1, hasSkillMd: false, files: [] },
+        ],
+        t,
+      ),
+    ).toEqual(["upload.itemSummary", "upload.itemSummaryMissing"]);
   });
 });
 

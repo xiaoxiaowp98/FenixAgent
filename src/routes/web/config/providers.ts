@@ -210,7 +210,10 @@ app.post(
     if (!user) return error(401, { success: false, error: { code: "UNAUTHORIZED", message: "Not authenticated" } });
     const authCtx = await loadOrgContext(user, request);
     if (!authCtx)
-      return error(500, { success: false, error: { code: "NO_ORG_CONTEXT", message: "Failed to load organization context" } });
+      return error(500, {
+        success: false,
+        error: { code: "NO_ORG_CONTEXT", message: "Failed to load organization context" },
+      });
     const b = body as ConfigBody;
     const payload: ProviderBody = { action: b.action ?? "", name: b.name, modelId: b.modelId, data: b.data };
     try {

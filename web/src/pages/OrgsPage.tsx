@@ -1,5 +1,6 @@
 import { Plus, Shield, ShieldCheck, Trash2, User, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -48,7 +49,7 @@ async function orgApi<T>(body: Record<string, unknown>): Promise<T> {
     body: JSON.stringify(body),
   });
   const json = await res.json();
-  if (!json.success) throw new Error(json.error?.message || "操作失败");
+  if (!json.success) throw new Error(json.error?.message || "Operation failed");
   return json.data as T;
 }
 
@@ -56,15 +57,10 @@ async function orgApi<T>(body: Record<string, unknown>): Promise<T> {
 /*  Role helpers                                                       */
 /* ------------------------------------------------------------------ */
 
-const ROLE_LABELS: Record<string, string> = {
-  owner: "拥有者",
-  admin: "管理员",
-  member: "成员",
-};
-
 function RoleBadge({ role }: { role: string }) {
+  const { t } = useTranslation("orgs");
   const variant = role === "owner" ? "default" : role === "admin" ? "secondary" : "outline";
-  return <Badge variant={variant}>{ROLE_LABELS[role] || role}</Badge>;
+  return <Badge variant={variant}>{t(`roles.${role}`, role)}</Badge>;
 }
 
 function RoleIcon({ role }: { role: string }) {
@@ -90,6 +86,7 @@ function nameToSlug(name: string): string {
 /* ------------------------------------------------------------------ */
 
 export function OrgsPage() {
+  const { t } = useTranslation("orgs");
   const { org: currentOrg, role: currentRole, refreshOrgs } = useOrg();
 
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
@@ -152,10 +149,10 @@ export function OrgsPage() {
       })
       .catch((err) => {
         console.error(err);
-        toast.error("加载组织详情失败");
+        toast.error(t("toast.loadDetailFailed"));
       })
       .finally(() => setLoading(false));
-  }, [selectedOrgId]);
+  }, [selectedOrgId, t]);
 
   const canManage = currentRole === "owner" || currentRole === "admin";
   const isOwner = currentRole === "owner";
@@ -165,23 +162,23 @@ export function OrgsPage() {
     if (!formName.trim()) return;
     setFormSaving(true);
     try {
-      const t = await orgApi<{ id: string }>({
+      const result = await orgApi<{ id: string }>({
         action: "create",
         name: formName.trim(),
         slug: formSlug || nameToSlug(formName),
         description: formDesc.trim() || undefined,
       });
-      toast.success("组织创建成功");
+      toast.success(t("toast.createSuccess"));
       setCreateOpen(false);
       setFormName("");
       setFormSlug("");
       setFormDesc("");
       await loadMyOrgs();
       await refreshOrgs();
-      setSelectedOrgId(t.id);
+      setSelectedOrgId(result.id);
     } catch (err) {
       console.error(err);
-      toast.error("创建组织失败");
+      toast.error(t("toast.createFailed"));
     } finally {
       setFormSaving(false);
     }
@@ -197,14 +194,14 @@ export function OrgsPage() {
         organizationId: selectedOrgId,
         data: { name: editName.trim() },
       });
-      toast.success("组织信息已更新");
+      toast.success(t("toast.updateSuccess"));
       setEditingName(false);
       setDetail((d) => (d ? { ...d, name: editName.trim() } : d));
       await loadMyOrgs();
       await refreshOrgs();
     } catch (err) {
       console.error(err);
-      toast.error("更新失败");
+      toast.error(t("toast.updateFailed"));
     } finally {
       setEditSaving(false);
     }
@@ -221,7 +218,7 @@ export function OrgsPage() {
         email: addMemberEmail.trim(),
         role: addMemberRole,
       });
-      toast.success("邀请已发送");
+      toast.success(t("toast.inviteSent"));
       setAddMemberOpen(false);
       setAddMemberEmail("");
       // Reload detail
@@ -229,7 +226,7 @@ export function OrgsPage() {
       setDetail(d);
     } catch (err) {
       console.error(err);
-      toast.error("邀请成员失败");
+      toast.error(t("toast.inviteFailed"));
     } finally {
       setAddMemberSaving(false);
     }
@@ -240,12 +237,12 @@ export function OrgsPage() {
     if (!selectedOrgId) return;
     try {
       await orgApi({ action: "remove-member", organizationId: selectedOrgId, userId });
-      toast.success("成员已移除");
+      toast.success(t("toast.removeSuccess"));
       const d = await orgApi<OrgDetail>({ action: "get", organizationId: selectedOrgId });
       setDetail(d);
     } catch (err) {
       console.error(err);
-      toast.error("移除成员失败");
+      toast.error(t("toast.removeFailed"));
     }
   };
 
@@ -254,12 +251,12 @@ export function OrgsPage() {
     if (!selectedOrgId) return;
     try {
       await orgApi({ action: "update-role", organizationId: selectedOrgId, userId, role: newRole });
-      toast.success("角色已更新");
+      toast.success(t("toast.roleUpdated"));
       const d = await orgApi<OrgDetail>({ action: "get", organizationId: selectedOrgId });
       setDetail(d);
     } catch (err) {
       console.error(err);
-      toast.error("更新角色失败");
+      toast.error(t("toast.roleUpdateFailed"));
     }
   };
 
@@ -269,7 +266,7 @@ export function OrgsPage() {
     setDeleteSaving(true);
     try {
       await orgApi({ action: "delete", organizationId: selectedOrgId });
-      toast.success("组织已删除");
+      toast.success(t("toast.deleteSuccess"));
       setDeleteOpen(false);
       setSelectedOrgId(null);
       setDetail(null);
@@ -277,7 +274,7 @@ export function OrgsPage() {
       await refreshOrgs();
     } catch (err) {
       console.error(err);
-      toast.error("删除组织失败");
+      toast.error(t("toast.deleteFailed"));
     } finally {
       setDeleteSaving(false);
     }
@@ -292,7 +289,7 @@ export function OrgsPage() {
       {/* Left panel: org list */}
       <div className="w-[260px] border-r border-border-subtle flex flex-col bg-surface-0">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
-          <h2 className="text-sm font-semibold text-text-bright">我的组织</h2>
+          <h2 className="text-sm font-semibold text-text-bright">{t("myOrgs")}</h2>
           <Button variant="ghost" size="sm" onClick={() => setCreateOpen(true)} className="h-7 w-7 p-0">
             <Plus className="w-4 h-4" />
           </Button>
@@ -313,10 +310,10 @@ export function OrgsPage() {
             >
               <RoleIcon role={o.role} />
               <span className="truncate">{o.name}</span>
-              <span className="ml-auto text-[11px] text-text-dim">{ROLE_LABELS[o.role]}</span>
+              <span className="ml-auto text-[11px] text-text-dim">{t(`roles.${o.role}`, o.role)}</span>
             </button>
           ))}
-          {myOrgs.length === 0 && <p className="px-4 py-6 text-sm text-text-dim text-center">暂无组织</p>}
+          {myOrgs.length === 0 && <p className="px-4 py-6 text-sm text-text-dim text-center">{t("noOrgs")}</p>}
         </div>
       </div>
 
@@ -330,7 +327,7 @@ export function OrgsPage() {
 
         {!loading && !detail && (
           <div className="flex flex-col items-center justify-center h-64 text-text-dim">
-            <p className="text-sm">选择一个组织查看详情</p>
+            <p className="text-sm">{t("selectOrg")}</p>
           </div>
         )}
 
@@ -340,13 +337,17 @@ export function OrgsPage() {
             <div className="space-y-3">
               {editingName ? (
                 <div className="space-y-3">
-                  <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="组织名称" />
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder={t("editName.placeholder")}
+                  />
                   <div className="flex gap-2">
                     <Button size="sm" onClick={handleSaveEdit} disabled={editSaving}>
-                      {editSaving ? "保存中..." : "保存"}
+                      {editSaving ? t("saving") : t("save")}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setEditingName(false)}>
-                      取消
+                      {t("cancel")}
                     </Button>
                   </div>
                 </div>
@@ -365,7 +366,7 @@ export function OrgsPage() {
                         setEditingName(true);
                       }}
                     >
-                      编辑
+                      {t("edit")}
                     </Button>
                   )}
                 </div>
@@ -375,11 +376,11 @@ export function OrgsPage() {
             {/* Members section */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-text-primary">成员 ({members.length})</h2>
+                <h2 className="text-sm font-semibold text-text-primary">{t("members", { count: members.length })}</h2>
                 {canManage && (
                   <Button size="sm" variant="outline" onClick={() => setAddMemberOpen(true)}>
                     <UserPlus className="w-3.5 h-3.5 mr-1.5" />
-                    邀请成员
+                    {t("inviteMember")}
                   </Button>
                 )}
               </div>
@@ -388,9 +389,9 @@ export function OrgsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-surface-1 text-text-dim">
-                      <th className="text-left px-4 py-2.5 font-medium">用户</th>
-                      <th className="text-left px-4 py-2.5 font-medium">角色</th>
-                      <th className="text-right px-4 py-2.5 font-medium">操作</th>
+                      <th className="text-left px-4 py-2.5 font-medium">{t("table.user")}</th>
+                      <th className="text-left px-4 py-2.5 font-medium">{t("table.role")}</th>
+                      <th className="text-right px-4 py-2.5 font-medium">{t("table.actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -413,8 +414,8 @@ export function OrgsPage() {
                                 onChange={(e) => handleUpdateRole(m.userId, e.target.value)}
                                 className="text-xs border border-border-subtle rounded px-1.5 py-0.5 bg-transparent text-text-secondary"
                               >
-                                <option value="admin">管理员</option>
-                                <option value="member">成员</option>
+                                <option value="admin">{t("roles.admin")}</option>
+                                <option value="member">{t("roles.member")}</option>
                               </select>
                             )}
                             {canManage && m.role !== "owner" && (
@@ -434,7 +435,7 @@ export function OrgsPage() {
                     {members.length === 0 && (
                       <tr>
                         <td colSpan={3} className="px-4 py-6 text-center text-text-dim">
-                          暂无成员
+                          {t("noMembers")}
                         </td>
                       </tr>
                     )}
@@ -446,11 +447,11 @@ export function OrgsPage() {
             {/* Danger zone */}
             {isOwner && (
               <div className="pt-4 border-t border-border-subtle">
-                <h3 className="text-sm font-semibold text-destructive mb-2">危险区域</h3>
-                <p className="text-sm text-text-dim mb-3">删除组织将同时删除所有关联资源，此操作不可撤销。</p>
+                <h3 className="text-sm font-semibold text-destructive mb-2">{t("dangerZone.title")}</h3>
+                <p className="text-sm text-text-dim mb-3">{t("dangerZone.description")}</p>
                 <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
                   <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                  删除组织
+                  {t("dangerZone.deleteOrg")}
                 </Button>
               </div>
             )}
@@ -462,11 +463,11 @@ export function OrgsPage() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>创建组织</DialogTitle>
+            <DialogTitle>{t("createDialog.title")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div>
-              <label className="text-sm font-medium text-text-primary">名称</label>
+              <label className="text-sm font-medium text-text-primary">{t("createDialog.name")}</label>
               <Input
                 className="mt-1"
                 value={formName}
@@ -476,11 +477,11 @@ export function OrgsPage() {
                     setFormSlug(nameToSlug(e.target.value));
                   }
                 }}
-                placeholder="组织名称"
+                placeholder={t("createDialog.namePlaceholder")}
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-text-primary">Slug</label>
+              <label className="text-sm font-medium text-text-primary">{t("createDialog.slug")}</label>
               <Input
                 className="mt-1"
                 value={formSlug}
@@ -489,21 +490,21 @@ export function OrgsPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-text-primary">描述</label>
+              <label className="text-sm font-medium text-text-primary">{t("createDialog.description")}</label>
               <Input
                 className="mt-1"
                 value={formDesc}
                 onChange={(e) => setFormDesc(e.target.value)}
-                placeholder="可选"
+                placeholder={t("createDialog.descriptionPlaceholder")}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              取消
+              {t("cancel")}
             </Button>
             <Button onClick={handleCreate} disabled={formSaving || !formName.trim()}>
-              {formSaving ? "创建中..." : "创建"}
+              {formSaving ? t("creating") : t("create")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -513,36 +514,36 @@ export function OrgsPage() {
       <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>邀请成员</DialogTitle>
+            <DialogTitle>{t("inviteDialog.title")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div>
-              <label className="text-sm font-medium text-text-primary">邮箱</label>
+              <label className="text-sm font-medium text-text-primary">{t("inviteDialog.email")}</label>
               <Input
                 className="mt-1"
                 value={addMemberEmail}
                 onChange={(e) => setAddMemberEmail(e.target.value)}
-                placeholder="输入邮箱地址"
+                placeholder={t("inviteDialog.emailPlaceholder")}
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-text-primary">角色</label>
+              <label className="text-sm font-medium text-text-primary">{t("inviteDialog.role")}</label>
               <select
                 value={addMemberRole}
                 onChange={(e) => setAddMemberRole(e.target.value)}
                 className="mt-1 w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
               >
-                <option value="admin">管理员</option>
-                <option value="member">成员</option>
+                <option value="admin">{t("roles.admin")}</option>
+                <option value="member">{t("roles.member")}</option>
               </select>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddMemberOpen(false)}>
-              取消
+              {t("cancel")}
             </Button>
             <Button onClick={handleAddMember} disabled={addMemberSaving || !addMemberEmail.trim()}>
-              {addMemberSaving ? "邀请中..." : "邀请"}
+              {addMemberSaving ? t("inviteDialog.inviting") : t("inviteDialog.invite")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -552,19 +553,17 @@ export function OrgsPage() {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认删除组织</AlertDialogTitle>
-            <AlertDialogDescription>
-              即将删除组织「{detail?.name}」，所有关联资源将被永久删除。此操作不可撤销。
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("deleteDialog.description", { name: detail?.name })}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteOrg}
               disabled={deleteSaving}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
-              {deleteSaving ? "删除中..." : "确认删除"}
+              {deleteSaving ? t("deleteDialog.deleting") : t("deleteDialog.confirmDelete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

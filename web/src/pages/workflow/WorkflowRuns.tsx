@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
@@ -13,17 +14,28 @@ import {
 } from "lucide-react";
 import { workflowEngineApi, type RunSummary, type DAGStatus } from "../../api/workflow-engine";
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  PENDING: { label: "等待中", color: "#94a3b8", bg: "#f1f5f9" },
-  RUNNING: { label: "运行中", color: "#3b82f6", bg: "#eff6ff" },
-  SUSPENDED: { label: "等待审批", color: "#f59e0b", bg: "#fffbeb" },
-  SUCCESS: { label: "成功", color: "#22c55e", bg: "#f0fdf4" },
-  FAILED: { label: "失败", color: "#ef4444", bg: "#fef2f2" },
-  CANCELLED: { label: "已取消", color: "#94a3b8", bg: "#f8fafc" },
-  ERROR: { label: "错误", color: "#ef4444", bg: "#fef2f2" },
+const STATUS_CONFIG: Record<string, { color: string; bg: string }> = {
+  PENDING: { color: "#94a3b8", bg: "#f1f5f9" },
+  RUNNING: { color: "#3b82f6", bg: "#eff6ff" },
+  SUSPENDED: { color: "#f59e0b", bg: "#fffbeb" },
+  SUCCESS: { color: "#22c55e", bg: "#f0fdf4" },
+  FAILED: { color: "#ef4444", bg: "#fef2f2" },
+  CANCELLED: { color: "#94a3b8", bg: "#f8fafc" },
+  ERROR: { color: "#ef4444", bg: "#fef2f2" },
+};
+
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  PENDING: "runs.status_pending",
+  RUNNING: "runs.status_running",
+  SUSPENDED: "runs.status_suspended",
+  SUCCESS: "runs.status_success",
+  FAILED: "runs.status_failed",
+  CANCELLED: "runs.status_cancelled",
+  ERROR: "runs.status_error",
 };
 
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation("workflows");
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.PENDING;
   const isRunning = status === "RUNNING";
   return (
@@ -51,20 +63,23 @@ function StatusBadge({ status }: { status: string }) {
           }}
         />
       )}
-      {cfg.label}
+      {t(STATUS_LABEL_KEYS[status] ?? status)}
     </span>
   );
 }
 
-function relativeTime(iso?: string | null): string {
+function relativeTime(
+  iso: string | undefined | null,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
   if (!iso) return "--";
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 0) return "刚刚";
-  if (diff < 60) return "刚刚";
-  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)} 天前`;
-  return new Date(iso).toLocaleDateString("zh-CN");
+  if (diff < 0) return t("runs.relative_now");
+  if (diff < 60) return t("runs.relative_now");
+  if (diff < 3600) return t("runs.relative_minutes", { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t("runs.relative_hours", { count: Math.floor(diff / 3600) });
+  if (diff < 604800) return t("runs.relative_days", { count: Math.floor(diff / 86400) });
+  return new Date(iso).toLocaleDateString();
 }
 
 function formatDuration(startedAt?: string | null, completedAt?: string | null): string {
@@ -82,6 +97,7 @@ interface WorkflowRunsProps {
 }
 
 export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
+  const { t } = useTranslation("workflows");
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -128,7 +144,7 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
     <div style={{ padding: "24px 32px", height: "100%", overflowY: "auto" }}>
       {/* 顶部标题栏 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 600, color: "#111827", margin: 0 }}>运行记录</h1>
+        <h1 style={{ fontSize: 18, fontWeight: 600, color: "#111827", margin: 0 }}>{t("runs.title")}</h1>
         <button
           type="button"
           onClick={loadRuns}
@@ -145,7 +161,7 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
             cursor: "pointer",
           }}
         >
-          <RefreshCw size={13} /> 刷新
+          <RefreshCw size={13} /> {t("runs.refresh")}
         </button>
       </div>
 
@@ -166,7 +182,7 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
         >
           <Search size={13} style={{ color: "#9ca3af", flexShrink: 0 }} />
           <input
-            placeholder="搜索工作流名称..."
+            placeholder={t("runs.search_placeholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ border: "none", outline: "none", fontSize: 12, width: "100%", background: "transparent" }}
@@ -190,7 +206,7 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
                 cursor: "pointer",
               }}
             >
-              {s === "all" ? "全部" : (STATUS_CONFIG[s]?.label ?? s)}
+              {s === "all" ? t("runs.filter_all") : t(STATUS_LABEL_KEYS[s] ?? s)}
             </button>
           ))}
         </div>
@@ -200,12 +216,12 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "#9ca3af", fontSize: 13 }}>
           <Loader size={20} style={{ animation: "spin 1s linear infinite", display: "inline-block" }} />
-          <p style={{ marginTop: 8 }}>加载中...</p>
+          <p style={{ marginTop: 8 }}>{t("runs.loading")}</p>
         </div>
       ) : error ? (
         <div style={{ textAlign: "center", padding: 40 }}>
           <AlertTriangle size={32} style={{ color: "#ef4444", margin: "0 auto 8px" }} />
-          <p style={{ fontSize: 13, color: "#6b7280" }}>加载失败: {error}</p>
+          <p style={{ fontSize: 13, color: "#6b7280" }}>{t("runs.load_failed", { error })}</p>
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: "center", padding: 40 }}>
@@ -215,12 +231,10 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
             <Inbox size={32} style={{ color: "#d1d5db", margin: "0 auto 8px" }} />
           )}
           <p style={{ fontSize: 13, color: "#9ca3af", fontWeight: 500 }}>
-            {statusFilter !== "all" || searchQuery ? "没有匹配的记录" : "暂无运行记录"}
+            {statusFilter !== "all" || searchQuery ? t("runs.no_match") : t("runs.no_runs")}
           </p>
           <p style={{ fontSize: 11, color: "#d1d5db", marginTop: 4 }}>
-            {statusFilter !== "all" || searchQuery
-              ? "尝试调整筛选条件"
-              : "在编辑器中执行工作流后，运行记录将显示在这里"}
+            {statusFilter !== "all" || searchQuery ? t("runs.no_runs_filter_hint") : t("runs.no_runs_hint")}
           </p>
         </div>
       ) : (
@@ -248,11 +262,11 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
               letterSpacing: 0.5,
             }}
           >
-            <span>工作流</span>
-            <span>状态</span>
-            <span>节点</span>
-            <span>开始时间</span>
-            <span>耗时</span>
+            <span>{t("runs.table_workflow")}</span>
+            <span>{t("runs.table_status")}</span>
+            <span>{t("runs.table_nodes")}</span>
+            <span>{t("runs.table_start")}</span>
+            <span>{t("runs.table_duration")}</span>
             <span></span>
           </div>
 
@@ -286,7 +300,7 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
                 <span style={{ color: "#22c55e" }}>{r.node_summary.completed}</span>
                 <span style={{ color: "#d1d5db" }}>/{r.node_summary.total}</span>
               </div>
-              <div style={{ color: "#6b7280" }}>{relativeTime(r.started_at)}</div>
+              <div style={{ color: "#6b7280" }}>{relativeTime(r.started_at, t)}</div>
               <div style={{ fontFamily: "ui-monospace, monospace", color: "#6b7280" }}>
                 {formatDuration(r.started_at, r.completed_at)}
               </div>
@@ -294,7 +308,7 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
                 {r.status === "RUNNING" && (
                   <button
                     type="button"
-                    title="取消"
+                    title={t("runs.cancel")}
                     onClick={() => handleCancel(r.run_id)}
                     style={{
                       display: "flex",
@@ -314,7 +328,7 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
                 )}
                 <button
                   type="button"
-                  title="查看详情"
+                  title={t("runs.view_details")}
                   onClick={() => onSelectRun?.(r.run_id, r.workflow_id)}
                   style={{
                     display: "flex",
@@ -339,7 +353,7 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
 
       {runs.length > 0 && (
         <div style={{ marginTop: 12, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
-          共 {runs.length} 条记录
+          {t("runs.total_records", { count: runs.length })}
         </div>
       )}
     </div>

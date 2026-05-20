@@ -1,36 +1,38 @@
 import type { LucideIcon } from "lucide-react";
 import { BookOpen, Clock, Cpu, KeyRound, MessageSquare, Monitor, Plug, Radio, Settings, Workflow } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { NS } from "../../i18n";
 
 interface NavEntry {
   id: string;
-  label: string;
+  labelKey: string;
   icon: LucideIcon;
 }
 
 interface NavGroup {
-  label: string;
+  labelKey: string;
   items: NavEntry[];
 }
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: "控制台",
+    labelKey: "agentPanel:console",
     items: [
-      { id: "dashboard", label: "概览", icon: Monitor },
-      { id: "workflow", label: "智能体编排", icon: Workflow },
-      { id: "models", label: "模型", icon: Cpu },
-      { id: "session", label: "会话", icon: MessageSquare },
+      { id: "dashboard", labelKey: "agentPanel:overview", icon: Monitor },
+      { id: "workflow", labelKey: "agentPanel:workflow", icon: Workflow },
+      { id: "models", labelKey: "agentPanel:models", icon: Cpu },
+      { id: "session", labelKey: "agentPanel:sessions", icon: MessageSquare },
     ],
   },
   {
-    label: "配置",
+    labelKey: "agentPanel:config",
     items: [
-      { id: "skills", label: "技能", icon: Settings },
-      { id: "knowledge-bases", label: "知识库", icon: BookOpen },
-      { id: "mcp", label: "MCP", icon: Plug },
-      { id: "tasks", label: "定时任务", icon: Clock },
-      { id: "channels", label: "消息渠道", icon: Radio },
-      { id: "apikeys", label: "API Key", icon: KeyRound },
+      { id: "skills", labelKey: "agentPanel:skills", icon: Settings },
+      { id: "knowledge-bases", labelKey: "agentPanel:knowledgeBases", icon: BookOpen },
+      { id: "mcp", labelKey: "agentPanel:mcp", icon: Plug },
+      { id: "tasks", labelKey: "agentPanel:tasks", icon: Clock },
+      { id: "channels", labelKey: "agentPanel:channels", icon: Radio },
+      { id: "apikeys", labelKey: "agentPanel:apiKeys", icon: KeyRound },
     ],
   },
 ];
@@ -41,10 +43,12 @@ interface AgentSidebarConfigProps {
 }
 
 export function AgentSidebarConfig({ collapsed, onNavigate }: AgentSidebarConfigProps) {
+  const { t } = useTranslation(NS.AGENT_PANEL);
+
   return (
     <nav className="py-2 overflow-y-auto overflow-x-hidden">
       {NAV_GROUPS.map((group) => (
-        <div key={group.label}>
+        <div key={group.labelKey}>
           <div
             className={[
               "text-[11px] font-semibold uppercase tracking-[0.06em]",
@@ -54,7 +58,7 @@ export function AgentSidebarConfig({ collapsed, onNavigate }: AgentSidebarConfig
               collapsed && "text-center px-2 text-[0px] pt-3 pb-1.5",
             ].join(" ")}
           >
-            {collapsed ? <span className="block w-4 h-px bg-border-default mx-auto mt-1" /> : group.label}
+            {collapsed ? <span className="block w-4 h-px bg-border-default mx-auto mt-1" /> : t(group.labelKey)}
           </div>
 
           {group.items.map((item) => {
@@ -64,7 +68,7 @@ export function AgentSidebarConfig({ collapsed, onNavigate }: AgentSidebarConfig
                 key={item.id}
                 type="button"
                 onClick={() => onNavigate(item.id)}
-                title={collapsed ? item.label : undefined}
+                title={collapsed ? t(item.labelKey) : undefined}
                 className={[
                   "relative flex items-center w-full",
                   "text-[13px] font-medium cursor-pointer",
@@ -84,7 +88,7 @@ export function AgentSidebarConfig({ collapsed, onNavigate }: AgentSidebarConfig
                     collapsed ? "opacity-0 w-0" : "opacity-100",
                   ].join(" ")}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </span>
               </button>
             );

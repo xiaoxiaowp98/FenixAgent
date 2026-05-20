@@ -1,5 +1,6 @@
 import { Check, TriangleAlert } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Input } from "../../components/ui/input";
 import { cn, esc, truncate } from "../lib/utils";
 import type { Question } from "../types";
@@ -23,6 +24,7 @@ export function PermissionPromptView({
   onApprove: () => void;
   onReject: () => void;
 }) {
+  const { t } = useTranslation("components");
   const inputStr = typeof toolInput === "string" ? toolInput : JSON.stringify(toolInput, null, 2);
 
   return (
@@ -31,7 +33,7 @@ export function PermissionPromptView({
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-warning-border/15 text-warning-text">
           <TriangleAlert className="h-3 w-3" />
         </span>
-        <span className="text-sm font-semibold text-warning-text">Permission Request</span>
+        <span className="text-sm font-semibold text-warning-text">{t("permissionViews.permissionRequest")}</span>
       </div>
       {description && <div className="mb-2 text-sm text-text-secondary">{esc(description)}</div>}
       <div className="mb-2 font-mono text-xs font-bold text-text-primary">{esc(toolName)}</div>
@@ -45,13 +47,13 @@ export function PermissionPromptView({
           onClick={onApprove}
           className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-light transition-colors"
         >
-          Approve
+          {t("permissionViews.approve")}
         </button>
         <button
           onClick={onReject}
           className="rounded-lg bg-status-error/20 px-4 py-2 text-sm font-medium text-status-error hover:bg-status-error/30 transition-colors"
         >
-          Reject
+          {t("permissionViews.reject")}
         </button>
       </div>
     </div>
@@ -74,6 +76,7 @@ export function AskUserPanelView({
   onSubmit: (answers: Record<string, unknown>) => void;
   onSkip: () => void;
 }) {
+  const { t } = useTranslation("components");
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [otherTexts, setOtherTexts] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState(0);
@@ -115,7 +118,7 @@ export function AskUserPanelView({
     return (
       <div className="rounded-xl border border-brand/30 bg-surface-1 p-4">
         <div className="mb-3 text-sm font-semibold text-text-primary">
-          {esc(description || q.question || "Question")}
+          {esc(description || q.question || t("permissionViews.question"))}
         </div>
         <div className="space-y-2">
           {(q.options || []).map((opt, j) => {
@@ -141,7 +144,7 @@ export function AskUserPanelView({
               type="text"
               value={otherTexts[0] || ""}
               onChange={(e) => setOtherTexts({ ...otherTexts, [0]: e.target.value })}
-              placeholder="Other..."
+              placeholder={t("permissionViews.other")}
               className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none"
               onKeyDown={(e) => e.key === "Enter" && handleOtherSubmit(0)}
             />
@@ -149,7 +152,7 @@ export function AskUserPanelView({
               onClick={() => handleOtherSubmit(0)}
               className="rounded-lg border border-border px-3 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
             >
-              Send
+              {t("permissionViews.send")}
             </button>
           </div>
         </div>
@@ -158,13 +161,13 @@ export function AskUserPanelView({
             onClick={handleSubmit}
             className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-light transition-colors"
           >
-            Submit
+            {t("permissionViews.submit")}
           </button>
           <button
             onClick={onSkip}
             className="rounded-lg border border-border px-4 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
           >
-            Skip
+            {t("permissionViews.skip")}
           </button>
         </div>
       </div>
@@ -176,7 +179,9 @@ export function AskUserPanelView({
 
   return (
     <div className="rounded-xl border border-brand/30 bg-surface-1 p-4">
-      <div className="mb-3 text-sm font-semibold text-text-primary">{esc(description || "Questions")}</div>
+      <div className="mb-3 text-sm font-semibold text-text-primary">
+        {esc(description || t("permissionViews.questions"))}
+      </div>
       <div className="mb-3 flex gap-1 overflow-x-auto">
         {questions.map((q, i) => (
           <button
@@ -201,6 +206,7 @@ export function AskUserPanelView({
           onSelect={handleSelect}
           onOtherTextChange={(qIdx, text) => setOtherTexts({ ...otherTexts, [qIdx]: text })}
           onOtherSubmit={handleOtherSubmit}
+          t={t}
         />
       )}
 
@@ -213,13 +219,13 @@ export function AskUserPanelView({
             onClick={handleSubmit}
             className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-light transition-colors"
           >
-            Submit All
+            {t("permissionViews.submitAll")}
           </button>
           <button
             onClick={onSkip}
             className="rounded-lg border border-border px-4 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
           >
-            Skip
+            {t("permissionViews.skip")}
           </button>
         </div>
       </div>
@@ -235,6 +241,7 @@ function QuestionTab({
   onSelect,
   onOtherTextChange,
   onOtherSubmit,
+  t,
 }: {
   question: Question;
   qIdx: number;
@@ -243,6 +250,7 @@ function QuestionTab({
   onSelect: (qIdx: number, oIdx: number, multiSelect: boolean) => void;
   onOtherTextChange: (qIdx: number, text: string) => void;
   onOtherSubmit: (qIdx: number) => void;
+  t: (key: string) => string;
 }) {
   const multiSelect = question.multiSelect || false;
 
@@ -273,7 +281,7 @@ function QuestionTab({
             type="text"
             value={otherTexts[qIdx] || ""}
             onChange={(e) => onOtherTextChange(qIdx, e.target.value)}
-            placeholder="Other..."
+            placeholder={t("permissionViews.other")}
             className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none"
             onKeyDown={(e) => e.key === "Enter" && onOtherSubmit(qIdx)}
           />
@@ -281,7 +289,7 @@ function QuestionTab({
             onClick={() => onOtherSubmit(qIdx)}
             className="rounded-lg border border-border px-3 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
           >
-            Send
+            {t("permissionViews.send")}
           </button>
         </div>
       </div>
@@ -303,6 +311,7 @@ export function PlanPanelView({
   description: string;
   onSubmit: (value: string, feedback?: string) => void;
 }) {
+  const { t } = useTranslation("components");
   const [selected, setSelected] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
   const isEmpty = !planContent || !planContent.trim();
@@ -319,7 +328,7 @@ export function PlanPanelView({
           <Check className="h-3 w-3" strokeWidth={2.5} />
         </span>
         <span className="text-sm font-semibold text-text-primary">
-          {isEmpty ? "Exit plan mode?" : "Ready to code?"}
+          {isEmpty ? t("permissionViews.exitPlanMode") : t("permissionViews.readyToCode")}
         </span>
       </div>
       {!isEmpty && (
@@ -331,28 +340,36 @@ export function PlanPanelView({
       <div className="space-y-2">
         {isEmpty ? (
           <>
-            <PlanOption selected={selected === "yes-default"} onClick={() => setSelected("yes-default")} label="Yes" />
-            <PlanOption selected={selected === "no"} onClick={() => setSelected("no")} label="No" />
+            <PlanOption
+              selected={selected === "yes-default"}
+              onClick={() => setSelected("yes-default")}
+              label={t("permissionViews.yes")}
+            />
+            <PlanOption
+              selected={selected === "no"}
+              onClick={() => setSelected("no")}
+              label={t("permissionViews.no")}
+            />
           </>
         ) : (
           <>
             <PlanOption
               selected={selected === "yes-accept-edits"}
               onClick={() => setSelected("yes-accept-edits")}
-              label="Yes, auto-accept edits"
-              desc="Approve plan and auto-accept file edits"
+              label={t("permissionViews.yesAutoAccept")}
+              desc={t("permissionViews.yesAutoAcceptDesc")}
             />
             <PlanOption
               selected={selected === "yes-default"}
               onClick={() => setSelected("yes-default")}
-              label="Yes, manually approve edits"
-              desc="Approve plan but confirm each edit"
+              label={t("permissionViews.yesManualApprove")}
+              desc={t("permissionViews.yesManualApproveDesc")}
             />
             <PlanOption
               selected={selected === "no"}
               onClick={() => setSelected("no")}
-              label="No, keep planning"
-              desc="Provide feedback to refine the plan"
+              label={t("permissionViews.noKeepPlanning")}
+              desc={t("permissionViews.noKeepPlanningDesc")}
             />
           </>
         )}
@@ -361,7 +378,7 @@ export function PlanPanelView({
         <textarea
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
-          placeholder="告诉智能体需要修改什么..."
+          placeholder={t("permissionViews.planFeedbackPlaceholder")}
           className="mt-3 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none"
           rows={3}
         />
@@ -372,7 +389,7 @@ export function PlanPanelView({
           disabled={!selected}
           className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-light disabled:opacity-50 transition-colors"
         >
-          Submit
+          {t("permissionViews.submit")}
         </button>
       </div>
     </div>

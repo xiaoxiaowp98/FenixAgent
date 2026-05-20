@@ -1,9 +1,8 @@
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
-const AppShellComponent = lazy(() =>
-  import("../components/shell/AppShell").then((m) => ({ default: m.AppShell })),
-);
+const AppShellComponent = lazy(() => import("../components/shell/AppShell").then((m) => ({ default: m.AppShell })));
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
@@ -11,6 +10,7 @@ export const Route = createFileRoute("/_app")({
 
 function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const { t } = useTranslation("common");
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -42,9 +42,7 @@ function AppLayout() {
   ];
   const isSessionRoute = !configPages.includes(firstSegment) && firstSegment !== "";
   const mainClassName =
-    isFullHeight || isSessionRoute
-      ? "flex flex-1 flex-col overflow-hidden"
-      : "flex-1 overflow-y-auto";
+    isFullHeight || isSessionRoute ? "flex flex-1 flex-col overflow-hidden" : "flex-1 overflow-y-auto";
 
   return (
     <Suspense
@@ -60,7 +58,7 @@ function AppLayout() {
             fallback={
               <div className="flex h-full flex-col items-center justify-center gap-3">
                 <div className="h-8 w-8 rounded-full border-2 border-brand border-t-transparent animate-spin" />
-                <p className="text-sm text-text-muted">加载中...</p>
+                <p className="text-sm text-text-muted">{t("loading")}</p>
               </div>
             }
           >

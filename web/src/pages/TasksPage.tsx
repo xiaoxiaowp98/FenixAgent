@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
 import { type Column, DataTable } from "@/components/config/DataTable";
@@ -58,31 +59,32 @@ interface Environment {
   session_id?: string;
 }
 
-const CRON_PRESETS = [
-  { label: "每 5 分钟", value: "*/5 * * * *" },
-  { label: "每小时", value: "0 * * * *" },
-  { label: "每天早 9 点", value: "0 9 * * *" },
-  { label: "工作日早 9 点", value: "0 9 * * 1-5" },
-  { label: "每月 1 号", value: "0 0 1 * *" },
+const CRON_PRESETS_KEYS = [
+  { labelKey: "cronPresets.every5min", value: "*/5 * * * *" },
+  { labelKey: "cronPresets.hourly", value: "0 * * * *" },
+  { labelKey: "cronPresets.daily9am", value: "0 9 * * *" },
+  { labelKey: "cronPresets.weekday9am", value: "0 9 * * 1-5" },
+  { labelKey: "cronPresets.monthly1st", value: "0 0 1 * *" },
 ];
 
 function validateTaskForm(
+  t: (key: string, options?: Record<string, unknown>) => string,
   name: string,
   environmentId: string,
   task: string,
   cron: string,
   timeoutMinutes: string,
 ): string | null {
-  if (!name.trim()) return "任务名称不能为空";
-  if (!environmentId) return "请选择 Environment";
-  if (!task.trim()) return "任务内容不能为空";
-  if (!cron.trim()) return "cron 表达式不能为空";
+  if (!name.trim()) return t("validation.nameRequired");
+  if (!environmentId) return t("validation.environmentRequired");
+  if (!task.trim()) return t("validation.taskRequired");
+  if (!cron.trim()) return t("validation.cronRequired");
   const parts = cron.trim().split(/\s+/);
-  if (parts.length !== 5) return "cron 表达式必须为 5 字段（分 时 日 月 周）";
+  if (parts.length !== 5) return t("validation.cronFormat");
 
   const timeoutValue = Number(timeoutMinutes);
   if (!Number.isInteger(timeoutValue) || timeoutValue < 1 || timeoutValue > 180) {
-    return "timeoutMinutes 必须在 1-180 之间";
+    return t("validation.timeoutRange");
   }
   return null;
 }
@@ -104,12 +106,12 @@ function formatDuration(ms: number | null): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
-function formatLastResult(task: TaskInfo): string {
+function formatLastResult(t: (key: string, options?: Record<string, unknown>) => string, task: TaskInfo): string {
   if (!task.lastStatus) return "—";
-  if (task.lastStatus === "skipped") return "已跳过";
-  if (task.lastStatus === "timeout") return "超时";
-  if (task.lastStatus === "failed") return "失败";
-  return "成功";
+  if (task.lastStatus === "skipped") return t("lastResult.skipped");
+  if (task.lastStatus === "timeout") return t("lastResult.timeout");
+  if (task.lastStatus === "failed") return t("lastResult.failed");
+  return t("lastResult.success");
 }
 
 function toWorkspaceRelativePath(environment: Environment, workspacePath: string): string {
@@ -121,6 +123,7 @@ function toWorkspaceRelativePath(environment: Environment, workspacePath: string
 }
 
 export function TasksPage() {
+  const { t } = useTranslation("tasks");
   const [tasks, setTasks] = useState<TaskInfo[]>([]);
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,49 +160,52 @@ export function TasksPage() {
     try {
       const [taskRes, envRes] = await Promise.all([client.web.tasks.get(), client.web.environments.get()]);
       if (taskRes.error) {
-        console.error("加载任务失败", taskRes.error);
-        toast.error(`加载任务失败: ${taskRes.error.message ?? "未知错误"}`);
+        console.error(t("toast.loadTasksFailed", { error: "" }), taskRes.error);
+        toast.error(t("toast.loadTasksFailed", { error: taskRes.error.message ?? t("misc.unknown") }));
         return;
       }
       if (envRes.error) {
-        console.error("加载环境失败", envRes.error);
-        toast.error(`加载环境失败: ${envRes.error.message ?? "未知错误"}`);
+        console.error(t("toast.loadEnvsFailed", { error: "" }), envRes.error);
+        toast.error(t("toast.loadEnvsFailed", { error: envRes.error.message ?? t("misc.unknown") }));
         return;
       }
       setTasks((taskRes.data as unknown as TaskInfo[]) ?? []);
       setEnvironments((envRes.data as unknown as Environment[]) ?? []);
     } catch (error) {
-      console.error("加载任务页面失败", error);
-      toast.error(`加载任务页面失败: ${error instanceof Error ? error.message : "未知错误"}`);
+      console.error(t("toast.loadPageFailed", { error: "" }), error);
+      toast.error(t("toast.loadPageFailed", { error: error instanceof Error ? error.message : t("misc.unknown") }));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadTasksAndEnvironments();
   }, [loadTasksAndEnvironments]);
 
-  const loadLogs = useCallback(async (taskId: string, page = 1) => {
-    setLogsLoading(true);
-    try {
-      const { data, error: err } = await client.web.tasks({ id: taskId }).logs.get({ query: { page, pageSize: 20 } });
-      if (err) {
-        console.error("加载执行历史失败", err);
-        toast.error(`加载执行历史失败: ${err.message ?? "未知错误"}`);
-        return;
+  const loadLogs = useCallback(
+    async (taskId: string, page = 1) => {
+      setLogsLoading(true);
+      try {
+        const { data, error: err } = await client.web.tasks({ id: taskId }).logs.get({ query: { page, pageSize: 20 } });
+        if (err) {
+          console.error(t("toast.loadLogsFailed", { error: "" }), err);
+          toast.error(t("toast.loadLogsFailed", { error: err.message ?? t("misc.unknown") }));
+          return;
+        }
+        const result = data as { items?: unknown[]; total?: number } | null;
+        setLogs(result?.items ?? []);
+        setLogsTotal(result?.total ?? 0);
+        setLogsPage(page);
+      } catch (error) {
+        console.error(t("toast.loadLogsFailed", { error: "" }), error);
+        toast.error(t("toast.loadLogsFailed", { error: error instanceof Error ? error.message : t("misc.unknown") }));
+      } finally {
+        setLogsLoading(false);
       }
-      const result = data as { items?: unknown[]; total?: number } | null;
-      setLogs(result?.items ?? []);
-      setLogsTotal(result?.total ?? 0);
-      setLogsPage(page);
-    } catch (error) {
-      console.error("加载执行历史失败", error);
-      toast.error(`加载执行历史失败: ${error instanceof Error ? error.message : "未知错误"}`);
-    } finally {
-      setLogsLoading(false);
-    }
-  }, []);
+    },
+    [t],
+  );
 
   const resetForm = useCallback(() => {
     setFormName("");
@@ -230,7 +236,7 @@ export function TasksPage() {
   };
 
   const handleSave = async () => {
-    const error = validateTaskForm(formName, formEnvironmentId, formTask, formCron, formTimeoutMinutes);
+    const error = validateTaskForm(t, formName, formEnvironmentId, formTask, formCron, formTimeoutMinutes);
     if (error) {
       toast.error(error);
       return;
@@ -251,26 +257,26 @@ export function TasksPage() {
       if (editingTask) {
         const { error: err } = await client.web.tasks({ id: editingTask.id }).put(payload);
         if (err) {
-          console.error("保存任务失败", err);
-          toast.error(`保存失败: ${err.message ?? "未知错误"}`);
+          console.error(t("toast.saveFailed", { error: "" }), err);
+          toast.error(t("toast.saveFailed", { error: err.message ?? t("misc.unknown") }));
           return;
         }
-        toast.success("任务已更新");
+        toast.success(t("toast.taskUpdated"));
       } else {
         const { error: err } = await client.web.tasks.post(payload);
         if (err) {
-          console.error("创建任务失败", err);
-          toast.error(`保存失败: ${err.message ?? "未知错误"}`);
+          console.error(t("toast.saveFailed", { error: "" }), err);
+          toast.error(t("toast.saveFailed", { error: err.message ?? t("misc.unknown") }));
           return;
         }
-        toast.success("任务已创建");
+        toast.success(t("toast.taskCreated"));
       }
 
       setDialogOpen(false);
       await loadTasksAndEnvironments();
     } catch (saveError) {
-      console.error("保存任务失败", saveError);
-      toast.error(`保存失败: ${saveError instanceof Error ? saveError.message : "未知错误"}`);
+      console.error(t("toast.saveFailed", { error: "" }), saveError);
+      toast.error(t("toast.saveFailed", { error: saveError instanceof Error ? saveError.message : t("misc.unknown") }));
     } finally {
       setFormSaving(false);
     }
@@ -280,15 +286,15 @@ export function TasksPage() {
     try {
       const { error: err } = await client.web.tasks({ id: task.id }).toggle.post();
       if (err) {
-        console.error("切换任务状态失败", err);
-        toast.error(`操作失败: ${err.message ?? "未知错误"}`);
+        console.error(t("toast.toggleFailed", { error: "" }), err);
+        toast.error(t("toast.toggleFailed", { error: err.message ?? t("misc.unknown") }));
         return;
       }
-      toast.success(task.enabled ? `已禁用 "${task.name}"` : `已启用 "${task.name}"`);
+      toast.success(task.enabled ? t("toast.disabled", { name: task.name }) : t("toast.enabled", { name: task.name }));
       await loadTasksAndEnvironments();
     } catch (error) {
-      console.error("切换任务状态失败", error);
-      toast.error(`操作失败: ${error instanceof Error ? error.message : "未知错误"}`);
+      console.error(t("toast.toggleFailed", { error: "" }), error);
+      toast.error(t("toast.toggleFailed", { error: error instanceof Error ? error.message : t("misc.unknown") }));
     }
   };
 
@@ -297,18 +303,22 @@ export function TasksPage() {
     try {
       const { data, error: err } = await client.web.tasks({ id: task.id }).trigger.post();
       if (err) {
-        console.error("触发任务失败", err);
-        toast.error(`触发失败: ${err.message ?? "未知错误"}`);
+        console.error(t("toast.triggerFailed", { error: "" }), err);
+        toast.error(t("toast.triggerFailed", { error: err.message ?? t("misc.unknown") }));
         return;
       }
       const result = data as { status?: string; duration?: number | null; workspaceName?: string } | null;
       toast.success(
-        `已触发，状态: ${result?.status ?? "未知"}，耗时: ${formatDuration(result?.duration ?? null)}，目录: ${result?.workspaceName ?? "—"}`,
+        t("toast.triggerSuccess", {
+          status: result?.status ?? t("misc.unknown"),
+          duration: formatDuration(result?.duration ?? null),
+          directory: result?.workspaceName ?? "—",
+        }),
       );
       await loadTasksAndEnvironments();
     } catch (error) {
-      console.error("触发任务失败", error);
-      toast.error(`触发失败: ${error instanceof Error ? error.message : "未知错误"}`);
+      console.error(t("toast.triggerFailed", { error: "" }), error);
+      toast.error(t("toast.triggerFailed", { error: error instanceof Error ? error.message : t("misc.unknown") }));
     } finally {
       setTriggeringTaskId(null);
     }
@@ -324,13 +334,13 @@ export function TasksPage() {
 
   const handleBrowseWorkspace = async (log: ExecutionLogInfo) => {
     if (!log.workspacePath || !log.environmentId) {
-      toast.error("当前日志没有可查看的 workspacePath");
+      toast.error(t("toast.noWorkspacePath"));
       return;
     }
 
     const environment = environments.find((item) => item.id === log.environmentId);
     if (!environment?.session_id) {
-      toast.error("找不到对应的 Environment 会话");
+      toast.error(t("toast.noEnvSession"));
       return;
     }
 
@@ -341,16 +351,16 @@ export function TasksPage() {
         query: { path: relativePath },
       });
       if (err) {
-        console.error("查看目录失败", err);
-        toast.error(`查看目录失败: ${err.message ?? "未知错误"}`);
+        console.error(t("toast.viewDirFailed", { error: "" }), err);
+        toast.error(t("toast.viewDirFailed", { error: err.message ?? t("misc.unknown") }));
         return;
       }
       const result = data as { entries?: unknown[] } | null;
       setWorkspaceEntries(result?.entries ?? []);
       setWorkspaceTitle(relativePath);
     } catch (error) {
-      console.error("查看目录失败", error);
-      toast.error(`查看目录失败: ${error instanceof Error ? error.message : "未知错误"}`);
+      console.error(t("toast.viewDirFailed", { error: "" }), error);
+      toast.error(t("toast.viewDirFailed", { error: error instanceof Error ? error.message : t("misc.unknown") }));
     } finally {
       setWorkspaceLoading(false);
     }
@@ -361,17 +371,17 @@ export function TasksPage() {
     try {
       const { error: err } = await client.web.tasks({ id: deleteTarget.id }).delete();
       if (err) {
-        console.error("删除任务失败", err);
-        toast.error(`删除失败: ${err.message ?? "未知错误"}`);
+        console.error(t("toast.deleteFailed", { error: "" }), err);
+        toast.error(t("toast.deleteFailed", { error: err.message ?? t("misc.unknown") }));
         return;
       }
-      toast.success("任务已删除");
+      toast.success(t("toast.taskDeleted"));
       setConfirmOpen(false);
       setDeleteTarget(null);
       await loadTasksAndEnvironments();
     } catch (error) {
-      console.error("删除任务失败", error);
-      toast.error(`删除失败: ${error instanceof Error ? error.message : "未知错误"}`);
+      console.error(t("toast.deleteFailed", { error: "" }), error);
+      toast.error(t("toast.deleteFailed", { error: error instanceof Error ? error.message : t("misc.unknown") }));
     }
   };
 
@@ -380,51 +390,51 @@ export function TasksPage() {
     try {
       const { error: err } = await client.web.tasks({ id: logsTask.id }).logs.delete();
       if (err) {
-        console.error("清空日志失败", err);
-        toast.error(`清空失败: ${err.message ?? "未知错误"}`);
+        console.error(t("toast.clearLogsFailed", { error: "" }), err);
+        toast.error(t("toast.clearLogsFailed", { error: err.message ?? t("misc.unknown") }));
         return;
       }
-      toast.success("执行历史已清空");
+      toast.success(t("toast.logsCleared"));
       setClearLogsConfirmOpen(false);
       await loadLogs(logsTask.id, 1);
     } catch (error) {
-      console.error("清空日志失败", error);
-      toast.error(`清空失败: ${error instanceof Error ? error.message : "未知错误"}`);
+      console.error(t("toast.clearLogsFailed", { error: "" }), error);
+      toast.error(t("toast.clearLogsFailed", { error: error instanceof Error ? error.message : t("misc.unknown") }));
     }
   };
 
   const columns: Column<TaskInfo>[] = [
-    { key: "name", header: "名称", sortable: true, filterable: true },
+    { key: "name", header: t("columns.name"), sortable: true, filterable: true },
     {
       key: "cron",
-      header: "Cron 表达式",
+      header: t("columns.cron"),
       render: (row) => <code className="rounded bg-muted px-2 py-1 text-xs">{row.cron}</code>,
     },
     {
       key: "environmentName",
-      header: "Environment",
+      header: t("columns.environment"),
       filterable: true,
       render: (row) => row.environmentName ?? row.environmentId,
     },
     {
       key: "enabled",
-      header: "状态",
+      header: t("columns.status"),
       render: (row) => <StatusBadge status={row.enabled ? "enabled" : "disabled"} />,
     },
     {
       key: "lastRunAt",
-      header: "上次执行",
+      header: t("columns.lastRun"),
       render: (row) => <span className="text-xs">{formatTimestamp(row.lastRunAt ?? null)}</span>,
     },
     {
       key: "nextRunAt",
-      header: "下次执行",
+      header: t("columns.nextRun"),
       render: (row) => <span className="text-xs">{formatTimestamp(row.nextRunAt ?? null)}</span>,
     },
     {
       key: "lastStatus",
-      header: "最近结果",
-      render: (row) => <span className="text-xs">{formatLastResult(row)}</span>,
+      header: t("columns.lastResult"),
+      render: (row) => <span className="text-xs">{formatLastResult(t, row)}</span>,
     },
   ];
 
@@ -449,26 +459,26 @@ export function TasksPage() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-text-bright">定时任务</h1>
-          <p className="text-sm text-muted-foreground">绑定 Environment，定时执行 Agent 任务。</p>
+          <h1 className="text-xl font-semibold text-text-bright">{t("title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <Button onClick={handleOpenCreate}>新建任务</Button>
+        <Button onClick={handleOpenCreate}>{t("newTask")}</Button>
       </div>
 
       <DataTable
         columns={columns}
         data={tasks}
         searchable
-        searchPlaceholder="搜索任务名称或 Environment"
+        searchPlaceholder={t("searchPlaceholder")}
         rowKey={(row) => row.id}
-        emptyMessage="暂无定时任务"
+        emptyMessage={t("emptyMessage")}
         actions={(row) => (
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => handleOpenEdit(row)}>
-              编辑
+              {t("actions.edit")}
             </Button>
             <Button size="sm" variant="outline" onClick={() => handleViewLogs(row)}>
-              日志
+              {t("actions.logs")}
             </Button>
             <Button
               size="sm"
@@ -476,10 +486,10 @@ export function TasksPage() {
               disabled={triggeringTaskId === row.id}
               onClick={() => handleTrigger(row)}
             >
-              立即执行
+              {t("actions.executeNow")}
             </Button>
             <Button size="sm" variant="outline" onClick={() => handleToggle(row)}>
-              {row.enabled ? "禁用" : "启用"}
+              {row.enabled ? t("actions.disable") : t("actions.enable")}
             </Button>
             <Button
               size="sm"
@@ -489,7 +499,7 @@ export function TasksPage() {
                 setConfirmOpen(true);
               }}
             >
-              删除
+              {t("actions.delete")}
             </Button>
           </div>
         )}
@@ -498,19 +508,19 @@ export function TasksPage() {
       <FormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        title={editingTask ? "编辑任务" : "新建任务"}
+        title={editingTask ? t("form.editTitle") : t("form.createTitle")}
         onSubmit={handleSave}
         loading={formSaving}
         width="sm:max-w-2xl"
       >
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="task-name">名称</Label>
+            <Label htmlFor="task-name">{t("form.name")}</Label>
             <Input id="task-name" value={formName} onChange={(event) => setFormName(event.target.value)} />
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="task-description">描述</Label>
+            <Label htmlFor="task-description">{t("form.description")}</Label>
             <Input
               id="task-description"
               value={formDescription}
@@ -519,32 +529,30 @@ export function TasksPage() {
           </div>
 
           <div className="grid gap-2">
-            <Label>Cron 表达式</Label>
+            <Label>{t("form.cronExpression")}</Label>
             <div className="flex gap-2">
               <Input value={formCron} onChange={(event) => setFormCron(event.target.value)} />
               <Select value={formCron} onValueChange={setFormCron}>
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="快捷选择" />
+                  <SelectValue placeholder={t("form.quickSelect")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {CRON_PRESETS.map((preset) => (
+                  {CRON_PRESETS_KEYS.map((preset) => (
                     <SelectItem key={preset.value} value={preset.value}>
-                      {preset.label}
+                      {t(preset.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <p className="text-xs text-muted-foreground">
-              格式：分 时 日 月 周（例如：0 9 * * * = 每天早 9 点，*/5 * * * * = 每 5 分钟）
-            </p>
+            <p className="text-xs text-muted-foreground">{t("form.cronHelp")}</p>
           </div>
 
           <div className="grid gap-2">
-            <Label>Environment</Label>
+            <Label>{t("form.environment")}</Label>
             <Select value={formEnvironmentId} onValueChange={setFormEnvironmentId}>
               <SelectTrigger>
-                <SelectValue placeholder="选择 Environment" />
+                <SelectValue placeholder={t("form.selectEnvironment")} />
               </SelectTrigger>
               <SelectContent>
                 {environments.map((environment) => (
@@ -557,17 +565,17 @@ export function TasksPage() {
           </div>
 
           <div className="grid gap-2">
-            <Label>任务内容</Label>
+            <Label>{t("form.taskContent")}</Label>
             <Textarea
               value={formTask}
               onChange={(event) => setFormTask(event.target.value)}
               rows={8}
-              placeholder="例如：检查 /workspace 目录下的所有 .ts 文件，找出未使用的 imports 并输出到 report.md。支持自然语言描述复杂任务。"
+              placeholder={t("form.taskPlaceholder")}
             />
           </div>
 
           <div className="grid gap-2">
-            <Label>超时时间（分钟）</Label>
+            <Label>{t("form.timeoutMinutes")}</Label>
             <Input
               type="number"
               min={1}
@@ -580,8 +588,8 @@ export function TasksPage() {
           {editingTask && (
             <div className="flex items-center justify-between rounded-md border px-3 py-2">
               <div>
-                <p className="text-sm font-medium">启用状态</p>
-                <p className="text-xs text-muted-foreground">关闭后定时任务将暂停，但仍可通过"立即执行"手动运行。</p>
+                <p className="text-sm font-medium">{t("form.enabledStatus")}</p>
+                <p className="text-xs text-muted-foreground">{t("form.enabledHint")}</p>
               </div>
               <Switch checked={formEnabled} onCheckedChange={setFormEnabled} />
             </div>
@@ -593,17 +601,17 @@ export function TasksPage() {
         <DialogContent className="flex max-h-[90vh] w-[min(96vw,1100px)] flex-col overflow-hidden p-0 sm:max-w-5xl">
           <DialogHeader className="shrink-0 border-b px-6 py-4">
             <DialogTitle>
-              执行历史
+              {t("logs.title")}
               {logsTask ? ` · ${logsTask.name}` : ""}
             </DialogTitle>
           </DialogHeader>
 
           <div className="flex min-h-0 flex-1 flex-col gap-4 p-6">
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">共 {logsTotal} 条记录</p>
+              <p className="text-sm text-muted-foreground">{t("logs.totalRecords", { count: logsTotal })}</p>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm text-muted-foreground">
-                  第 {logsPage} 页 / 共 {totalLogPages} 页
+                  {t("logs.pageInfo", { current: logsPage, total: totalLogPages })}
                 </span>
                 <Button
                   size="sm"
@@ -611,7 +619,7 @@ export function TasksPage() {
                   disabled={!logsTask || logsPage <= 1}
                   onClick={() => logsTask && loadLogs(logsTask.id, logsPage - 1)}
                 >
-                  上一页
+                  {t("logs.prevPage")}
                 </Button>
                 <Button
                   size="sm"
@@ -619,10 +627,10 @@ export function TasksPage() {
                   disabled={!logsTask || logs.length < 20}
                   onClick={() => logsTask && loadLogs(logsTask.id, logsPage + 1)}
                 >
-                  下一页
+                  {t("logs.nextPage")}
                 </Button>
                 <Button size="sm" variant="outline" disabled={!logsTask} onClick={() => setClearLogsConfirmOpen(true)}>
-                  清空日志
+                  {t("logs.clearLogs")}
                 </Button>
               </div>
             </div>
@@ -630,8 +638,8 @@ export function TasksPage() {
             <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)]">
               <div className="flex min-h-0 flex-col rounded-md border">
                 <div className="shrink-0 border-b px-4 py-3">
-                  <h3 className="font-medium">执行记录</h3>
-                  <p className="text-xs text-muted-foreground">记录过多时可在此区域内滚动查看</p>
+                  <h3 className="font-medium">{t("logs.executionRecords")}</h3>
+                  <p className="text-xs text-muted-foreground">{t("logs.scrollHint")}</p>
                 </div>
                 <div className="min-h-0 overflow-y-auto p-4">
                   {logsLoading ? (
@@ -666,7 +674,7 @@ export function TasksPage() {
                               disabled={!log.workspacePath || !log.environmentId}
                               onClick={() => handleBrowseWorkspace(log)}
                             >
-                              查看目录
+                              {t("logs.viewDirectory")}
                             </Button>
                           </div>
 
@@ -692,7 +700,7 @@ export function TasksPage() {
 
                       {!logsLoading && logs.length === 0 && (
                         <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-                          暂无执行历史
+                          {t("logs.noHistory")}
                         </div>
                       )}
                     </div>
@@ -702,15 +710,15 @@ export function TasksPage() {
 
               <div className="flex min-h-0 flex-col rounded-md border">
                 <div className="shrink-0 border-b px-4 py-3">
-                  <h3 className="font-medium">运行目录</h3>
-                  <p className="text-xs text-muted-foreground">{workspaceTitle ?? "点击上方「查看目录」加载内容"}</p>
+                  <h3 className="font-medium">{t("logs.runDirectory")}</h3>
+                  <p className="text-xs text-muted-foreground">{workspaceTitle ?? t("logs.directoryHint")}</p>
                 </div>
 
                 <div className="min-h-0 overflow-y-auto p-4">
                   {workspaceLoading ? (
                     <Skeleton className="h-24 w-full" />
                   ) : workspaceEntries.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">暂无目录内容</div>
+                    <div className="text-sm text-muted-foreground">{t("logs.noDirectoryContent")}</div>
                   ) : (
                     <div className="space-y-2">
                       {workspaceEntries.map((entry) => (
@@ -741,8 +749,8 @@ export function TasksPage() {
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="删除任务"
-        description={`确认删除任务「${deleteTarget?.name ?? ""}」？`}
+        title={t("confirm.deleteTitle")}
+        description={t("confirm.deleteDescription", { name: deleteTarget?.name ?? "" })}
         variant="destructive"
         onConfirm={handleDelete}
       />
@@ -750,8 +758,8 @@ export function TasksPage() {
       <ConfirmDialog
         open={clearLogsConfirmOpen}
         onOpenChange={setClearLogsConfirmOpen}
-        title="清空日志"
-        description="确认清空当前任务的执行历史？"
+        title={t("logs.clearTitle")}
+        description={t("logs.clearDescription")}
         variant="destructive"
         onConfirm={handleClearLogs}
       />

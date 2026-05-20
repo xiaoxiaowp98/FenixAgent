@@ -1,5 +1,6 @@
 import { createRootRoute, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "../lib/theme";
 import { OrgProvider } from "../contexts/OrgContext";
@@ -14,6 +15,7 @@ function RootComponent() {
   const { data: session, isPending } = useSession();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { t } = useTranslation("common");
 
   useEffect(() => {
     if (isPending) return;
@@ -30,7 +32,7 @@ function RootComponent() {
       <ThemeProvider defaultTheme="system">
         <div className="flex h-screen flex-col items-center justify-center gap-4">
           <div className="h-10 w-10 rounded-full border-2 border-brand border-t-transparent animate-spin" />
-          <p className="text-sm text-text-muted">正在连接控制面板...</p>
+          <p className="text-sm text-text-muted">{t("connecting")}</p>
         </div>
       </ThemeProvider>
     );
@@ -60,16 +62,17 @@ function RootComponent() {
 
 function NotFoundPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation("common");
   return (
     <div className="flex h-screen flex-col items-center justify-center gap-4">
       <h1 className="text-2xl font-bold text-text-primary">404</h1>
-      <p className="text-sm text-text-muted">页面未找到</p>
+      <p className="text-sm text-text-muted">{t("not_found")}</p>
       <button
         type="button"
         onClick={() => void navigate({ to: "/" })}
         className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90"
       >
-        返回首页
+        {t("back_home")}
       </button>
     </div>
   );

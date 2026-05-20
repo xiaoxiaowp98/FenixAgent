@@ -2,6 +2,7 @@ import { Scan } from "lucide-react";
 import QrScanner from "qr-scanner";
 import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { getUuid, setUuid } from "../api/client";
@@ -14,6 +15,7 @@ interface IdentityPanelProps {
 }
 
 export function IdentityPanel({ open, onClose }: IdentityPanelProps) {
+  const { t } = useTranslation("components");
   const [copied, setCopied] = useState(false);
   const [scanning, setScanning] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -140,7 +142,7 @@ export function IdentityPanel({ open, onClose }: IdentityPanelProps) {
         });
         handleScannedData(result.data);
       } catch {
-        toast.error("未找到二维码，请尝试更清晰的图片");
+        toast.error(t("identity.qrNotFound"));
       }
     };
     input.click();
@@ -155,13 +157,15 @@ export function IdentityPanel({ open, onClose }: IdentityPanelProps) {
     >
       <DialogContent className="max-w-sm rounded-2xl border-border bg-surface-1 p-6 shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="font-display text-lg font-semibold text-text-primary">Identity</DialogTitle>
+          <DialogTitle className="font-display text-lg font-semibold text-text-primary">
+            {t("identity.title")}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* UUID */}
           <div>
-            <label className="mb-1 block text-sm text-text-secondary">Your UUID</label>
+            <label className="mb-1 block text-sm text-text-secondary">{t("identity.yourUuid")}</label>
             <div className="flex items-center gap-2">
               <code className="flex-1 truncate rounded-lg bg-surface-2 px-3 py-2 font-mono text-xs text-text-primary">
                 {uuid}
@@ -170,7 +174,7 @@ export function IdentityPanel({ open, onClose }: IdentityPanelProps) {
                 onClick={handleCopy}
                 className="rounded-lg border border-border px-3 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
               >
-                {copied ? "Copied!" : "Copy"}
+                {copied ? t("identity.copied") : t("identity.copy")}
               </button>
             </div>
           </div>
@@ -178,7 +182,7 @@ export function IdentityPanel({ open, onClose }: IdentityPanelProps) {
           {/* QR Code display */}
           {!scanning && (
             <div>
-              <label className="mb-2 block text-sm text-text-secondary">Scan on another device</label>
+              <label className="mb-2 block text-sm text-text-secondary">{t("identity.scanOnAnotherDevice")}</label>
               <div className="flex justify-center">
                 <canvas ref={canvasRef} />
               </div>
@@ -188,7 +192,7 @@ export function IdentityPanel({ open, onClose }: IdentityPanelProps) {
           {/* Camera scanner */}
           {scanning && (
             <div>
-              <label className="mb-2 block text-sm text-text-secondary">Camera scanner</label>
+              <label className="mb-2 block text-sm text-text-secondary">{t("identity.cameraScanner")}</label>
               <div className="relative overflow-hidden rounded-lg">
                 <video ref={videoRef} className="w-full" />
               </div>
@@ -196,7 +200,7 @@ export function IdentityPanel({ open, onClose }: IdentityPanelProps) {
                 onClick={stopCamera}
                 className="mt-2 w-full rounded-lg border border-border px-4 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
               >
-                Stop scanning
+                {t("identity.stopScanning")}
               </button>
             </div>
           )}
@@ -213,13 +217,13 @@ export function IdentityPanel({ open, onClose }: IdentityPanelProps) {
               )}
             >
               <Scan className="h-4 w-4" />
-              {scanning ? "Stop Camera" : "Scan with Camera"}
+              {scanning ? t("identity.stopCamera") : t("identity.scanWithCamera")}
             </button>
             <button
               onClick={handleScanUpload}
               className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
             >
-              Upload QR Image
+              {t("identity.uploadQrImage")}
             </button>
           </div>
         </div>

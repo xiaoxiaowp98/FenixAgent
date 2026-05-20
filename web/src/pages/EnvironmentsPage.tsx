@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ import { AgentsPage } from "./AgentsPage";
 
 export function EnvironmentsPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation("environments");
   const navigateToSession = useCallback(
     (sessionId: string, options?: { cwd?: string; agentId?: string }) => {
       const search: Record<string, string> = {};
@@ -148,11 +150,11 @@ export function EnvironmentsPage() {
 
   const handleFormSubmit = useCallback(async () => {
     if (!formName || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(formName)) {
-      setFormError("名称必须为 kebab-case 格式（小写字母、数字、连字符）");
+      setFormError(t("validation.nameKebab"));
       return;
     }
     if (!formWorkspacePath.startsWith("/")) {
-      setFormError("workspace 路径必须是绝对路径");
+      setFormError(t("validation.pathAbsolute"));
       return;
     }
     setFormError("");
@@ -167,7 +169,7 @@ export function EnvironmentsPage() {
           agentConfigId: formAgentConfigId || null,
           autoStart: formAutoStart,
         });
-        if (err) throw new Error(err.message ?? "更新失败");
+        if (err) throw new Error(err.message ?? t("toast.updateFailed"));
       } else {
         const { data, error: err } = await client.web.environments.post({
           name: formName,
@@ -176,7 +178,7 @@ export function EnvironmentsPage() {
           agentConfigId: formAgentConfigId || undefined,
           autoStart: formAutoStart,
         });
-        if (err) throw new Error(err.message ?? "创建失败");
+        if (err) throw new Error(err.message ?? t("toast.createFailed"));
         const result = data as { secret?: string } | null;
         setCurrentSecret(result?.secret ?? null);
         setSecretDialogOpen(true);
@@ -185,7 +187,7 @@ export function EnvironmentsPage() {
       await loadEnvs();
     } catch (err) {
       console.error("Failed to save environment:", err);
-      toast.error("操作失败: " + (err as Error).message);
+      toast.error(t("toast.operationFailed", { error: (err as Error).message }));
     } finally {
       setFormSaving(false);
     }
@@ -196,7 +198,7 @@ export function EnvironmentsPage() {
       setEnteringEnvId(env.id);
       try {
         const { data, error: err } = await client.web.environments({ id: env.id }).enter.post({});
-        if (err) throw new Error(err.message ?? "进入失败");
+        if (err) throw new Error(err.message ?? t("toast.enterAgentFailed"));
         const result = data as { session_id: string; environment_id: string } | null;
         await new Promise((r) => setTimeout(r, 500));
         navigateToSession(result?.session_id ?? "", {
@@ -204,8 +206,8 @@ export function EnvironmentsPage() {
           agentId: result?.environment_id ?? env.id,
         });
       } catch (err) {
-        console.error("进入智能体失败", err);
-        toast.error("进入智能体失败: " + (err as Error).message);
+        console.error("Failed to enter agent:", err);
+        toast.error(t("toast.enterFailed", { error: (err as Error).message }));
       } finally {
         setEnteringEnvId(null);
       }
@@ -220,7 +222,7 @@ export function EnvironmentsPage() {
         const { data, error: err } = await client.web.environments({ id: env.id }).enter.post({
           instance_number: instanceNumber,
         });
-        if (err) throw new Error(err.message ?? "进入失败");
+        if (err) throw new Error(err.message ?? t("toast.enterAgentFailed"));
         const result = data as { session_id: string; environment_id: string } | null;
         await new Promise((r) => setTimeout(r, 500));
         navigateToSession(result?.session_id ?? "", {
@@ -228,8 +230,8 @@ export function EnvironmentsPage() {
           agentId: result?.environment_id ?? env.id,
         });
       } catch (err) {
-        console.error("进入实例失败", err);
-        toast.error("进入实例失败: " + (err as Error).message);
+        console.error("Failed to enter instance:", err);
+        toast.error(t("toast.enterInstanceFailed", { error: (err as Error).message }));
       } finally {
         setEnteringEnvId(null);
       }
@@ -242,7 +244,7 @@ export function EnvironmentsPage() {
       setEnteringEnvId(env.id);
       try {
         const { data, error: err } = await client.web.instances.post({ environmentId: env.id });
-        if (err) throw new Error(err.message ?? "创建实例失败");
+        if (err) throw new Error(err.message ?? t("toast.createFailed"));
         const spawnResult = data as { session_id?: string; environment_id?: string } | null;
         await new Promise((r) => setTimeout(r, 500));
         navigateToSession(spawnResult?.session_id ?? "", {
@@ -251,8 +253,8 @@ export function EnvironmentsPage() {
         });
         await loadEnvs();
       } catch (err) {
-        console.error("创建实例失败", err);
-        toast.error("创建实例失败: " + (err as Error).message);
+        console.error("Failed to spawn instance:", err);
+        toast.error(t("toast.spawnFailed", { error: (err as Error).message }));
       } finally {
         setEnteringEnvId(null);
       }
@@ -264,12 +266,12 @@ export function EnvironmentsPage() {
     if (!stopTarget) return;
     try {
       const { error: err } = await client.web.instances({ id: stopTarget.instanceId }).delete();
-      if (err) throw new Error(err.message ?? "停止失败");
+      if (err) throw new Error(err.message ?? t("toast.stopFailed"));
       await new Promise((r) => setTimeout(r, 500));
       await loadEnvs();
     } catch (err) {
-      console.error("停止实例失败", err);
-      toast.error("停止实例失败: " + (err as Error).message);
+      console.error("Failed to stop instance:", err);
+      toast.error(t("toast.stopFailed", { error: (err as Error).message }));
     } finally {
       setStopConfirmOpen(false);
       setStopTarget(null);
@@ -288,8 +290,8 @@ export function EnvironmentsPage() {
         await new Promise((r) => setTimeout(r, 500));
         await handleEnterAgent(env);
       } catch (err) {
-        console.error("刷新智能体失败", err);
-        toast.error("刷新智能体失败: " + (err as Error).message);
+        console.error("Failed to refresh agent:", err);
+        toast.error(t("toast.refreshFailed", { error: (err as Error).message }));
       } finally {
         setRefreshingEnvId(null);
       }
@@ -332,7 +334,7 @@ export function EnvironmentsPage() {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3">
         <div className="h-8 w-8 rounded-full border-2 border-brand border-t-transparent animate-spin" />
-        <p className="text-sm text-text-muted">加载智能体列表...</p>
+        <p className="text-sm text-text-muted">{t("loading")}</p>
       </div>
     );
   }
@@ -365,48 +367,48 @@ export function EnvironmentsPage() {
       iconBg: "bg-emerald-500/12 text-emerald-600",
       pill: "bg-emerald-500/12 text-emerald-600",
       bar: "bg-emerald-500",
-      label: "运行中",
+      label: t("status.running"),
     },
     idle: {
       iconBg: "bg-indigo-500/10 text-indigo-500",
       pill: "bg-indigo-500/10 text-indigo-500",
       bar: "bg-indigo-500",
-      label: "空闲",
+      label: t("status.idle"),
     },
     warning: {
       iconBg: "bg-amber-500/12 text-amber-600",
       pill: "bg-amber-500/12 text-amber-600",
       bar: "bg-amber-500",
-      label: "警告",
+      label: t("status.warning"),
     },
     error: {
       iconBg: "bg-red-500/12 text-red-600",
       pill: "bg-red-500/12 text-red-600",
       bar: "bg-red-500",
-      label: "错误",
+      label: t("status.error"),
     },
   };
 
   /** Format a seconds-level timestamp to relative time string */
   const formatRelativeTime = (ts: number | null | undefined): string => {
-    if (!ts) return "未活跃";
+    if (!ts) return t("relativeTime.notActive");
     const diff = Date.now() - ts * 1000;
     const seconds = Math.floor(diff / 1000);
-    if (seconds < 0) return "刚刚活跃";
-    if (seconds < 60) return `${seconds} 秒前活跃`;
+    if (seconds < 0) return t("relativeTime.justNow");
+    if (seconds < 60) return t("relativeTime.secondsAgo", { count: seconds });
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} 分钟前活跃`;
+    if (minutes < 60) return t("relativeTime.minutesAgo", { count: minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} 小时前活跃`;
+    if (hours < 24) return t("relativeTime.hoursAgo", { count: hours });
     const days = Math.floor(hours / 24);
-    return `${days} 天前活跃`;
+    return t("relativeTime.daysAgo", { count: days });
   };
 
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-5xl px-6 py-6">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-text-primary">智能体</h1>
+          <h1 className="text-lg font-semibold text-text-primary">{t("title")}</h1>
           <div className="flex items-center gap-3">
             {/* Tab Switch */}
             <div className="flex gap-1 rounded-lg bg-surface-2 p-1">
@@ -419,7 +421,7 @@ export function EnvironmentsPage() {
                 }`}
                 onClick={() => setEnvTab("environments")}
               >
-                智能体
+                {t("tabs.environments")}
               </button>
               <button
                 type="button"
@@ -430,7 +432,7 @@ export function EnvironmentsPage() {
                 }`}
                 onClick={() => setEnvTab("subagents")}
               >
-                智能体模板
+                {t("tabs.subagents")}
               </button>
             </div>
             {/* View Toggle */}
@@ -444,7 +446,7 @@ export function EnvironmentsPage() {
                       : "text-text-dim hover:text-text-primary"
                   }`}
                   onClick={() => setViewMode("table")}
-                  title="列表视图"
+                  title={t("viewToggle.tableView")}
                 >
                   <List className="h-3.5 w-3.5" />
                 </button>
@@ -456,7 +458,7 @@ export function EnvironmentsPage() {
                       : "text-text-dim hover:text-text-primary"
                   }`}
                   onClick={() => setViewMode("card")}
-                  title="卡片视图"
+                  title={t("viewToggle.cardView")}
                 >
                   <LayoutGrid className="h-3.5 w-3.5" />
                 </button>
@@ -465,7 +467,7 @@ export function EnvironmentsPage() {
             {envTab === "environments" && (
               <Button onClick={openCreateDialog} size="sm">
                 <Plus className="mr-1 h-4 w-4" />
-                创建智能体
+                {t("actions.create")}
               </Button>
             )}
           </div>
@@ -480,8 +482,8 @@ export function EnvironmentsPage() {
             className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-surface-1/50 px-6 py-16 text-text-muted transition-colors hover:border-brand/40 hover:bg-brand/5 cursor-pointer"
           >
             <Bot className="mb-3 h-10 w-10 opacity-40" />
-            <span className="text-sm font-medium">创建第一个智能体</span>
-            <span className="mt-1 text-xs opacity-60">配置工作目录和 Agent 类型，即可开始对话</span>
+            <span className="text-sm font-medium">{t("empty.createFirst")}</span>
+            <span className="mt-1 text-xs opacity-60">{t("empty.createHint")}</span>
           </button>
         ) : viewMode === "table" ? (
           /* ===== TABLE VIEW ===== */
@@ -502,11 +504,13 @@ export function EnvironmentsPage() {
                       />
                       <span className="truncate text-sm font-medium text-text-primary">{env.name}</span>
                       {env.auto_start && (
-                        <span className="rounded bg-brand/10 px-1 py-0.5 text-[10px] font-medium text-brand">自启</span>
+                        <span className="rounded bg-brand/10 px-1 py-0.5 text-[10px] font-medium text-brand">
+                          {t("card.autoStart")}
+                        </span>
                       )}
                       {env.instances_count !== undefined && env.instances_count > 1 && (
                         <span className="rounded bg-emerald-500/10 px-1 py-0.5 text-[10px] font-medium text-emerald-600">
-                          实例 x{env.instances_count}
+                          {t("card.instanceCount", { count: env.instances_count })}
                         </span>
                       )}
                     </div>
@@ -516,7 +520,7 @@ export function EnvironmentsPage() {
                         size="sm"
                         className="h-7 w-7 p-0"
                         onClick={() => openEditDialog(env)}
-                        title="编辑"
+                        title={t("actions.edit")}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -525,7 +529,7 @@ export function EnvironmentsPage() {
                         size="sm"
                         className="h-7 w-7 p-0"
                         onClick={() => handleViewSecret(env.id)}
-                        title="查看 Secret"
+                        title={t("actions.viewSecret")}
                       >
                         <svg
                           className="h-3.5 w-3.5"
@@ -547,7 +551,7 @@ export function EnvironmentsPage() {
                           className="h-7 w-7 p-0 text-brand hover:text-brand/80"
                           disabled={refreshingEnvId === env.id}
                           onClick={() => handleRefresh(env)}
-                          title="重启实例"
+                          title={t("actions.restartInstance")}
                         >
                           <RotateCw className={`h-3.5 w-3.5 ${refreshingEnvId === env.id ? "animate-spin" : ""}`} />
                         </Button>
@@ -567,7 +571,7 @@ export function EnvironmentsPage() {
                             });
                             setStopConfirmOpen(true);
                           }}
-                          title="停止实例"
+                          title={t("actions.stopInstance")}
                         >
                           <Power className="h-3.5 w-3.5" />
                         </Button>
@@ -580,7 +584,7 @@ export function EnvironmentsPage() {
                           setDeleteTarget(env.id);
                           setConfirmOpen(true);
                         }}
-                        title="删除"
+                        title={t("actions.delete")}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -623,10 +627,10 @@ export function EnvironmentsPage() {
                           {entering ? (
                             <>
                               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                              启动中...
+                              {t("buttons.starting")}
                             </>
                           ) : (
-                            "启动并进入"
+                            t("buttons.startAndEnter")
                           )}
                         </Button>
                       );
@@ -643,10 +647,10 @@ export function EnvironmentsPage() {
                           {entering ? (
                             <>
                               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                              启动中...
+                              {t("buttons.starting")}
                             </>
                           ) : (
-                            "进入对话"
+                            t("buttons.enterChat")
                           )}
                         </Button>
                         <DropdownMenu>
@@ -664,14 +668,14 @@ export function EnvironmentsPage() {
                                 <span
                                   className={`inline-block h-2 w-2 rounded-full mr-2 ${inst.status === "running" ? "bg-green-500" : "bg-yellow-500"}`}
                                 />
-                                <span>实例 {inst.instance_number}</span>
+                                <span>{t("table.instanceLabel", { number: inst.instance_number })}</span>
                                 <span className="ml-auto text-xs text-muted-foreground">{inst.status}</span>
                               </DropdownMenuItem>
                             ))}
                             {activeInstances.length > 0 && <DropdownMenuSeparator />}
                             <DropdownMenuItem onClick={() => handleSpawnNewInstance(env)}>
                               <Plus className="h-3.5 w-3.5 mr-1" />
-                              <span>新建实例</span>
+                              <span>{t("buttons.newInstance")}</span>
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -726,13 +730,17 @@ export function EnvironmentsPage() {
                     <div className="grid grid-cols-2 gap-2">
                       <div className="rounded-lg bg-surface-0 p-2 text-center">
                         <div className="font-mono text-base font-bold text-text-bright">{instanceCount}</div>
-                        <div className="mt-0.5 text-[10px] uppercase tracking-wide text-text-dim">会话</div>
+                        <div className="mt-0.5 text-[10px] uppercase tracking-wide text-text-dim">
+                          {t("card.sessions")}
+                        </div>
                       </div>
                       <div className="rounded-lg bg-surface-0 p-2 text-center">
                         <div className="font-mono text-base font-bold text-text-bright">
                           {online ? (env.instances_count ?? 1) : 0}
                         </div>
-                        <div className="mt-0.5 text-[10px] uppercase tracking-wide text-text-dim">实例</div>
+                        <div className="mt-0.5 text-[10px] uppercase tracking-wide text-text-dim">
+                          {t("card.instances")}
+                        </div>
                       </div>
                     </div>
                     {/* Description */}
@@ -752,7 +760,7 @@ export function EnvironmentsPage() {
                           size="sm"
                           className="h-6 w-6 p-0"
                           onClick={() => openEditDialog(env)}
-                          title="编辑"
+                          title={t("actions.edit")}
                         >
                           <Pencil className="h-3 w-3" />
                         </Button>
@@ -763,7 +771,7 @@ export function EnvironmentsPage() {
                             className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
                             disabled={refreshingEnvId === env.id}
                             onClick={() => handleRefresh(env)}
-                            title="重试"
+                            title={t("actions.retry")}
                           >
                             <RefreshCw className={`h-3 w-3 ${refreshingEnvId === env.id ? "animate-spin" : ""}`} />
                           </Button>
@@ -781,7 +789,7 @@ export function EnvironmentsPage() {
                           size="sm"
                           className="h-6 w-6 p-0"
                           onClick={() => handleEnterAgent(env)}
-                          title={online ? "进入对话" : "启动并进入"}
+                          title={online ? t("buttons.enterChat") : t("buttons.startAndEnter")}
                         >
                           <ArrowRight className="h-3.5 w-3.5" />
                         </Button>
@@ -798,11 +806,11 @@ export function EnvironmentsPage() {
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingEnv ? "编辑智能体" : "创建智能体"}</DialogTitle>
+              <DialogTitle>{editingEnv ? t("form.editTitle") : t("form.createTitle")}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="name">名称</Label>
+                <Label htmlFor="name">{t("form.name")}</Label>
                 <Input
                   id="name"
                   value={formName}
@@ -811,16 +819,16 @@ export function EnvironmentsPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="description">描述</Label>
+                <Label htmlFor="description">{t("form.description")}</Label>
                 <Input
                   id="description"
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="可选"
+                  placeholder={t("form.description")}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="workspacePath">Workspace 路径</Label>
+                <Label htmlFor="workspacePath">{t("form.workspacePath")}</Label>
                 <Input
                   id="workspacePath"
                   value={formWorkspacePath}
@@ -829,10 +837,10 @@ export function EnvironmentsPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="agentName">关联 Agent</Label>
+                <Label htmlFor="agentName">{t("form.agentName")}</Label>
                 <Select value={formAgentConfigId} onValueChange={setFormAgentConfigId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="选择 Agent（可选）" />
+                    <SelectValue placeholder={t("form.selectAgent")} />
                   </SelectTrigger>
                   <SelectContent>
                     {agentOptions.map((opt) => (
@@ -865,16 +873,16 @@ export function EnvironmentsPage() {
                     </svg>
                   )}
                 </span>
-                <span className="text-sm text-text-primary cursor-pointer">服务器启动时自动运行</span>
+                <span className="text-sm text-text-primary cursor-pointer">{t("form.autoStartLabel")}</span>
               </button>
             </div>
             {formError && <p className="text-sm text-status-error px-1">{formError}</p>}
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                取消
+                {t("form.cancel")}
               </Button>
               <Button onClick={handleFormSubmit} disabled={formSaving}>
-                {formSaving ? "保存中..." : editingEnv ? "更新" : "创建"}
+                {formSaving ? t("form.saving") : editingEnv ? t("form.update") : t("form.create")}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -884,10 +892,10 @@ export function EnvironmentsPage() {
         <Dialog open={secretDialogOpen} onOpenChange={setSecretDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>智能体 Secret</DialogTitle>
+              <DialogTitle>{t("secret.title")}</DialogTitle>
             </DialogHeader>
             <div className="py-4">
-              <p className="mb-2 text-sm text-amber-600 font-medium">请立即保存此 Secret，关闭后将无法再次查看</p>
+              <p className="mb-2 text-sm text-amber-600 font-medium">{t("secret.warning")}</p>
               <div className="flex items-center gap-2 rounded-md bg-gray-100 p-3 font-mono text-sm break-all dark:bg-gray-800">
                 <span className="flex-1">{currentSecret}</span>
                 <Button
@@ -902,12 +910,12 @@ export function EnvironmentsPage() {
                   }}
                   className={secretCopied ? "border-status-active/30 text-status-active" : ""}
                 >
-                  {secretCopied ? "已复制!" : "复制"}
+                  {secretCopied ? t("secret.copied") : t("secret.copy")}
                 </Button>
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={() => setSecretDialogOpen(false)}>关闭</Button>
+              <Button onClick={() => setSecretDialogOpen(false)}>{t("secret.close")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -916,8 +924,8 @@ export function EnvironmentsPage() {
         <ConfirmDialog
           open={confirmOpen}
           onOpenChange={setConfirmOpen}
-          title="确认删除"
-          description="确定要删除此智能体吗？此操作不可撤销。"
+          title={t("confirm.deleteTitle")}
+          description={t("confirm.deleteDescription")}
           onConfirm={handleDelete}
         />
 
@@ -928,8 +936,8 @@ export function EnvironmentsPage() {
             setStopConfirmOpen(open);
             if (!open) setStopTarget(null);
           }}
-          title="确认停止实例"
-          description={`确定要停止智能体「${stopTarget?.envName ?? ""}」的运行实例吗？正在进行的对话将被中断。`}
+          title={t("confirm.stopTitle")}
+          description={t("confirm.stopDescription", { name: stopTarget?.envName ?? "" })}
           variant="destructive"
           onConfirm={confirmStopInstance}
         />

@@ -33,9 +33,7 @@ describe("loadOrgContext", () => {
   test("loadOrgContext returns context when activeOrgId matches membership", async () => {
     const { loadOrgContext } = await import("../services/org-context");
     const { auth } = await import("../auth/better-auth");
-    (auth.api.listMembers as any).mockImplementationOnce(async () => [
-      { userId: "user_1", role: "owner" },
-    ]);
+    (auth.api.listMembers as any).mockImplementationOnce(async () => [{ userId: "user_1", role: "owner" }]);
     const req = new Request("http://localhost/web/test", {
       headers: { "x-active-org-id": "org_1" },
     });
@@ -60,9 +58,7 @@ describe("org-context cache", () => {
     const { auth } = await import("../auth/better-auth");
 
     // 第一次调用：查 DB
-    (auth.api.listMembers as any).mockImplementationOnce(async () => [
-      { userId: "user_cache", role: "admin" },
-    ]);
+    (auth.api.listMembers as any).mockImplementationOnce(async () => [{ userId: "user_cache", role: "admin" }]);
     const req = new Request("http://localhost/web/test", {
       headers: { "x-active-org-id": "org_cached" },
     });

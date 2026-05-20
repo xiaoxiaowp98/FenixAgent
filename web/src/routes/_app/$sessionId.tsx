@@ -12,12 +12,7 @@ function SessionRoute() {
   const search = Route.useSearch<{ cwd?: string; agentId?: string }>();
   return (
     <Suspense>
-      <SessionDetail
-        key={sessionId}
-        sessionId={sessionId}
-        agentId={search.agentId}
-        initialCwd={search.cwd}
-      />
+      <SessionDetail key={sessionId} sessionId={sessionId} agentId={search.agentId} initialCwd={search.cwd} />
     </Suspense>
   );
 }

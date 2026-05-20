@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Inbox, Loader, RefreshCw, RotateCcw, Star, Clock } from "lucide-react";
 import { workflowDefApi, type WorkflowVersionItem, type WorkflowDefItem } from "../../api/workflow-defs";
@@ -8,6 +9,7 @@ interface WorkflowVersionsProps {
 }
 
 export function WorkflowVersions({ workflowId }: WorkflowVersionsProps) {
+  const { t } = useTranslation("workflows");
   const [wf, setWf] = useState<WorkflowDefItem | null>(null);
   const [versions, setVersions] = useState<WorkflowVersionItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,30 +41,30 @@ export function WorkflowVersions({ workflowId }: WorkflowVersionsProps) {
 
   const handleSetLatest = useCallback(
     async (version: number) => {
-      if (!confirm(`确定将 latest 指向 v${version}？`)) return;
+      if (!confirm(t("versions.set_latest_confirm", { version }))) return;
       try {
         await workflowDefApi.setLatest(workflowId, version);
         loadData();
       } catch (err) {
         console.error(err);
-        alert("操作失败: " + (err as Error).message);
+        alert(t("versions.operation_failed") + ": " + (err as Error).message);
       }
     },
-    [workflowId, loadData],
+    [workflowId, loadData, t],
   );
 
   const handleRestoreToDraft = useCallback(
     async (version: number) => {
-      if (!confirm(`将 v${version} 的内容恢复到草稿？当前草稿将被覆盖。`)) return;
+      if (!confirm(t("versions.restore_confirm", { version }))) return;
       try {
         await workflowDefApi.restoreToDraft(workflowId, version);
-        alert("已恢复到草稿");
+        alert(t("versions.restore_success"));
       } catch (err) {
         console.error(err);
-        alert("恢复失败: " + (err as Error).message);
+        alert(t("versions.restore_failed") + ": " + (err as Error).message);
       }
     },
-    [workflowId],
+    [workflowId, t],
   );
 
   const handleViewYaml = useCallback(
@@ -78,19 +80,19 @@ export function WorkflowVersions({ workflowId }: WorkflowVersionsProps) {
         setViewingYaml(result.yaml);
       } catch (err) {
         console.error(err);
-        alert("加载失败: " + (err as Error).message);
+        alert(t("versions.yaml_load_failed") + ": " + (err as Error).message);
       }
     },
-    [workflowId, viewingVersion],
+    [workflowId, viewingVersion, t],
   );
 
   function relativeTime(iso?: string | null): string {
     if (!iso) return "--";
     const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-    if (diff < 60) return "刚刚";
-    if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
-    if (diff < 86400) return `${Math.floor(diff / 86400)} 天前`;
-    return new Date(iso).toLocaleDateString("zh-CN");
+    if (diff < 60) return t("versions.relative_now");
+    if (diff < 3600) return t("versions.relative_minutes", { count: Math.floor(diff / 60) });
+    if (diff < 86400) return t("versions.relative_days", { count: Math.floor(diff / 86400) });
+    return new Date(iso).toLocaleDateString();
   }
 
   return (
@@ -98,7 +100,7 @@ export function WorkflowVersions({ workflowId }: WorkflowVersionsProps) {
       {/* 标题 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <h1 style={{ fontSize: 18, fontWeight: 600, color: "#111827", margin: 0 }}>
-          版本历史{wf ? ` — ${wf.name}` : ""}
+          {wf ? t("versions.title", { name: wf.name }) : t("versions.title", { name: "" })}
         </h1>
         <button
           type="button"
@@ -116,7 +118,7 @@ export function WorkflowVersions({ workflowId }: WorkflowVersionsProps) {
             cursor: "pointer",
           }}
         >
-          <RefreshCw size={13} /> 刷新
+          <RefreshCw size={13} /> {t("versions.refresh")}
         </button>
       </div>
 
@@ -136,14 +138,11 @@ export function WorkflowVersions({ workflowId }: WorkflowVersionsProps) {
           }}
         >
           <span>
-            latest:{" "}
-            <strong style={{ color: wf.latestVersion ? "#22c55e" : "#9ca3af" }}>
-              {wf.latestVersion ? `v${wf.latestVersion}` : "未设置"}
-            </strong>
+            {t("versions.latest_label", {
+              value: wf.latestVersion ? `v${wf.latestVersion}` : t("versions.latest_not_set"),
+            })}
           </span>
-          <span>
-            发布版本数: <strong>{versions.length}</strong>
-          </span>
+          <span>{t("versions.published_count", { count: versions.length })}</span>
         </div>
       )}
 
@@ -151,18 +150,18 @@ export function WorkflowVersions({ workflowId }: WorkflowVersionsProps) {
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "#9ca3af", fontSize: 13 }}>
           <Loader size={20} style={{ animation: "spin 1s linear infinite", display: "inline-block" }} />
-          <p style={{ marginTop: 8 }}>加载中...</p>
+          <p style={{ marginTop: 8 }}>{t("versions.loading")}</p>
         </div>
       ) : error ? (
         <div style={{ textAlign: "center", padding: 40 }}>
           <AlertTriangle size={32} style={{ color: "#ef4444", margin: "0 auto 8px" }} />
-          <p style={{ fontSize: 13, color: "#6b7280" }}>加载失败: {error}</p>
+          <p style={{ fontSize: 13, color: "#6b7280" }}>{t("versions.load_failed", { error })}</p>
         </div>
       ) : versions.length === 0 ? (
         <div style={{ textAlign: "center", padding: 40 }}>
           <Inbox size={32} style={{ color: "#d1d5db", margin: "0 auto 8px" }} />
-          <p style={{ fontSize: 13, color: "#9ca3af", fontWeight: 500 }}>暂无发布版本</p>
-          <p style={{ fontSize: 11, color: "#d1d5db", marginTop: 4 }}>在编辑器中点击「发布」创建第一个版本</p>
+          <p style={{ fontSize: 13, color: "#9ca3af", fontWeight: 500 }}>{t("versions.no_versions")}</p>
+          <p style={{ fontSize: 11, color: "#d1d5db", marginTop: 4 }}>{t("versions.no_versions_hint")}</p>
         </div>
       ) : (
         <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
@@ -210,7 +209,7 @@ export function WorkflowVersions({ workflowId }: WorkflowVersionsProps) {
                         borderRadius: 99,
                       }}
                     >
-                      <Star size={10} /> latest
+                      <Star size={10} /> {t("versions.latest")}
                     </span>
                   )}
 
@@ -225,7 +224,7 @@ export function WorkflowVersions({ workflowId }: WorkflowVersionsProps) {
                     {!isLatest && (
                       <button
                         type="button"
-                        title="设为 latest"
+                        title={t("versions.set_latest")}
                         onClick={() => handleSetLatest(v.version)}
                         style={{
                           display: "flex",
@@ -240,12 +239,12 @@ export function WorkflowVersions({ workflowId }: WorkflowVersionsProps) {
                           cursor: "pointer",
                         }}
                       >
-                        <Star size={10} /> 设为 latest
+                        <Star size={10} /> {t("versions.set_latest")}
                       </button>
                     )}
                     <button
                       type="button"
-                      title="恢复到草稿"
+                      title={t("versions.restore_to_draft")}
                       onClick={() => handleRestoreToDraft(v.version)}
                       style={{
                         display: "flex",
@@ -260,7 +259,7 @@ export function WorkflowVersions({ workflowId }: WorkflowVersionsProps) {
                         cursor: "pointer",
                       }}
                     >
-                      <RotateCcw size={10} /> 恢复到草稿
+                      <RotateCcw size={10} /> {t("versions.restore_to_draft")}
                     </button>
                   </div>
                 </div>

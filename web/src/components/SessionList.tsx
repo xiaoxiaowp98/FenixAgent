@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { esc, formatTime } from "../lib/utils";
 import type { Session } from "../types";
 import { StatusBadge } from "./Navbar";
@@ -8,10 +9,12 @@ interface SessionListProps {
 }
 
 export function SessionList({ sessions, onSelect }: SessionListProps) {
+  const { t } = useTranslation("components");
+
   if (!sessions || sessions.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-surface-1 px-4 py-8 text-center text-text-muted text-sm">
-        暂无会话
+        {t("sessionList.noSessions")}
       </div>
     );
   }

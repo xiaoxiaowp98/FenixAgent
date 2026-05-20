@@ -1,10 +1,12 @@
 import { Bot, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ACPMain } from "../../../components/ACPMain";
 import { TooltipProvider } from "../../../components/ui/tooltip";
 import { ACPClient, DisconnectRequestedError } from "../../acp/client";
 import { createRelayClient } from "../../acp/relay-client";
 import type { ConnectionState } from "../../acp/types";
+import { NS } from "../../i18n";
 
 interface ChatPanelProps {
   agentId: string | null;
@@ -23,6 +25,7 @@ export function ChatPanel({
   onClientChange,
   scenePrompt,
 }: ChatPanelProps) {
+  const { t } = useTranslation(NS.AGENT_PANEL);
   const [client, setClient] = useState<ACPClient | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
   const [error, setError] = useState<string | null>(null);
@@ -68,8 +71,8 @@ export function ChatPanel({
     return (
       <div className="agent-welcome-empty">
         <Bot className="h-16 w-16" />
-        <p className="title">选择一个智能体实例</p>
-        <p className="desc">从左侧边栏选择一个智能体实例开始对话</p>
+        <p className="title">{t("selectAgent")}</p>
+        <p className="desc">{t("selectAgentDesc")}</p>
       </div>
     );
   }
@@ -79,7 +82,7 @@ export function ChatPanel({
     return (
       <div className="agent-welcome-empty">
         <Loader2 className="h-8 w-8 animate-spin text-brand" />
-        <p className="title">正在连接 Agent...</p>
+        <p className="title">{t("connectingAgent")}</p>
       </div>
     );
   }
@@ -88,8 +91,8 @@ export function ChatPanel({
   if ((connectionState === "error" || connectionState === "disconnected") && !client) {
     return (
       <div className="agent-welcome-empty">
-        <p className="title">Agent 未连接</p>
-        <p className="desc">{error || "Agent 尚未上线，请确保 acp-link 已启动"}</p>
+        <p className="title">{t("agentDisconnected")}</p>
+        <p className="desc">{error || t("agentOfflineDesc")}</p>
       </div>
     );
   }
@@ -114,7 +117,7 @@ export function ChatPanel({
   return (
     <div className="agent-welcome-empty">
       <Loader2 className="h-8 w-8 animate-spin text-brand" />
-      <p className="title">正在连接...</p>
+      <p className="title">{t("connecting")}</p>
     </div>
   );
 }

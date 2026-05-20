@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { AgentSidebar } from "./AgentSidebar";
 import { ChatPanel } from "./ChatPanel";
 import { ArtifactsPanel } from "./ArtifactsPanel";
@@ -13,6 +14,7 @@ interface AgentAppShellProps {
 
 export function AgentAppShell({ agentId, sessionId }: AgentAppShellProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation("agentPanel");
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(agentId);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionId ?? null);
@@ -98,7 +100,7 @@ export function AgentAppShell({ agentId, sessionId }: AgentAppShellProps) {
           type="button"
           className="agent-artifacts-expand-btn"
           onClick={() => setArtifactsCollapsed(false)}
-          title="显示内容面板"
+          title={t("showArtifacts")}
         >
           <ChevronRight className="h-4 w-4" />
         </button>

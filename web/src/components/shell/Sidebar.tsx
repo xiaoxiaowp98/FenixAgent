@@ -16,6 +16,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { OrgSwitcher } from "../OrgSwitcher";
 
 /* ------------------------------------------------------------------ */
@@ -40,32 +41,8 @@ interface NavGroup {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Navigation definition                                              */
+/*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: "控制台",
-    items: [
-      { id: "dashboard", label: "概览", icon: Monitor, to: "/" },
-      { id: "workflow", label: "智能体编排", icon: Workflow, to: "/workflow" },
-      { id: "environments", label: "智能体", icon: Bot, to: "/environments" },
-      { id: "models", label: "模型", icon: Cpu, to: "/models" },
-      { id: "session", label: "会话", icon: MessageSquare },
-    ],
-  },
-  {
-    label: "配置",
-    items: [
-      { id: "skills", label: "技能", icon: Settings, to: "/skills" },
-      { id: "knowledge-bases", label: "知识库", icon: BookOpen, to: "/knowledge-bases" },
-      { id: "mcp", label: "MCP", icon: Plug, to: "/mcp" },
-      { id: "tasks", label: "定时任务", icon: Clock, to: "/tasks" },
-      { id: "channels", label: "消息渠道", icon: Radio, to: "/channels" },
-      { id: "apikeys", label: "API Key", icon: KeyRound, to: "/apikeys" },
-    ],
-  },
-];
 
 const CONFIG_PAGES = [
   "models",
@@ -97,6 +74,31 @@ function getActiveNavId(pathname: string): string {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const currentPage = getActiveNavId(pathname);
+  const { t } = useTranslation("sidebar");
+
+  const navGroups: NavGroup[] = [
+    {
+      label: t("console"),
+      items: [
+        { id: "dashboard", label: t("overview"), icon: Monitor, to: "/" },
+        { id: "workflow", label: t("workflow"), icon: Workflow, to: "/workflow" },
+        { id: "environments", label: t("agents"), icon: Bot, to: "/environments" },
+        { id: "models", label: t("models"), icon: Cpu, to: "/models" },
+        { id: "session", label: t("sessions"), icon: MessageSquare },
+      ],
+    },
+    {
+      label: t("config"),
+      items: [
+        { id: "skills", label: t("skills"), icon: Settings, to: "/skills" },
+        { id: "knowledge-bases", label: t("knowledge"), icon: BookOpen, to: "/knowledge-bases" },
+        { id: "mcp", label: t("mcp"), icon: Plug, to: "/mcp" },
+        { id: "tasks", label: t("tasks"), icon: Clock, to: "/tasks" },
+        { id: "channels", label: t("channels"), icon: Radio, to: "/channels" },
+        { id: "apikeys", label: t("apiKeys"), icon: KeyRound, to: "/apikeys" },
+      ],
+    },
+  ];
 
   return (
     <aside
@@ -153,7 +155,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             "transition-all duration-150",
             "hover:bg-surface-hover hover:text-text-primary",
           ].join(" ")}
-          title={collapsed ? "展开侧栏" : "收起侧栏"}
+          title={collapsed ? t("expand") : t("collapse")}
         >
           {collapsed ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
         </button>
@@ -161,7 +163,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* ---- Navigation ---- */}
       <nav className="flex-1 py-2 overflow-y-auto overflow-x-hidden">
-        {NAV_GROUPS.map((group) => (
+        {navGroups.map((group) => (
           <div key={group.label}>
             <div
               className={[
@@ -211,9 +213,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 collapsed
                   ? "justify-center gap-0 px-0 py-2 mx-1.5 rounded-lg"
                   : "gap-2.5 px-3 py-2 mx-2 rounded-[var(--radius)]",
-                isActive
-                  ? "bg-brand-subtle text-brand-light"
-                  : "hover:bg-surface-hover hover:text-text-primary",
+                isActive ? "bg-brand-subtle text-brand-light" : "hover:bg-surface-hover hover:text-text-primary",
               ].join(" ");
 
               return item.to ? (
@@ -240,7 +240,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
         <Link
           to="/organizations"
-          title={collapsed ? "组织" : undefined}
+          title={collapsed ? t("organizations") : undefined}
           className={[
             "relative flex items-center w-full",
             "text-[13px] font-medium cursor-pointer",
@@ -268,7 +268,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               collapsed ? "opacity-0 w-0" : "opacity-100",
             ].join(" ")}
           >
-            组织
+            {t("organizations")}
           </span>
         </Link>
       </div>

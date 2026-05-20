@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
 import { type Column, DataTable } from "@/components/config/DataTable";
@@ -19,7 +20,7 @@ import type {
 
 export async function loadKnowledgeBasesData() {
   const { data, error } = await client.web.knowledgeBases.get();
-  if (error) throw new Error(error.message ?? "加载知识库失败");
+  if (error) throw new Error(error.message ?? "Failed to load knowledge bases");
   return data as unknown as KnowledgeBaseInfo[];
 }
 
@@ -28,8 +29,8 @@ export async function loadKnowledgeBaseDetailData(knowledgeBaseId: string) {
     client.web.knowledgeBases[knowledgeBaseId].get(),
     client.web.knowledgeBases[knowledgeBaseId].resources.get(),
   ]);
-  if (detailRes.error) throw new Error(detailRes.error.message ?? "加载知识库详情失败");
-  if (resourcesRes.error) throw new Error(resourcesRes.error.message ?? "加载资源列表失败");
+  if (detailRes.error) throw new Error(detailRes.error.message ?? "Failed to load knowledge base details");
+  if (resourcesRes.error) throw new Error(resourcesRes.error.message ?? "Failed to load resources");
   const detail = (detailRes.data ?? {}) as Record<string, unknown>;
   const resources = Array.isArray(resourcesRes.data) ? (resourcesRes.data as unknown as KnowledgeResourceInfo[]) : [];
   return { detail, resources };
@@ -56,10 +57,11 @@ export function summarizeKnowledgeDetail(detail: KnowledgeBaseDetail, resources:
 
 function formatTimestamp(timestamp: number | null | undefined): string {
   if (!timestamp) return "—";
-  return new Date(timestamp * 1000).toLocaleString("zh-CN");
+  return new Date(timestamp * 1000).toLocaleString();
 }
 
 export function KnowledgeBasesPage() {
+  const { t } = useTranslation("knowledge");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<KnowledgeBaseInfo[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -89,26 +91,29 @@ export function KnowledgeBasesPage() {
       const nextId = selectedId && list.some((item) => item.id === selectedId) ? selectedId : (list[0]?.id ?? null);
       setSelectedId(nextId);
     } catch (error) {
-      console.error("加载知识库失败", error);
-      toast.error(`加载知识库失败: ${error instanceof Error ? error.message : "未知错误"}`);
+      console.error(t("loadFailed"), error);
+      toast.error(`${t("loadFailed")}: ${error instanceof Error ? error.message : t("saveFailed")}`);
     } finally {
       setLoading(false);
     }
-  }, [selectedId]);
+  }, [selectedId, t]);
 
-  const loadDetail = useCallback(async (knowledgeBaseId: string) => {
-    setDetailLoading(true);
-    try {
-      const data = await loadKnowledgeBaseDetailData(knowledgeBaseId);
-      setSelectedDetail(data.detail);
-      setResources(data.resources);
-    } catch (error) {
-      console.error("加载知识库详情失败", error);
-      toast.error(`加载知识库详情失败: ${error instanceof Error ? error.message : "未知错误"}`);
-    } finally {
-      setDetailLoading(false);
-    }
-  }, []);
+  const loadDetail = useCallback(
+    async (knowledgeBaseId: string) => {
+      setDetailLoading(true);
+      try {
+        const data = await loadKnowledgeBaseDetailData(knowledgeBaseId);
+        setSelectedDetail(data.detail);
+        setResources(data.resources);
+      } catch (error) {
+        console.error(t("loadDetailFailed"), error);
+        toast.error(`${t("loadDetailFailed")}: ${error instanceof Error ? error.message : t("saveFailed")}`);
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    [t],
+  );
 
   useEffect(() => {
     loadItems();
@@ -124,21 +129,21 @@ export function KnowledgeBasesPage() {
   }, [selectedId, loadDetail]);
 
   const columns: Column<KnowledgeBaseInfo>[] = [
-    { key: "name", header: "名称", sortable: true, filterable: true },
+    { key: "name", header: t("columns.name"), sortable: true, filterable: true },
     {
       key: "status",
-      header: "状态",
+      header: t("columns.status"),
       filterable: true,
       render: (row) => <StatusBadge status={row.status} />,
     },
-    { key: "resourcesCount", header: "资源数", sortable: true },
+    { key: "resourcesCount", header: t("columns.resourcesCount"), sortable: true },
     {
       key: "updatedAt",
-      header: "最近更新时间",
+      header: t("columns.updatedAt"),
       sortable: true,
       render: (row) => formatTimestamp(row.updatedAt),
     },
-    { key: "bindingsCount", header: "绑定Agent数", sortable: true },
+    { key: "bindingsCount", header: t("columns.bindingsCount"), sortable: true },
   ];
 
   const handleOpenCreate = () => {
@@ -160,7 +165,7 @@ export function KnowledgeBasesPage() {
 
   const handleSave = async () => {
     if (!formName.trim() || !formSlug.trim()) {
-      toast.error("名称和 slug 为必填项");
+      toast.error(t("nameAndSlugRequired"));
       return;
     }
     setSaving(true);
@@ -171,22 +176,22 @@ export function KnowledgeBasesPage() {
           slug: formSlug.trim(),
           description: formDescription.trim() || null,
         });
-        if (err) throw new Error(err.message ?? "更新失败");
-        toast.success("知识库已更新");
+        if (err) throw new Error(err.message ?? t("updateFailed"));
+        toast.success(t("knowledgeBaseUpdated"));
       } else {
         const { error: err } = await client.web.knowledgeBases.post({
           name: formName.trim(),
           slug: formSlug.trim(),
           description: formDescription.trim() || undefined,
         });
-        if (err) throw new Error(err.message ?? "创建失败");
-        toast.success("知识库已创建");
+        if (err) throw new Error(err.message ?? t("createFailed"));
+        toast.success(t("knowledgeBaseCreated"));
       }
       setDialogOpen(false);
       await loadItems();
     } catch (error) {
-      console.error("保存知识库失败", error);
-      toast.error(`保存失败: ${error instanceof Error ? error.message : "未知错误"}`);
+      console.error(t("saveFailed"), error);
+      toast.error(`${t("saveFailed")}: ${error instanceof Error ? error.message : t("saveFailed")}`);
     } finally {
       setSaving(false);
     }
@@ -196,16 +201,16 @@ export function KnowledgeBasesPage() {
     if (!deleteTarget) return;
     try {
       const { error: err } = await client.web.knowledgeBases[deleteTarget.id].delete();
-      if (err) throw new Error(err.message ?? "删除失败");
-      toast.success("知识库已删除");
+      if (err) throw new Error(err.message ?? t("deleteFailed"));
+      toast.success(t("knowledgeBaseDeleted"));
       setConfirmOpen(false);
       if (selectedId === deleteTarget.id) {
         setSelectedId(null);
       }
       await loadItems();
     } catch (error) {
-      console.error("删除知识库失败", error);
-      toast.error(`删除失败: ${error instanceof Error ? error.message : "未知错误"}`);
+      console.error(t("deleteFailed"), error);
+      toast.error(`${t("deleteFailed")}: ${error instanceof Error ? error.message : t("saveFailed")}`);
     }
   };
 
@@ -216,12 +221,12 @@ export function KnowledgeBasesPage() {
     setUploading(true);
     try {
       await uploadKnowledgeBaseFiles(selectedId, files);
-      toast.success(`已上传 ${files.length} 个文件`);
+      toast.success(t("filesUploaded", { count: files.length }));
       await loadDetail(selectedId);
       await loadItems();
     } catch (error) {
-      console.error("上传文件失败", error);
-      toast.error(`上传失败: ${error instanceof Error ? error.message : "未知错误"}`);
+      console.error(t("uploadFailed"), error);
+      toast.error(`${t("uploadFailed")}: ${error instanceof Error ? error.message : t("saveFailed")}`);
     } finally {
       setUploading(false);
       event.target.value = "";
@@ -230,7 +235,7 @@ export function KnowledgeBasesPage() {
 
   const handleImportUrl = async () => {
     if (!selectedId || !urlValue.trim()) {
-      toast.error("请输入资源 URL");
+      toast.error(t("enterResourceUrl"));
       return;
     }
     setImportingUrl(true);
@@ -239,15 +244,15 @@ export function KnowledgeBasesPage() {
         url: urlValue.trim(),
         sourceName: urlSourceName.trim() || undefined,
       });
-      if (err) throw new Error(err.message ?? "导入失败");
-      toast.success("URL 资源已提交");
+      if (err) throw new Error(err.message ?? t("importFailed"));
+      toast.success(t("urlResourceSubmitted"));
       setUrlValue("");
       setUrlSourceName("");
       await loadDetail(selectedId);
       await loadItems();
     } catch (error) {
-      console.error("导入URL失败", error);
-      toast.error(`导入失败: ${error instanceof Error ? error.message : "未知错误"}`);
+      console.error(t("importFailed"), error);
+      toast.error(`${t("importFailed")}: ${error instanceof Error ? error.message : t("saveFailed")}`);
     } finally {
       setImportingUrl(false);
     }
@@ -258,13 +263,13 @@ export function KnowledgeBasesPage() {
     setDeletingResourceId(resourceId);
     try {
       const { error: err } = await client.web.knowledgeBases[selectedId].resources[resourceId].delete();
-      if (err) throw new Error(err.message ?? "删除资源失败");
-      toast.success("资源已删除");
+      if (err) throw new Error(err.message ?? t("deleteResourceFailed"));
+      toast.success(t("resourceDeleted"));
       await loadDetail(selectedId);
       await loadItems();
     } catch (error) {
-      console.error("删除资源失败", error);
-      toast.error(`删除资源失败: ${error instanceof Error ? error.message : "未知错误"}`);
+      console.error(t("deleteResourceFailed"), error);
+      toast.error(`${t("deleteResourceFailed")}: ${error instanceof Error ? error.message : t("saveFailed")}`);
     } finally {
       setDeletingResourceId(null);
     }
@@ -288,10 +293,10 @@ export function KnowledgeBasesPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-text-bright">知识库</h2>
-          <p className="mt-0.5 text-sm text-text-muted">管理知识库、查看资源状态并上传索引材料</p>
+          <h2 className="text-xl font-semibold text-text-bright">{t("title")}</h2>
+          <p className="mt-0.5 text-sm text-text-muted">{t("subtitle")}</p>
         </div>
-        <Button onClick={handleOpenCreate}>新建知识库</Button>
+        <Button onClick={handleOpenCreate}>{t("newKnowledgeBase")}</Button>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
@@ -300,8 +305,8 @@ export function KnowledgeBasesPage() {
             columns={columns}
             data={items}
             searchable
-            searchPlaceholder="搜索知识库..."
-            emptyMessage="暂无知识库"
+            searchPlaceholder={t("table.searchPlaceholder")}
+            emptyMessage={t("table.emptyMessage")}
             actions={(row) => (
               <div className="flex gap-1.5">
                 <Button
@@ -309,7 +314,7 @@ export function KnowledgeBasesPage() {
                   variant={row.id === selectedId ? "default" : "outline"}
                   onClick={() => setSelectedId(row.id)}
                 >
-                  详情
+                  {t("actions.detail")}
                 </Button>
                 <Button
                   size="xs"
@@ -319,7 +324,7 @@ export function KnowledgeBasesPage() {
                     setTimeout(() => fileInputRef.current?.click(), 0);
                   }}
                 >
-                  上传
+                  {t("actions.upload")}
                 </Button>
                 <Button
                   size="xs"
@@ -329,7 +334,7 @@ export function KnowledgeBasesPage() {
                     setConfirmOpen(true);
                   }}
                 >
-                  删除
+                  {t("actions.delete")}
                 </Button>
               </div>
             )}
@@ -348,60 +353,70 @@ export function KnowledgeBasesPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-semibold text-text-bright">{selectedDetail.name}</h3>
-                  <p className="text-xs text-text-muted">slug: {selectedDetail.slug}</p>
+                  <p className="text-xs text-text-muted">
+                    {t("detail.slug")}: {selectedDetail.slug}
+                  </p>
                 </div>
                 <Button size="sm" variant="outline" onClick={handleOpenEdit}>
-                  编辑
+                  {t("detail.edit")}
                 </Button>
               </div>
 
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
                   <StatusBadge status={selectedDetail.status} />
-                  <span className="text-text-muted">绑定 {selectedDetail.bindingsCount} 个 Agent</span>
+                  <span className="text-text-muted">
+                    {t("detail.boundAgents", { count: selectedDetail.bindingsCount })}
+                  </span>
                 </div>
-                <p className="text-text-secondary">{selectedDetail.description || "暂无描述"}</p>
+                <p className="text-text-secondary">{selectedDetail.description || t("detail.noDescription")}</p>
                 {detailSummary?.lastError && (
                   <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                    最近错误: {detailSummary.lastError}
+                    {t("detail.recentError")}: {detailSummary.lastError}
                   </div>
                 )}
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-text-bright">上传资源</span>
+                  <span className="text-sm font-medium text-text-bright">{t("detail.uploadResources")}</span>
                   <Button
                     size="sm"
                     variant="outline"
                     disabled={uploading}
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    {uploading ? "上传中..." : "选择文件"}
+                    {uploading ? t("detail.uploading") : t("detail.selectFile")}
                   </Button>
                 </div>
                 <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileChange} />
                 <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                  <Input value={urlValue} onChange={(e) => setUrlValue(e.target.value)} placeholder="导入 URL" />
+                  <Input
+                    value={urlValue}
+                    onChange={(e) => setUrlValue(e.target.value)}
+                    placeholder={t("detail.importUrlPlaceholder")}
+                  />
                   <Button size="sm" disabled={importingUrl} onClick={handleImportUrl}>
-                    {importingUrl ? "导入中..." : "导入 URL"}
+                    {importingUrl ? t("detail.importing") : t("detail.importUrl")}
                   </Button>
                 </div>
                 <Input
                   value={urlSourceName}
                   onChange={(e) => setUrlSourceName(e.target.value)}
-                  placeholder="可选：来源名称"
+                  placeholder={t("detail.sourceNamePlaceholder")}
                 />
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-text-bright">资源列表</span>
-                  <span className="text-xs text-text-muted">{detailSummary?.resourcesCount ?? 0} 个资源</span>
+                  <span className="text-sm font-medium text-text-bright">{t("detail.resourceList")}</span>
+                  <span className="text-xs text-text-muted">
+                    {t("detail.resourceCount", { count: detailSummary?.resourcesCount ?? 0 })}
+                  </span>
                 </div>
                 <div className="max-h-[320px] space-y-2 overflow-y-auto">
                   {resources.length === 0 ? (
-                    <p className="text-sm text-text-muted">暂无资源</p>
+                    <p className="text-sm text-text-muted">{t("detail.noResources")}</p>
                   ) : (
                     resources.map((resource) => (
                       <div key={resource.id} className="rounded-lg border border-border-subtle px-3 py-2">
@@ -415,7 +430,7 @@ export function KnowledgeBasesPage() {
                               disabled={deletingResourceId === resource.id}
                               onClick={() => void handleDeleteResource(resource.id)}
                             >
-                              {deletingResourceId === resource.id ? "删除中..." : "删除"}
+                              {deletingResourceId === resource.id ? t("detail.deleting") : t("detail.delete")}
                             </Button>
                           </div>
                         </div>
@@ -430,7 +445,7 @@ export function KnowledgeBasesPage() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-text-muted">选择左侧知识库查看详情</p>
+            <p className="text-sm text-text-muted">{t("detail.selectToView")}</p>
           )}
         </div>
       </div>
@@ -438,26 +453,34 @@ export function KnowledgeBasesPage() {
       <FormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        title={editingItem ? "编辑知识库" : "新建知识库"}
+        title={editingItem ? t("form.editTitle") : t("form.createTitle")}
         onSubmit={handleSave}
         loading={saving}
       >
         <div className="space-y-4">
           <div>
-            <Label>名称</Label>
-            <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="例如 项目文档" />
+            <Label>{t("form.name")}</Label>
+            <Input
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              placeholder={t("form.namePlaceholder")}
+            />
           </div>
           <div>
-            <Label>Slug</Label>
-            <Input value={formSlug} onChange={(e) => setFormSlug(e.target.value)} placeholder="例如 project-docs" />
+            <Label>{t("form.slug")}</Label>
+            <Input
+              value={formSlug}
+              onChange={(e) => setFormSlug(e.target.value)}
+              placeholder={t("form.slugPlaceholder")}
+            />
           </div>
           <div>
-            <Label>描述</Label>
+            <Label>{t("form.description")}</Label>
             <Textarea
               value={formDescription}
               onChange={(e) => setFormDescription(e.target.value)}
               rows={4}
-              placeholder="可选，简要描述知识库用途"
+              placeholder={t("form.descriptionPlaceholder")}
             />
           </div>
         </div>
@@ -466,8 +489,8 @@ export function KnowledgeBasesPage() {
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="确认删除知识库"
-        description={`确定删除知识库 "${deleteTarget?.name ?? ""}" 吗？`}
+        title={t("confirm.title")}
+        description={t("confirm.description", { name: deleteTarget?.name ?? "" })}
         variant="destructive"
         onConfirm={handleDelete}
       />

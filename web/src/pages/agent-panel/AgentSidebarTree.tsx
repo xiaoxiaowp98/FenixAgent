@@ -1,7 +1,9 @@
 import { Bot, Loader2, Power, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { client } from "../../api/client";
+import { NS } from "../../i18n";
 import type { Environment, EnvironmentInstance } from "../../types/index";
 
 interface AgentSidebarTreeProps {
@@ -11,6 +13,7 @@ interface AgentSidebarTreeProps {
 }
 
 export function AgentSidebarTree({ collapsed, selectedInstanceId, onSelectInstance }: AgentSidebarTreeProps) {
+  const { t } = useTranslation(NS.AGENT_PANEL);
   const [envs, setEnvs] = useState<Environment[]>([]);
   const [instancesMap, setInstancesMap] = useState<Record<string, EnvironmentInstance[]>>({});
   const [loading, setLoading] = useState(true);
@@ -73,11 +76,11 @@ export function AgentSidebarTree({ collapsed, selectedInstanceId, onSelectInstan
         await client.web.instances({ id: instanceId }).delete();
         await loadData();
       } catch (err) {
-        console.error("停止实例失败:", err);
-        toast.error(`停止实例失败: ${(err as Error).message}`);
+        console.error("Failed to stop instance:", err);
+        toast.error(t("stopInstanceFailed", { message: (err as Error).message }));
       }
     },
-    [loadData],
+    [loadData, t],
   );
 
   const handleEnterInstance = useCallback(
@@ -85,15 +88,15 @@ export function AgentSidebarTree({ collapsed, selectedInstanceId, onSelectInstan
       try {
         const body = instanceNumber !== undefined ? { instance_number: instanceNumber } : {};
         const { data, error: err } = await client.web.environments({ id: env.id }).enter.post(body);
-        if (err) throw new Error(err.message ?? "进入失败");
+        if (err) throw new Error(err.message ?? t("enterFailed"));
         const result = data as { session_id: string; instance_id: string; environment_id: string } | null;
         onSelectInstance(result?.instance_id ?? "", result?.environment_id ?? env.id, result?.session_id ?? null);
       } catch (err) {
-        console.error("进入实例失败:", err);
-        toast.error(`进入实例失败: ${(err as Error).message}`);
+        console.error("Failed to enter instance:", err);
+        toast.error(t("enterInstanceFailed", { message: (err as Error).message }));
       }
     },
-    [onSelectInstance],
+    [onSelectInstance, t],
   );
 
   if (loading) {
@@ -113,7 +116,7 @@ export function AgentSidebarTree({ collapsed, selectedInstanceId, onSelectInstan
                 <button
                   key={inst.id}
                   type="button"
-                  title={`实例 #${inst.instance_number}`}
+                  title={t("instanceN", { number: inst.instance_number })}
                   onClick={() => handleEnterInstance(env, inst.instance_number)}
                   className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-hover cursor-pointer transition-colors"
                 >
@@ -140,7 +143,7 @@ export function AgentSidebarTree({ collapsed, selectedInstanceId, onSelectInstan
     return (
       <div className="px-4 py-4 text-center">
         <Bot className="h-8 w-8 mx-auto mb-2 text-text-muted opacity-30" />
-        <p className="text-xs text-text-muted">暂无智能体</p>
+        <p className="text-xs text-text-muted">{t("noAgents")}</p>
       </div>
     );
   }
@@ -148,7 +151,7 @@ export function AgentSidebarTree({ collapsed, selectedInstanceId, onSelectInstan
   return (
     <div className="flex-1 overflow-y-auto py-1">
       <div className="px-5 pt-2 pb-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-dim">智能体</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-dim">{t("agents")}</span>
       </div>
       {tree.map(({ env, instances }) => (
         <div key={env.id}>
@@ -161,7 +164,7 @@ export function AgentSidebarTree({ collapsed, selectedInstanceId, onSelectInstan
                 onClick={() => handleEnterInstance(env, inst.instance_number)}
               >
                 <span className={`status-dot ${getInstanceStatus(inst)}`} />
-                <span className="truncate">实例 #{inst.instance_number}</span>
+                <span className="truncate">{t("instanceN", { number: inst.instance_number })}</span>
               </div>
             ))
           ) : (

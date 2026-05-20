@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Input } from "../../components/ui/input";
 import { cn, esc, extractEventText, isConversationClearedStatus, truncate } from "../lib/utils";
 import type { EventPayload, SessionEvent } from "../types";
@@ -318,6 +319,7 @@ function formatAssistantContent(content: string): string {
 }
 
 function AssistantBubble({ content, traceEntries }: { content: string; traceEntries: TraceEntry[] }) {
+  const { t } = useTranslation("sessions");
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -336,9 +338,7 @@ function AssistantBubble({ content, traceEntries }: { content: string; traceEntr
               className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text-secondary transition-colors"
             >
               <span className={cn("transition-transform", expanded && "rotate-90")}>›</span>
-              <span>
-                {traceEntries.length} tool {traceEntries.length === 1 ? "call" : "calls"}
-              </span>
+              <span>{t("trace.toolCall", { count: traceEntries.length })}</span>
             </button>
             {expanded && (
               <div className="mt-1 space-y-1 pl-2">
@@ -355,6 +355,7 @@ function AssistantBubble({ content, traceEntries }: { content: string; traceEntr
 }
 
 function ToolCard({ entry }: { entry: TraceEntry }) {
+  const { t } = useTranslation("sessions");
   const [expanded, setExpanded] = useState(false);
 
   if (entry.entryKind === "use") {
@@ -366,7 +367,7 @@ function ToolCard({ entry }: { entry: TraceEntry }) {
       >
         <div className="flex items-center gap-2 px-3 py-2 text-xs">
           <span className="text-brand">▶</span>
-          <span className="font-medium text-text-primary">{entry.toolName || "tool"}</span>
+          <span className="font-medium text-text-primary">{entry.toolName || t("trace.tool")}</span>
         </div>
         {expanded && (
           <pre className="border-t border-border px-3 py-2 text-xs text-text-secondary overflow-x-auto">
@@ -388,7 +389,7 @@ function ToolCard({ entry }: { entry: TraceEntry }) {
     >
       <div className="flex items-center gap-2 px-3 py-2 text-xs">
         <span className={entry.isError ? "text-status-error" : "text-status-active"}>{entry.isError ? "✕" : "✓"}</span>
-        <span className="font-medium text-text-primary">{entry.isError ? "Error" : "Result"}</span>
+        <span className="font-medium text-text-primary">{entry.isError ? t("trace.error") : t("trace.result")}</span>
       </div>
       {expanded && (
         <pre className="border-t border-border px-3 py-2 text-xs text-text-secondary overflow-x-auto">
@@ -408,7 +409,7 @@ function SystemBubble({ content }: { content: string }) {
 }
 
 function PermissionPrompt({
-  requestId,
+  requestId: _requestId,
   toolName,
   toolInput,
   description,
@@ -422,11 +423,12 @@ function PermissionPrompt({
   onApprove: () => void;
   onReject: () => void;
 }) {
+  const { t } = useTranslation("sessions");
   const inputStr = typeof toolInput === "string" ? toolInput : JSON.stringify(toolInput, null, 2);
 
   return (
     <div className="rounded-xl border border-status-warning/30 bg-surface-1 p-4">
-      <div className="mb-2 text-sm font-semibold text-status-warning">Permission Request</div>
+      <div className="mb-2 text-sm font-semibold text-status-warning">{t("permission.title")}</div>
       {description && <div className="mb-2 text-sm text-text-secondary">{esc(description)}</div>}
       <div className="mb-2 font-mono text-xs font-bold text-text-primary">{esc(toolName)}</div>
       {toolName !== "AskUserQuestion" && (
@@ -439,13 +441,13 @@ function PermissionPrompt({
           onClick={onApprove}
           className="rounded-lg bg-status-active/20 px-4 py-2 text-sm font-medium text-status-active hover:bg-status-active/30 transition-colors"
         >
-          Approve
+          {t("permission.approve")}
         </button>
         <button
           onClick={onReject}
           className="rounded-lg bg-status-error/20 px-4 py-2 text-sm font-medium text-status-error hover:bg-status-error/30 transition-colors"
         >
-          Reject
+          {t("permission.reject")}
         </button>
       </div>
     </div>
@@ -464,6 +466,7 @@ function AskUserPanel({
   onSubmit: (answers: Record<string, unknown>) => void;
   onSkip: () => void;
 }) {
+  const { t } = useTranslation("sessions");
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [otherTexts, setOtherTexts] = useState<Record<string, string>>({});
 
@@ -508,7 +511,7 @@ function AskUserPanel({
     return (
       <div className="rounded-xl border border-brand/30 bg-surface-1 p-4">
         <div className="mb-3 text-sm font-semibold text-text-primary">
-          {esc(description || q.question || "Question")}
+          {esc(description || q.question || t("askUser.question"))}
         </div>
         <div className="space-y-2">
           {(q.options || []).map((opt, j) => {
@@ -534,7 +537,7 @@ function AskUserPanel({
               type="text"
               value={otherTexts[0] || ""}
               onChange={(e) => setOtherTexts({ ...otherTexts, [0]: e.target.value })}
-              placeholder="Other..."
+              placeholder={t("askUser.otherPlaceholder")}
               className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none"
               onKeyDown={(e) => e.key === "Enter" && handleOtherSubmit(0)}
             />
@@ -542,7 +545,7 @@ function AskUserPanel({
               onClick={() => handleOtherSubmit(0)}
               className="rounded-lg border border-border px-3 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
             >
-              Send
+              {t("askUser.send")}
             </button>
           </div>
         </div>
@@ -551,13 +554,13 @@ function AskUserPanel({
             onClick={handleSubmit}
             className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-light transition-colors"
           >
-            Submit
+            {t("askUser.submit")}
           </button>
           <button
             onClick={onSkip}
             className="rounded-lg border border-border px-4 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
           >
-            Skip
+            {t("askUser.skip")}
           </button>
         </div>
       </div>
@@ -569,7 +572,7 @@ function AskUserPanel({
 
   return (
     <div className="rounded-xl border border-brand/30 bg-surface-1 p-4">
-      <div className="mb-3 text-sm font-semibold text-text-primary">{esc(description || "Questions")}</div>
+      <div className="mb-3 text-sm font-semibold text-text-primary">{esc(description || t("askUser.questions"))}</div>
       <div className="mb-3 flex gap-1 overflow-x-auto">
         {questions.map((q, i) => (
           <button
@@ -604,13 +607,13 @@ function AskUserPanel({
             onClick={handleSubmit}
             className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-light transition-colors"
           >
-            Submit All
+            {t("askUser.submitAll")}
           </button>
           <button
             onClick={onSkip}
             className="rounded-lg border border-border px-4 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
           >
-            Skip
+            {t("askUser.skip")}
           </button>
         </div>
       </div>
@@ -635,6 +638,7 @@ function QuestionTab({
   onOtherTextChange: (qIdx: number, text: string) => void;
   onOtherSubmit: (qIdx: number) => void;
 }) {
+  const { t } = useTranslation("sessions");
   const multiSelect = question.multiSelect || false;
 
   return (
@@ -664,7 +668,7 @@ function QuestionTab({
             type="text"
             value={otherTexts[qIdx] || ""}
             onChange={(e) => onOtherTextChange(qIdx, e.target.value)}
-            placeholder="Other..."
+            placeholder={t("askUser.otherPlaceholder")}
             className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none"
             onKeyDown={(e) => e.key === "Enter" && onOtherSubmit(qIdx)}
           />
@@ -672,7 +676,7 @@ function QuestionTab({
             onClick={() => onOtherSubmit(qIdx)}
             className="rounded-lg border border-border px-3 py-2 text-sm text-text-secondary hover:bg-surface-2 transition-colors"
           >
-            Send
+            {t("askUser.send")}
           </button>
         </div>
       </div>
@@ -690,6 +694,7 @@ function PlanPanel({
   description: string;
   onSubmit: (value: string, feedback?: string) => void;
 }) {
+  const { t } = useTranslation("sessions");
   const [selected, setSelected] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
   const isEmpty = !planContent || !planContent.trim();
@@ -702,7 +707,7 @@ function PlanPanel({
   return (
     <div className="rounded-xl border border-brand/30 bg-surface-1 p-4">
       <div className="mb-3 text-sm font-semibold text-text-primary">
-        {isEmpty ? "Exit plan mode?" : "Ready to code?"}
+        {isEmpty ? t("plan.exitPlanMode") : t("plan.readyToCode")}
       </div>
       {!isEmpty && (
         <div
@@ -713,28 +718,32 @@ function PlanPanel({
       <div className="space-y-2">
         {isEmpty ? (
           <>
-            <PlanOption selected={selected === "yes-default"} onClick={() => setSelected("yes-default")} label="Yes" />
-            <PlanOption selected={selected === "no"} onClick={() => setSelected("no")} label="No" />
+            <PlanOption
+              selected={selected === "yes-default"}
+              onClick={() => setSelected("yes-default")}
+              label={t("plan.yes")}
+            />
+            <PlanOption selected={selected === "no"} onClick={() => setSelected("no")} label={t("plan.no")} />
           </>
         ) : (
           <>
             <PlanOption
               selected={selected === "yes-accept-edits"}
               onClick={() => setSelected("yes-accept-edits")}
-              label="Yes, auto-accept edits"
-              desc="Approve plan and auto-accept file edits"
+              label={t("plan.yesAcceptEdits")}
+              desc={t("plan.yesAcceptEditsDesc")}
             />
             <PlanOption
               selected={selected === "yes-default"}
               onClick={() => setSelected("yes-default")}
-              label="Yes, manually approve edits"
-              desc="Approve plan but confirm each edit"
+              label={t("plan.yesManualApprove")}
+              desc={t("plan.yesManualApproveDesc")}
             />
             <PlanOption
               selected={selected === "no"}
               onClick={() => setSelected("no")}
-              label="No, keep planning"
-              desc="Provide feedback to refine the plan"
+              label={t("plan.noKeepPlanning")}
+              desc={t("plan.noKeepPlanningDesc")}
             />
           </>
         )}
@@ -743,7 +752,7 @@ function PlanPanel({
         <textarea
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
-          placeholder="告诉智能体需要修改什么..."
+          placeholder={t("plan.feedbackPlaceholder")}
           className="mt-3 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none"
           rows={3}
         />
@@ -754,7 +763,7 @@ function PlanPanel({
           disabled={!selected}
           className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-light disabled:opacity-50 transition-colors"
         >
-          Submit
+          {t("plan.submit")}
         </button>
       </div>
     </div>

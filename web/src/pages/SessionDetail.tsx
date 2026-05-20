@@ -1,5 +1,6 @@
 import { ArrowLeft, Clock, Cpu, Hash, Info, Wrench } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ACPMain } from "../../components/ACPMain";
 import { ContextPanel } from "../../components/ContextPanel";
@@ -34,6 +35,7 @@ export function SessionDetail({ sessionId, agentId, initialCwd }: SessionDetailP
 }
 
 function SessionDetailInner({ sessionId, initialCwd }: { sessionId: string; initialCwd?: string }) {
+  const { t } = useTranslation("sessions");
   const [session, setSession] = useState<Session | null>(null);
   const [sessionStatus, setSessionStatus] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -266,10 +268,10 @@ function SessionDetailInner({ sessionId, initialCwd }: { sessionId: string; init
               onClick={() => setRetryKey((k) => k + 1)}
               className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand/90 transition-colors"
             >
-              重试
+              {t("retry")}
             </button>
             <a href="/ctrl/" className="text-sm text-text-muted hover:text-brand transition-colors">
-              &larr; 返回仪表盘
+              &larr; {t("backToDashboard")}
             </a>
           </div>
         </div>
@@ -280,7 +282,7 @@ function SessionDetailInner({ sessionId, initialCwd }: { sessionId: string; init
   if (!session) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="text-text-muted">Loading session...</div>
+        <div className="text-text-muted">{t("loadingSession")}</div>
       </div>
     );
   }
@@ -309,7 +311,7 @@ function SessionDetailInner({ sessionId, initialCwd }: { sessionId: string; init
               className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-brand transition-colors no-underline mb-2"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              <span className="font-display">返回</span>
+              <span className="font-display">{t("back")}</span>
             </a>
 
             {/* Title + Status row */}
@@ -345,20 +347,20 @@ function SessionDetailInner({ sessionId, initialCwd }: { sessionId: string; init
                         )}
                       >
                         {sessionStatus === "running"
-                          ? "Running"
+                          ? t("status.running")
                           : sessionStatus === "active"
-                            ? "Active"
+                            ? t("status.active")
                             : sessionStatus === "idle"
-                              ? "Idle"
+                              ? t("status.idle")
                               : sessionStatus === "error"
-                                ? "Error"
+                                ? t("status.error")
                                 : sessionStatus.charAt(0).toUpperCase() + sessionStatus.slice(1)}
                       </span>
                     </span>
                   )}
                   {session.created_at && (
                     <span className="text-[11px] text-text-muted font-display">
-                      Started {formatRelativeTime(session.created_at)}
+                      {t("started", { time: formatRelativeTime(session.created_at) })}
                     </span>
                   )}
                 </div>
@@ -384,25 +386,25 @@ function SessionDetailInner({ sessionId, initialCwd }: { sessionId: string; init
             <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 session-stats-row">
               <SessionStatCard
                 icon={<Cpu className="h-3.5 w-3.5" />}
-                label="Model"
+                label={t("stats.model")}
                 value={session.agent_name || "default"}
                 colorClass="bg-brand-subtle text-brand-light"
               />
               <SessionStatCard
                 icon={<Hash className="h-3.5 w-3.5" />}
-                label="Tokens"
+                label={t("stats.tokens")}
                 value={stats.estimatedTokens > 0 ? `~${stats.estimatedTokens.toLocaleString()}` : "—"}
                 colorClass="bg-[rgba(52,211,153,0.12)] text-accent-green"
               />
               <SessionStatCard
                 icon={<Wrench className="h-3.5 w-3.5" />}
-                label="Tools"
+                label={t("stats.tools")}
                 value={String(stats.toolCalls)}
                 colorClass="bg-[rgba(34,211,238,0.12)] text-cyan"
               />
               <SessionStatCard
                 icon={<Clock className="h-3.5 w-3.5" />}
-                label="Duration"
+                label={t("stats.duration")}
                 value={stats.durationStr}
                 colorClass="bg-[rgba(251,191,36,0.12)] text-accent-yellow"
               />
@@ -411,11 +413,11 @@ function SessionDetailInner({ sessionId, initialCwd }: { sessionId: string; init
             {showMeta && (
               <div className="mt-2 rounded-lg bg-surface-2 px-3 py-2 text-xs text-text-muted space-y-1 font-mono">
                 <div>
-                  <span className="text-text-secondary font-sans font-medium">Session</span> {session.id}
+                  <span className="text-text-secondary font-sans font-medium">{t("session")}</span> {session.id}
                 </div>
                 {session.environment_id && (
                   <div>
-                    <span className="text-text-secondary font-sans font-medium">Environment</span>{" "}
+                    <span className="text-text-secondary font-sans font-medium">{t("environment")}</span>{" "}
                     {session.environment_id}
                   </div>
                 )}
@@ -431,8 +433,8 @@ function SessionDetailInner({ sessionId, initialCwd }: { sessionId: string; init
             <ChatView
               entries={entries}
               isLoading={isLoading}
-              emptyTitle="开始对话"
-              emptyDescription="输入消息开始聊天 · 支持粘贴图片或 @ 引用文件"
+              emptyTitle={t("startConversation")}
+              emptyDescription={t("startConversationDesc")}
             />
 
             {/* Unified Permission Panel — above input */}
@@ -459,7 +461,7 @@ function SessionDetailInner({ sessionId, initialCwd }: { sessionId: string; init
               isLoading={isLoading}
               onInterrupt={handleInterrupt}
               disabled={closed || !!error || !session}
-              placeholder={error ? "会话加载失败" : closed ? "会话已关闭" : "输入消息..."}
+              placeholder={error ? t("sessionLoadFailed") : closed ? t("sessionClosed") : t("inputMessage")}
               sessionId={sessionId}
             />
           </div>
@@ -595,6 +597,7 @@ function ACPSessionDetail({
   agentId: string;
   initialCwd?: string;
 }) {
+  const { t } = useTranslation("sessions");
   const [client, setClient] = useState<ACPClient | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
   const [error, setError] = useState<string | null>(null);
@@ -609,7 +612,7 @@ function ACPSessionDetail({
     });
 
     relayClient.setAuthFailureHandler(() => {
-      toast.error("登录已过期，请重新登录");
+      toast.error(t("authExpired"));
       window.location.href = "/ctrl/login";
     });
 
@@ -628,7 +631,7 @@ function ACPSessionDetail({
       setClient(null);
       setConnectionState("disconnected");
     };
-  }, [agentId]);
+  }, [agentId, t]);
 
   const showChat = client && connectionState === "connected";
 
@@ -640,7 +643,7 @@ function ACPSessionDetail({
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin h-8 w-8 border-2 border-brand border-t-transparent rounded-full mx-auto mb-3" />
-              <p className="text-text-muted text-sm">正在连接 Agent...</p>
+              <p className="text-text-muted text-sm">{t("connectingAgent")}</p>
             </div>
           </div>
         )}
@@ -656,15 +659,13 @@ function ACPSessionDetail({
         {(connectionState === "error" || connectionState === "disconnected") && !showChat && (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center max-w-md">
-              <p className="font-medium mb-2">Agent 未连接</p>
-              <p className="text-text-muted text-sm mb-4">
-                {error || "Agent 尚未上线，请确保 acp-link 已启动并连接到服务器"}
-              </p>
+              <p className="font-medium mb-2">{t("agentNotConnected")}</p>
+              <p className="text-text-muted text-sm mb-4">{error || t("agentOffline")}</p>
               <a
                 href="/ctrl/"
                 className="inline-block rounded-md bg-brand px-4 py-2 text-sm text-white hover:bg-brand/90 transition-colors no-underline"
               >
-                返回仪表盘
+                {t("backToDashboard")}
               </a>
             </div>
           </div>

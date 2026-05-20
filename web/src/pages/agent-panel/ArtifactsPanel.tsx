@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X, FileText, BarChart3 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ArtifactPreview } from "../../components/agent-panel/ArtifactPreview";
 import { ArtifactContext } from "../../components/agent-panel/ArtifactContext";
+import { NS } from "../../i18n";
 
 type ArtifactsTab = "preview" | "context";
 
@@ -12,6 +14,7 @@ interface ArtifactsPanelProps {
 }
 
 export function ArtifactsPanel({ collapsed, onToggleCollapse, entries }: ArtifactsPanelProps) {
+  const { t } = useTranslation(NS.AGENT_PANEL);
   const [activeTab, setActiveTab] = useState<ArtifactsTab>(() => {
     const saved = localStorage.getItem("agent-panel:artifacts-tab");
     return saved === "preview" || saved === "context" ? saved : "preview";
@@ -79,7 +82,7 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, entries }: Artifac
             onClick={() => setActiveTab("preview")}
           >
             <FileText className="inline h-3 w-3 mr-1" />
-            预览
+            {t("tabPreview")}
           </button>
           <button
             type="button"
@@ -87,9 +90,14 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, entries }: Artifac
             onClick={() => setActiveTab("context")}
           >
             <BarChart3 className="inline h-3 w-3 mr-1" />
-            上下文
+            {t("tabContext")}
           </button>
-          <button type="button" className="agent-artifacts-close-btn" onClick={onToggleCollapse} title="关闭面板">
+          <button
+            type="button"
+            className="agent-artifacts-close-btn"
+            onClick={onToggleCollapse}
+            title={t("closePanel")}
+          >
             <X className="h-4 w-4" />
           </button>
         </div>

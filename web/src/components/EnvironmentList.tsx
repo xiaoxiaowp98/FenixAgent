@@ -1,4 +1,5 @@
 import type { Environment } from "../types";
+import { useTranslation } from "react-i18next";
 import { StatusBadge } from "./Navbar";
 
 type InstanceInfo = {
@@ -24,6 +25,7 @@ export function EnvironmentList({
   onSelectEnvironment,
   onStopInstance,
 }: EnvironmentListProps) {
+  const { t } = useTranslation("environments");
   const instanceMap = new Map<string, InstanceInfo>();
   for (const inst of instances) {
     instanceMap.set(inst.group_id, inst);
@@ -32,7 +34,7 @@ export function EnvironmentList({
   if (!environments || environments.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-surface-1 px-4 py-8 text-center text-text-muted text-sm">
-        暂无活跃环境
+        {t("empty.noActive")}
       </div>
     );
   }
@@ -48,7 +50,7 @@ export function EnvironmentList({
   if ((!environments || environments.length === 0) && unmatchedInstances.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-surface-1 px-4 py-8 text-center text-text-muted text-sm">
-        暂无活跃环境
+        {t("empty.noActive")}
       </div>
     );
   }
@@ -57,7 +59,7 @@ export function EnvironmentList({
     <div className="space-y-1">
       {environments.map((env) => {
         const isAcp = env.worker_type === "acp";
-        const typeLabel = isAcp ? "ACP Agent" : "智能体";
+        const typeLabel = isAcp ? "ACP Agent" : t("envList.agent");
         const typeColor = isAcp ? "bg-brand/10 text-brand" : "bg-status-running/10 text-status-running";
 
         return (
@@ -95,7 +97,7 @@ export function EnvironmentList({
                       }}
                       className="rounded px-2 py-0.5 text-[10px] font-medium text-status-error hover:bg-status-error/10 transition-colors"
                     >
-                      停止
+                      {t("buttons.stop")}
                     </button>
                   </>
                 );
@@ -125,7 +127,7 @@ export function EnvironmentList({
                 onClick={() => onStopInstance?.(inst.id)}
                 className="rounded px-2 py-0.5 text-[10px] font-medium text-status-error hover:bg-status-error/10 transition-colors"
               >
-                停止
+                {t("buttons.stop")}
               </button>
             )}
           </div>

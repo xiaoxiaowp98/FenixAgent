@@ -1,46 +1,44 @@
 import { LogOut, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { signOut, useSession } from "../../lib/auth-client";
-
-/* ------------------------------------------------------------------ */
-/*  Page path -> breadcrumb label mapping                              */
-/* ------------------------------------------------------------------ */
-
-const PAGE_LABELS: Record<string, string> = {
-  "/": "概览",
-  "/environments": "智能体",
-  "/models": "模型",
-  "/agents": "Agent",
-  "/skills": "技能",
-  "/knowledge-bases": "知识库",
-  "/mcp": "MCP",
-  "/tasks": "定时任务",
-  "/channels": "消息渠道",
-  "/apikeys": "API Key",
-  "/workflow": "智能体编排",
-  "/organizations": "组织",
-};
-
-function getPageLabel(pathname: string): string {
-  const segment = pathname.replace(/^\//, "").split("/")[0];
-  if (!segment) return PAGE_LABELS["/"] ?? "概览";
-  return PAGE_LABELS["/" + segment] ?? segment;
-}
+import { LanguageSwitcher } from "../../i18n/LanguageSwitcher";
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
 export function Topbar() {
+  const { t } = useTranslation("sidebar");
   const { data: session } = useSession();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const pageLabel = getPageLabel(pathname);
   const userEmail = session?.user?.email ?? "";
   const avatarLetter = userEmail.charAt(0).toUpperCase() || "U";
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const PAGE_LABELS: Record<string, string> = {
+    "/": t("overview"),
+    "/environments": t("agents"),
+    "/models": t("models"),
+    "/agents": t("agentConfig"),
+    "/skills": t("skills"),
+    "/knowledge-bases": t("knowledge"),
+    "/mcp": t("mcp"),
+    "/tasks": t("tasks"),
+    "/channels": t("channels"),
+    "/apikeys": t("apiKeys"),
+    "/workflow": t("workflow"),
+    "/organizations": t("organizations"),
+  };
+
+  const pageLabel = (() => {
+    const segment = pathname.replace(/^\//, "").split("/")[0];
+    if (!segment) return PAGE_LABELS["/"] ?? t("overview");
+    return PAGE_LABELS["/" + segment] ?? segment;
+  })();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -78,7 +76,7 @@ export function Topbar() {
       <div className="flex items-center gap-3">
         <button
           type="button"
-          title="全局搜索功能开发中"
+          title={t("searchDev")}
           className={[
             "flex items-center gap-2",
             "min-w-[200px] px-3 py-1.5",
@@ -89,7 +87,7 @@ export function Topbar() {
           ].join(" ")}
         >
           <Search className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>搜索...</span>
+          <span>{t("common:search")}...</span>
           <kbd
             className={[
               "ml-auto px-1.5 py-0.5 rounded-[4px]",
@@ -102,6 +100,8 @@ export function Topbar() {
         </button>
 
         <ThemeToggle />
+
+        <LanguageSwitcher />
 
         <div className="relative">
           <button
@@ -147,7 +147,7 @@ export function Topbar() {
                 ].join(" ")}
               >
                 <LogOut className="w-3.5 h-3.5" />
-                退出登录
+                {t("logout")}
               </button>
             </div>
           )}

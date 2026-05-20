@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { BatchActionBar } from "@/components/config/BatchActionBar";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
@@ -18,24 +19,25 @@ import { dispatchConfigChange } from "../lib/config-events";
 import type { ModelConfig, ProviderInfo, ProviderModel } from "../types/config";
 
 const NPM_OPTIONS = [
-  { id: "openai-compatible", label: "OpenAI 兼容", npm: "@ai-sdk/openai-compatible" },
-  { id: "anthropic", label: "Anthropic", npm: "@ai-sdk/anthropic" },
-  { id: "deepseek", label: "DeepSeek", npm: "@ai-sdk/deepseek" },
+  { id: "openai-compatible", labelKey: "npmOptions.openaiCompatible", npm: "@ai-sdk/openai-compatible" },
+  { id: "anthropic", labelKey: "npmOptions.anthropic", npm: "@ai-sdk/anthropic" },
+  { id: "deepseek", labelKey: "npmOptions.deepseek", npm: "@ai-sdk/deepseek" },
 ];
 
 const INPUT_MODALITY_OPTIONS = ["text", "image", "audio", "video", "pdf"] as const;
 const OUTPUT_MODALITY_OPTIONS = ["text", "image"] as const;
 
 export function getModelUsageStatus(fullId: string, currentModel: string | null, smallModel: string | null): string[] {
+  // Note: returned strings are used as badge display in DataTable; i18n is handled at call site
   const badges: string[] = [];
-  if (currentModel === fullId) badges.push("主模型");
-  if (smallModel === fullId) badges.push("轻量模型");
+  if (currentModel === fullId) badges.push("primary");
+  if (smallModel === fullId) badges.push("small");
   return badges;
 }
 
 export function validateProviderForm(name: string, isEdit: boolean): string | null {
-  if (!name.trim()) return "名称不能为空";
-  if (!isEdit && (name.length < 1 || name.length > 64)) return "名称长度须在 1-64 字符之间";
+  if (!name.trim()) return "validation.nameEmpty";
+  if (!isEdit && (name.length < 1 || name.length > 64)) return "validation.nameLength";
   return null;
 }
 
@@ -54,13 +56,14 @@ export function buildProviderPayload(
 }
 
 function ModalityBadge({ type, items }: { type: "input" | "output"; items: string[] }) {
+  const { t } = useTranslation("models");
   if (!items || items.length === 0) return null;
   const isInput = type === "input";
   return (
     <span
       className={`inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full font-medium ${isInput ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"}`}
     >
-      {isInput ? "入" : "出"} {items.join(", ")}
+      {isInput ? t("modelSubrow.modalityBadgeInput") : t("modelSubrow.modalityBadgeOutput")} {items.join(", ")}
     </span>
   );
 }
@@ -74,6 +77,7 @@ function ModelSubrow({
   models: ProviderModel[];
   onModelChange: (action: "delete" | "save", providerId: string, modelId?: string) => void;
 }) {
+  const { t } = useTranslation("models");
   const [editingModel, setEditingModel] = useState<ProviderModel | null>(null);
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const [isNewModel, setIsNewModel] = useState(false);
@@ -136,7 +140,7 @@ function ModelSubrow({
 
   const handleModelSave = async () => {
     if (!mfId.trim()) {
-      toast.error("模型 ID 不能为空");
+      toast.error(t("modelSubrow.modelIdEmpty"));
       return;
     }
 
@@ -172,8 +176,8 @@ function ModelSubrow({
           name: providerId,
           ...data,
         });
-        if (addErr) throw new Error(addErr.message ?? "添加失败");
-        toast.success("模型已添加");
+        if (addErr) throw new Error(addErr.message ?? t("saveProvider.errorGeneric", { message: "" }));
+        toast.success(t("modelSubrow.saveModel.successCreate"));
       } else {
         const { error: updErr } = await client.web.config.providers.post({
           action: "update_model",
@@ -181,15 +185,17 @@ function ModelSubrow({
           modelId: mfId,
           ...data,
         });
-        if (updErr) throw new Error(updErr.message ?? "更新失败");
-        toast.success("模型已更新");
+        if (updErr) throw new Error(updErr.message ?? t("saveProvider.errorGeneric", { message: "" }));
+        toast.success(t("modelSubrow.saveModel.successUpdate"));
       }
       setModelDialogOpen(false);
       onModelChange("save", providerId, mfId.trim());
       dispatchConfigChange("models");
     } catch (e) {
-      console.error("保存模型失败", e);
-      toast.error("保存失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("modelSubrow.saveModel.errorGeneric", { message: "" }), e);
+      toast.error(
+        t("modelSubrow.saveModel.errorGeneric", { message: e instanceof Error ? e.message : t("unknownError") }),
+      );
     } finally {
       setModelSaving(false);
     }
@@ -203,16 +209,16 @@ function ModelSubrow({
         name: deleteConfirm.providerId,
         modelId: deleteConfirm.modelId,
       });
-      if (rmErr) throw new Error(rmErr.message ?? "删除失败");
-      toast.success("模型已删除");
+      if (rmErr) throw new Error(rmErr.message ?? t("modelSubrow.deleteModel.error", { message: "" }));
+      toast.success(t("modelSubrow.deleteModel.success"));
       const pid = deleteConfirm.providerId;
       const mid = deleteConfirm.modelId;
       setDeleteConfirm(null);
       onModelChange("delete", pid, mid);
       dispatchConfigChange("models");
     } catch (e) {
-      console.error("删除模型失败", e);
-      toast.error("删除失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("modelSubrow.deleteModel.error", { message: "" }), e);
+      toast.error(t("modelSubrow.deleteModel.error", { message: e instanceof Error ? e.message : t("unknownError") }));
     }
   };
 
@@ -223,7 +229,7 @@ function ModelSubrow({
   return (
     <div className="space-y-2">
       {models.length === 0 ? (
-        <div className="py-6 text-center text-text-muted text-sm">暂无模型，点击下方按钮添加</div>
+        <div className="py-6 text-center text-text-muted text-sm">{t("modelSubrow.emptyMessage")}</div>
       ) : (
         <div className="grid gap-2">
           {models.map((m) => {
@@ -257,26 +263,34 @@ function ModelSubrow({
                     )}
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-xs text-text-muted">
-                    {limit.context ? <span>上下文 {Number(limit.context).toLocaleString()}</span> : null}
-                    {limit.output ? <span>输出 {Number(limit.output).toLocaleString()}</span> : null}
+                    {limit.context ? (
+                      <span>
+                        {t("modelSubrow.contextLabel")} {Number(limit.context).toLocaleString()}
+                      </span>
+                    ) : null}
+                    {limit.output ? (
+                      <span>
+                        {t("modelSubrow.outputLabel")} {Number(limit.output).toLocaleString()}
+                      </span>
+                    ) : null}
                     {cost.input || cost.output ? (
                       <span className="text-amber-600 dark:text-amber-400">
                         ${cost.input || 0}/${cost.output || 0}
                       </span>
                     ) : null}
-                    {!limit.context && !limit.output && <span>无限制信息</span>}
+                    {!limit.context && !limit.output && <span>{t("modelSubrow.noLimitInfo")}</span>}
                   </div>
                 </div>
                 <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button size="xs" variant="outline" onClick={() => openEditModel(m)}>
-                    编辑
+                    {t("actions.edit")}
                   </Button>
                   <Button
                     size="xs"
                     variant="destructive"
                     onClick={() => setDeleteConfirm({ providerId, modelId: m.id })}
                   >
-                    删除
+                    {t("actions.delete")}
                   </Button>
                 </div>
               </div>
@@ -290,41 +304,41 @@ function ModelSubrow({
         onClick={openNewModel}
         className="w-full border-dashed text-text-secondary hover:text-text-primary hover:border-brand"
       >
-        + 添加模型
+        {t("modelSubrow.addButton")}
       </Button>
 
       <FormDialog
         open={modelDialogOpen}
         onOpenChange={setModelDialogOpen}
-        title={isNewModel ? "新增模型" : `编辑模型 — ${mfId}`}
+        title={isNewModel ? t("modelSubrow.createTitle") : t("modelSubrow.editTitle", { id: mfId })}
         onSubmit={handleModelSave}
         loading={modelSaving}
       >
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-text-primary">模型 ID</label>
+              <label className="text-sm font-medium text-text-primary">{t("modelSubrow.modelId")}</label>
               <Input
                 value={mfId}
                 onChange={(e) => setMfId(e.target.value)}
                 disabled={!isNewModel}
-                placeholder="例如 qwen3.6-plus"
+                placeholder={t("modelSubrow.modelIdPlaceholder")}
                 className="mt-1"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-text-primary">显示名称</label>
+              <label className="text-sm font-medium text-text-primary">{t("modelSubrow.displayName")}</label>
               <Input
                 value={mfName}
                 onChange={(e) => setMfName(e.target.value)}
-                placeholder="例如 Qwen3.6 Plus"
+                placeholder={t("modelSubrow.displayNamePlaceholder")}
                 className="mt-1"
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-text-primary">上下文限制</label>
+              <label className="text-sm font-medium text-text-primary">{t("modelSubrow.contextLimit")}</label>
               <Input
                 type="number"
                 value={mfContext}
@@ -332,10 +346,10 @@ function ModelSubrow({
                 placeholder="128000"
                 className="mt-1 font-mono text-sm"
               />
-              <p className="text-xs text-text-muted mt-1">tokens，对话上下文窗口大小</p>
+              <p className="text-xs text-text-muted mt-1">{t("modelSubrow.contextHint")}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-text-primary">输出限制</label>
+              <label className="text-sm font-medium text-text-primary">{t("modelSubrow.outputLimit")}</label>
               <Input
                 type="number"
                 value={mfOutput}
@@ -343,11 +357,11 @@ function ModelSubrow({
                 placeholder="16384"
                 className="mt-1 font-mono text-sm"
               />
-              <p className="text-xs text-text-muted mt-1">tokens，单次回复最大长度</p>
+              <p className="text-xs text-text-muted mt-1">{t("modelSubrow.outputHint")}</p>
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-text-primary">输入模态</label>
+            <label className="text-sm font-medium text-text-primary">{t("modelSubrow.inputModality")}</label>
             <div className="flex flex-wrap gap-1.5 mt-1">
               {INPUT_MODALITY_OPTIONS.map((m) => (
                 <button
@@ -366,7 +380,7 @@ function ModelSubrow({
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-text-primary">输出模态</label>
+            <label className="text-sm font-medium text-text-primary">{t("modelSubrow.outputModality")}</label>
             <div className="flex flex-wrap gap-1.5 mt-1">
               {OUTPUT_MODALITY_OPTIONS.map((m) => (
                 <button
@@ -386,47 +400,47 @@ function ModelSubrow({
           </div>
           <div className="flex items-center gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={() => setShowAdvanced(!showAdvanced)}>
-              {showAdvanced ? "收起高级参数" : "展开高级参数"}
+              {showAdvanced ? t("modelSubrow.hideAdvanced") : t("modelSubrow.showAdvanced")}
             </Button>
           </div>
           {showAdvanced && (
             <div className="space-y-3 border-t pt-3">
               <div className="flex items-center gap-3">
-                <label className="text-sm font-medium text-text-primary">启用思考模式</label>
+                <label className="text-sm font-medium text-text-primary">{t("modelSubrow.thinkingEnabled")}</label>
                 <Switch checked={mfThinkingEnabled} onCheckedChange={setMfThinkingEnabled} />
               </div>
               {mfThinkingEnabled && (
                 <div>
-                  <label className="text-sm font-medium text-text-primary">思考预算 (tokens)</label>
+                  <label className="text-sm font-medium text-text-primary">{t("modelSubrow.thinkingBudget")}</label>
                   <Input
                     type="number"
                     value={mfThinkingBudget}
                     onChange={(e) => setMfThinkingBudget(e.target.value)}
-                    placeholder="例如 10000"
+                    placeholder={t("modelSubrow.thinkingBudgetPlaceholder")}
                     className="mt-1"
                   />
                 </div>
               )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm font-medium text-text-primary">输入费用 ($/百万 tokens)</label>
+                  <label className="text-sm font-medium text-text-primary">{t("modelSubrow.inputCost")}</label>
                   <Input
                     type="number"
                     step="0.01"
                     value={mfCostInput}
                     onChange={(e) => setMfCostInput(e.target.value)}
-                    placeholder="例如 2.5"
+                    placeholder={t("modelSubrow.inputCostPlaceholder")}
                     className="mt-1"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-text-primary">输出费用 ($/百万 tokens)</label>
+                  <label className="text-sm font-medium text-text-primary">{t("modelSubrow.outputCost")}</label>
                   <Input
                     type="number"
                     step="0.01"
                     value={mfCostOutput}
                     onChange={(e) => setMfCostOutput(e.target.value)}
-                    placeholder="例如 10"
+                    placeholder={t("modelSubrow.outputCostPlaceholder")}
                     className="mt-1"
                   />
                 </div>
@@ -438,8 +452,8 @@ function ModelSubrow({
       <ConfirmDialog
         open={!!deleteConfirm}
         onOpenChange={() => setDeleteConfirm(null)}
-        title="确认删除模型"
-        description={`此操作不可逆。确定要删除模型 "${deleteConfirm?.modelId}" 吗？`}
+        title={t("modelSubrow.deleteModel.confirmTitle")}
+        description={t("modelSubrow.deleteModel.confirmDesc", { id: deleteConfirm?.modelId ?? "" })}
         variant="destructive"
         onConfirm={handleModelDelete}
       />
@@ -448,6 +462,7 @@ function ModelSubrow({
 }
 
 export function ModelsPage() {
+  const { t } = useTranslation("models");
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [providerModels, setProviderModels] = useState<Record<string, ProviderModel[]>>({});
   const [loading, setLoading] = useState(true);
@@ -470,13 +485,16 @@ export function ModelsPage() {
   const [formSaving, setFormSaving] = useState(false);
   const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null);
 
+  // Resolve NPM label from labelKey using translation
+  const getNpmLabel = (opt: (typeof NPM_OPTIONS)[number]) => t(opt.labelKey);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
       const [providersData, modelConfigData] = await Promise.all([
         (async () => {
           const { data: listData, error: listErr } = await client.web.config.providers.post({ action: "list" });
-          if (listErr) throw new Error(listErr.message ?? "加载服务商列表失败");
+          if (listErr) throw new Error(listErr.message ?? t("loadProvidersError", { message: "" }));
           const unwrapped = unwrapConfigData(listData) ?? listData;
           const data = Array.isArray(unwrapped)
             ? unwrapped
@@ -489,7 +507,7 @@ export function ModelsPage() {
                   action: "get",
                   name: p.id,
                 });
-                if (detailErr) throw new Error(detailErr.message ?? "加载服务商详情失败");
+                if (detailErr) throw new Error(detailErr.message ?? t("loadProviderDetailError", { message: "" }));
                 const detail = unwrapConfigData(detailData) ?? detailData;
                 modelsMap[p.id] = detail.models;
               } catch {
@@ -501,7 +519,7 @@ export function ModelsPage() {
         })(),
         (async () => {
           const { data: modelsData, error: modelsErr } = await client.web.config.models.post({ action: "get" });
-          if (modelsErr) throw new Error(modelsErr.message ?? "加载模型配置失败");
+          if (modelsErr) throw new Error(modelsErr.message ?? t("loadModelConfigError", { message: "" }));
           return unwrapConfigData(modelsData) ?? modelsData;
         })(),
       ]);
@@ -509,12 +527,12 @@ export function ModelsPage() {
       setProviderModels(providersData.providerModels);
       setModelConfig(modelConfigData);
     } catch (e) {
-      console.error("加载模型数据失败", e);
-      toast.error("加载数据失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("loadModelsError"), e);
+      toast.error(t("loadError", { message: e instanceof Error ? e.message : t("unknownError") }));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadAll();
@@ -523,7 +541,7 @@ export function ModelsPage() {
   const columns: Column<ProviderInfo>[] = [
     {
       key: "id",
-      header: "ID",
+      header: t("columns.id"),
       sortable: true,
       filterable: true,
       render: (row) => (
@@ -535,35 +553,35 @@ export function ModelsPage() {
     },
     {
       key: "npm",
-      header: "协议",
+      header: t("columns.protocol"),
       render: (row) => {
         const opt = NPM_OPTIONS.find((o) => o.npm === row.npm);
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-surface-2 text-text-secondary">
-            {opt ? opt.label : row.npm || "—"}
+            {opt ? getNpmLabel(opt) : row.npm || "\u2014"}
           </span>
         );
       },
     },
     {
       key: "keyHint",
-      header: "API Key",
+      header: t("columns.apiKey"),
       render: (row) =>
         row.keyHint ? (
           <span className="font-mono text-xs text-text-muted bg-surface-2 px-2 py-0.5 rounded">***{row.keyHint}</span>
         ) : (
-          <span className="text-text-muted">—</span>
+          <span className="text-text-muted">{"\u2014"}</span>
         ),
     },
     {
       key: "configured",
-      header: "状态",
+      header: t("columns.status"),
       filterable: true,
       render: (row) => <StatusBadge status={row.configured ? "configured" : "unconfigured"} />,
     },
     {
       key: "modelCount",
-      header: "模型",
+      header: t("columns.models"),
       sortable: true,
       render: (row) => (
         <span
@@ -601,8 +619,8 @@ export function ModelsPage() {
   const handleSave = async () => {
     const err = validateProviderForm(formName, !!editingProvider);
     if (err) {
-      console.error("保存Provider失败", err);
-      toast.error(err);
+      console.error(t("saveProvider.errorGeneric", { message: "" }), err);
+      toast.error(t(err));
       return;
     }
     setFormSaving(true);
@@ -610,14 +628,14 @@ export function ModelsPage() {
       const npmPackage = NPM_OPTIONS.find((o) => o.id === formNpm)?.npm ?? "@ai-sdk/openai-compatible";
       const data = buildProviderPayload(formApiKey, formBaseURL, npmPackage, formDisplayName);
       const { error: saveErr } = await client.web.config.providers.post({ action: "set", name: formName, data });
-      if (saveErr) throw new Error(saveErr.message ?? "保存失败");
-      toast.success(editingProvider ? "服务商已更新" : "服务商已创建");
+      if (saveErr) throw new Error(saveErr.message ?? t("saveProvider.errorGeneric", { message: "" }));
+      toast.success(editingProvider ? t("saveProvider.successUpdate") : t("saveProvider.successCreate"));
       setDialogOpen(false);
       loadAll();
       dispatchConfigChange("providers");
     } catch (e) {
-      console.error("保存Provider失败", e);
-      toast.error("保存失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("saveProvider.errorGeneric", { message: "" }), e);
+      toast.error(t("saveProvider.errorGeneric", { message: e instanceof Error ? e.message : t("unknownError") }));
     } finally {
       setFormSaving(false);
     }
@@ -627,13 +645,13 @@ export function ModelsPage() {
     setTesting(name);
     try {
       const { data: testData, error: testErr } = await client.web.config.providers.post({ action: "test", name });
-      if (testErr) throw new Error(testErr.message ?? "测试失败");
+      if (testErr) throw new Error(testErr.message ?? t("testDialog.testError"));
       const result = unwrapConfigData(testData) ?? testData;
       setTestResult({ name, models: result.models, warning: result.warning });
       const existing = (providerModels[name] ?? []).map((m) => m.id);
       setAddedModelIds(new Set(existing));
     } catch (e) {
-      const message = e instanceof Error ? e.message : "未知错误";
+      const message = e instanceof Error ? e.message : t("unknownError");
       setTestResult({ name, error: message });
     } finally {
       setTesting(null);
@@ -649,7 +667,7 @@ export function ModelsPage() {
         modelId,
         data: { modelId, name: modelId },
       });
-      if (addFromTestErr) throw new Error(addFromTestErr.message ?? "添加失败");
+      if (addFromTestErr) throw new Error(addFromTestErr.message ?? t("testDialog.addModelError", { message: "" }));
       setAddedModelIds((prev) => new Set(prev).add(modelId));
       setProviderModels((prev) => ({
         ...prev,
@@ -659,11 +677,11 @@ export function ModelsPage() {
         ],
       }));
       setProviders((prev) => prev.map((p) => (p.id === testResult.name ? { ...p, modelCount: p.modelCount + 1 } : p)));
-      toast.success(`模型 ${modelId} 已添加`);
+      toast.success(t("testDialog.addModelSuccess", { modelId }));
       dispatchConfigChange("models");
     } catch (e) {
-      console.error("添加模型失败", e);
-      toast.error("添加失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("testDialog.addModelError", { message: "" }), e);
+      toast.error(t("testDialog.addModelError", { message: e instanceof Error ? e.message : t("unknownError") }));
     }
   };
 
@@ -675,14 +693,14 @@ export function ModelsPage() {
     if (!deleteTarget) return;
     try {
       const { error: delErr } = await client.web.config.providers.post({ action: "delete", name: deleteTarget });
-      if (delErr) throw new Error(delErr.message ?? "删除失败");
-      toast.success("服务商已删除");
+      if (delErr) throw new Error(delErr.message ?? t("deleteProvider.error", { message: "" }));
+      toast.success(t("deleteProvider.success"));
       setConfirmOpen(false);
       loadAll();
       dispatchConfigChange("providers");
     } catch (e) {
-      console.error("删除Provider失败", e);
-      toast.error("删除失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("deleteProvider.error", { message: "" }), e);
+      toast.error(t("deleteProvider.error", { message: e instanceof Error ? e.message : t("unknownError") }));
     }
   };
 
@@ -694,18 +712,18 @@ export function ModelsPage() {
       await Promise.all(
         selected.map((p) =>
           client.web.config.providers.post({ action: "delete", name: p.id }).then((r) => {
-            if (r.error) throw new Error(r.error.message ?? "删除失败");
+            if (r.error) throw new Error(r.error.message ?? t("deleteProvider.error", { message: "" }));
           }),
         ),
       );
-      toast.success(`已删除 ${selected.length} 个服务商`);
+      toast.success(t("batchDeleteCount", { count: selected.length }));
       setBatchConfirmOpen(false);
       setSelected([]);
       loadAll();
       dispatchConfigChange("providers");
     } catch (e) {
-      console.error("批量删除Provider失败", e);
-      toast.error("批量删除失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("batchDeleteError", { message: "" }), e);
+      toast.error(t("batchDeleteError", { message: e instanceof Error ? e.message : t("unknownError") }));
     }
   };
 
@@ -730,8 +748,8 @@ export function ModelsPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-text-bright">服务商与模型</h2>
-          <p className="text-sm text-text-muted mt-0.5">管理 AI 服务商及其可用模型</p>
+          <h2 className="text-xl font-semibold text-text-bright">{t("title")}</h2>
+          <p className="text-sm text-text-muted mt-0.5">{t("subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
           <ModelConfigDialog
@@ -739,19 +757,19 @@ export function ModelsPage() {
             currentSmallModel={modelConfig?.current.small_model ?? null}
             available={modelConfig?.available ?? []}
           />
-          <Button onClick={handleOpenCreate}>新建服务商</Button>
+          <Button onClick={handleOpenCreate}>{t("createButton")}</Button>
         </div>
       </div>
       <DataTable<ProviderInfo>
         columns={columns}
         data={providers}
         searchable
-        searchPlaceholder="搜索服务商..."
+        searchPlaceholder={t("searchPlaceholder")}
         selectable
         onSelectionChange={setSelected}
         defaultExpandAll
         rowKey={(row) => row.id}
-        emptyMessage={"暂无服务商，点击「新建服务商」添加"}
+        emptyMessage={t("emptyMessage")}
         expandableRow={(row) => (
           <ModelSubrow
             providerId={row.id}
@@ -771,13 +789,13 @@ export function ModelsPage() {
         actions={(row) => (
           <div className="flex gap-1.5">
             <Button size="xs" variant="outline" onClick={() => handleTest(row.id)} disabled={testing === row.id}>
-              {testing === row.id ? "检测中..." : "测试"}
+              {testing === row.id ? t("actions.testing") : t("actions.test")}
             </Button>
             <Button size="xs" variant="outline" onClick={() => handleOpenEdit(row)}>
-              编辑
+              {t("actions.edit")}
             </Button>
             <Button size="xs" variant="destructive" onClick={() => handleDelete(row.id)}>
-              删除
+              {t("actions.delete")}
             </Button>
           </div>
         )}
@@ -786,41 +804,41 @@ export function ModelsPage() {
         <BatchActionBar
           selectedCount={selected.length}
           onClear={() => setSelected([])}
-          actions={[{ label: "批量删除", variant: "destructive", onClick: handleBatchDelete }]}
+          actions={[{ label: t("batchDelete"), variant: "destructive", onClick: handleBatchDelete }]}
         />
       )}
       <FormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        title={editingProvider ? "编辑服务商" : "新建服务商"}
+        title={editingProvider ? t("form.editTitle") : t("form.createTitle")}
         onSubmit={handleSave}
         loading={formSaving}
       >
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-text-primary">ID（标识符）</label>
+              <label className="text-sm font-medium text-text-primary">{t("form.id")}</label>
               <Input
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 disabled={!!editingProvider}
-                placeholder="bailian-token-plan"
+                placeholder={t("form.idPlaceholder")}
                 className="mt-1 font-mono text-sm"
               />
-              {editingProvider && <p className="text-xs text-text-muted mt-1">ID 创建后不可修改</p>}
+              {editingProvider && <p className="text-xs text-text-muted mt-1">{t("form.idImmutable")}</p>}
             </div>
             <div>
-              <label className="text-sm font-medium text-text-primary">显示名称</label>
+              <label className="text-sm font-medium text-text-primary">{t("form.displayName")}</label>
               <Input
                 value={formDisplayName}
                 onChange={(e) => setFormDisplayName(e.target.value)}
-                placeholder="例如 阿里百炼"
+                placeholder={t("form.displayNamePlaceholder")}
                 className="mt-1"
               />
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-text-primary">协议</label>
+            <label className="text-sm font-medium text-text-primary">{t("form.protocol")}</label>
             <Select value={formNpm} onValueChange={setFormNpm}>
               <SelectTrigger className="mt-1">
                 <SelectValue />
@@ -828,34 +846,34 @@ export function ModelsPage() {
               <SelectContent>
                 {NPM_OPTIONS.map((opt) => (
                   <SelectItem key={opt.id} value={opt.id}>
-                    {opt.label}
+                    {getNpmLabel(opt)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-text-muted mt-1">
-              SDK 包:{" "}
+              {t("form.sdkPackage")}{" "}
               <code className="font-mono bg-surface-2 px-1 rounded">
                 {NPM_OPTIONS.find((o) => o.id === formNpm)?.npm ?? ""}
               </code>
             </p>
           </div>
           <div>
-            <label className="text-sm font-medium text-text-primary">API Key</label>
+            <label className="text-sm font-medium text-text-primary">{t("form.apiKey")}</label>
             <Input
               type="password"
               value={formApiKey}
               onChange={(e) => setFormApiKey(e.target.value)}
-              placeholder={editingProvider ? "留空表示不修改" : "输入 API Key"}
+              placeholder={editingProvider ? t("form.apiKeyEditPlaceholder") : t("form.apiKeyCreatePlaceholder")}
               className="mt-1"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-text-primary">Base URL</label>
+            <label className="text-sm font-medium text-text-primary">{t("form.baseUrl")}</label>
             <Input
               value={formBaseURL}
               onChange={(e) => setFormBaseURL(e.target.value)}
-              placeholder="可选，默认使用服务商 URL"
+              placeholder={t("form.baseUrlPlaceholder")}
               className="mt-1"
             />
           </div>
@@ -864,16 +882,16 @@ export function ModelsPage() {
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="确认删除"
-        description={`此操作不可逆。确定要删除服务商 "${deleteTarget}" 吗？`}
+        title={t("deleteProvider.confirmTitle")}
+        description={t("deleteProvider.confirmDesc", { name: deleteTarget ?? "" })}
         variant="destructive"
         onConfirm={confirmDelete}
       />
       <ConfirmDialog
         open={batchConfirmOpen}
         onOpenChange={setBatchConfirmOpen}
-        title="批量删除确认"
-        description={`此操作不可逆。确定要删除选中的 ${selected.length} 个服务商吗？`}
+        title={t("batchDeleteConfirmTitle")}
+        description={t("batchDeleteConfirmDesc", { count: selected.length })}
         variant="destructive"
         onConfirm={confirmBatchDelete}
       />
@@ -882,13 +900,15 @@ export function ModelsPage() {
           <DialogHeader>
             <DialogTitle>
               {testResult && "error" in testResult
-                ? `连接测试失败 — ${testResult.name}`
-                : `连接测试成功 — ${testResult?.name}`}
+                ? t("testDialog.failTitle", { name: testResult.name })
+                : t("testDialog.successTitle", { name: testResult?.name ?? "" })}
             </DialogTitle>
             <DialogDescription>
               {testResult && "error" in testResult
                 ? (testResult as { name: string; error: string }).error
-                : `发现 ${(testResult as { name: string; models: string[] } | null)?.models?.length ?? 0} 个可用模型`}
+                : t("testDialog.modelsFound", {
+                    count: (testResult as { name: string; models: string[] } | null)?.models?.length ?? 0,
+                  })}
             </DialogDescription>
           </DialogHeader>
           {testResult &&
@@ -913,10 +933,10 @@ export function ModelsPage() {
                   >
                     <span className="font-mono text-xs text-text-primary">{m}</span>
                     {added ? (
-                      <span className="text-xs text-status-active font-medium">已添加</span>
+                      <span className="text-xs text-status-active font-medium">{t("testDialog.added")}</span>
                     ) : (
                       <Button size="xs" variant="outline" onClick={() => handleAddFromTest(m)}>
-                        添加
+                        {t("actions.add")}
                       </Button>
                     )}
                   </div>

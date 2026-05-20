@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
@@ -14,21 +15,6 @@ const TOGGLE_TOOLS = ["todowrite", "question", "webfetch", "websearch", "codesea
 
 /** 规则型工具列表 */
 const RULE_TOOLS = ["read", "edit", "glob", "grep", "list", "bash", "task", "external_directory", "lsp"] as const;
-
-/** Select 选项: 未设置 + 三态 */
-const PERMISSION_OPTIONS = [
-  { value: "", label: "未设置" },
-  { value: "ask", label: "询问" },
-  { value: "allow", label: "允许" },
-  { value: "deny", label: "拒绝" },
-] as const;
-
-/** 规则型 Select 选项（排除"未设置"，使用全局策略兜底） */
-const RULE_ACTION_OPTIONS = [
-  { value: "ask", label: "询问" },
-  { value: "allow", label: "允许" },
-  { value: "deny", label: "拒绝" },
-] as const;
 
 // ── 内部状态类型 ──
 
@@ -116,6 +102,22 @@ interface PermissionTabProps {
 }
 
 export function PermissionTab({ agentName, permission, onPermissionChange }: PermissionTabProps) {
+  const { t } = useTranslation("components");
+
+  // Permission options built from translations
+  const PERMISSION_OPTIONS = [
+    { value: "", label: t("permission.notSet") },
+    { value: "ask", label: t("permission.ask") },
+    { value: "allow", label: t("permission.allow") },
+    { value: "deny", label: t("permission.deny") },
+  ] as const;
+
+  const RULE_ACTION_OPTIONS = [
+    { value: "ask", label: t("permission.ask") },
+    { value: "allow", label: t("permission.allow") },
+    { value: "deny", label: t("permission.deny") },
+  ] as const;
+
   // ── 状态（仅初始化一次，不再双向同步 prop） ──
   const [initialParsed] = useState(() => parsePermission(permission));
   const [globalStrategy, setGlobalStrategy] = useState<ToggleValue>(initialParsed.globalStrategy);
@@ -338,10 +340,8 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
     <div className="space-y-6 max-h-[55vh] overflow-y-auto pt-2">
       {/* ── 全局策略 ── */}
       <div>
-        <Label className="text-sm font-medium">全局策略</Label>
-        <p className="text-xs text-muted-foreground mb-1">
-          设置后所有工具继承此策略，未设置则使用 Agent引擎 内置默认值
-        </p>
+        <Label className="text-sm font-medium">{t("permission.globalStrategy")}</Label>
+        <p className="text-xs text-muted-foreground mb-1">{t("permission.globalStrategyDesc")}</p>
         <Select
           value={globalStrategy}
           onValueChange={(v) => {
@@ -351,7 +351,7 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
           }}
         >
           <SelectTrigger className="w-40">
-            <SelectValue placeholder="未设置" />
+            <SelectValue placeholder={t("permission.notSet")} />
           </SelectTrigger>
           <SelectContent>
             {PERMISSION_OPTIONS.map((opt) => (
@@ -365,11 +365,11 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
 
       {/* ── 工具权限 ── */}
       <div>
-        <div className="text-sm font-medium mb-3 border-b pb-1">工具权限</div>
+        <div className="text-sm font-medium mb-3 border-b pb-1">{t("permission.toolPermissions")}</div>
 
         {/* 开关型工具 */}
         <div className="space-y-2 mb-4">
-          <div className="text-xs text-muted-foreground">开关型工具</div>
+          <div className="text-xs text-muted-foreground">{t("permission.toggleTools")}</div>
           {TOGGLE_TOOLS.map((tool) => (
             <div key={tool} className="flex items-center gap-3">
               <span className="text-sm w-36 font-mono">{tool}</span>
@@ -378,7 +378,7 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
                 onValueChange={(v) => handleToggleChange(tool, v === "__unset__" ? "" : v)}
               >
                 <SelectTrigger className="w-32">
-                  <SelectValue placeholder="未设置" />
+                  <SelectValue placeholder={t("permission.notSet")} />
                 </SelectTrigger>
                 <SelectContent>
                   {PERMISSION_OPTIONS.map((opt) => (
@@ -394,7 +394,7 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
 
         {/* 规则型工具 */}
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground">规则型工具（支持通配符规则）</div>
+          <div className="text-xs text-muted-foreground">{t("permission.ruleTools")}</div>
           {RULE_TOOLS.map((tool) => (
             <Collapsible key={tool} open={expandedTools.has(tool)} onOpenChange={() => toggleExpand(tool)}>
               <div className="flex items-center gap-3">
@@ -404,7 +404,7 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
                   onValueChange={(v) => handleRuleGlobalChange(tool, v === "__unset__" ? "" : v)}
                 >
                   <SelectTrigger className="w-32">
-                    <SelectValue placeholder="未设置" />
+                    <SelectValue placeholder={t("permission.notSet")} />
                   </SelectTrigger>
                   <SelectContent>
                     {PERMISSION_OPTIONS.map((opt) => (
@@ -416,7 +416,7 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
                 </Select>
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" size="sm" type="button">
-                    {expandedTools.has(tool) ? "收起" : "展开"}
+                    {expandedTools.has(tool) ? t("permission.collapse") : t("permission.expand")}
                   </Button>
                 </CollapsibleTrigger>
               </div>
@@ -427,7 +427,7 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
                       <Input
                         value={rule.pattern}
                         onChange={(e) => handleRulePatternChange(tool, idx, e.target.value)}
-                        placeholder="通配符，如 *.env"
+                        placeholder={t("permission.wildcardPlaceholder")}
                         className="w-44 h-8 text-sm"
                       />
                       <span className="text-muted-foreground text-xs">&rarr;</span>
@@ -449,7 +449,7 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
                     </div>
                   ))}
                   <Button variant="outline" size="sm" type="button" onClick={() => handleAddRule(tool)}>
-                    + 添加规则
+                    {t("permission.addRule")}
                   </Button>
                 </div>
               </CollapsibleContent>
@@ -460,16 +460,16 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
 
       {/* ── Skill 权限 ── */}
       <div>
-        <div className="text-sm font-medium mb-3 border-b pb-1">Skill 权限</div>
+        <div className="text-sm font-medium mb-3 border-b pb-1">{t("permission.skillPermissions")}</div>
         <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <span className="text-sm w-36">全局策略</span>
+            <span className="text-sm w-36">{t("permission.globalStrategy")}</span>
             <Select
               value={skillPerm.global || "__unset__"}
               onValueChange={(v) => handleSkillGlobalChange(v === "__unset__" ? "" : v)}
             >
               <SelectTrigger className="w-32">
-                <SelectValue placeholder="未设置" />
+                <SelectValue placeholder={t("permission.notSet")} />
               </SelectTrigger>
               <SelectContent>
                 {PERMISSION_OPTIONS.map((opt) => (
@@ -481,7 +481,7 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
             </Select>
           </div>
 
-          {skillLoading && <div className="text-xs text-muted-foreground py-2">加载 Skill 列表...</div>}
+          {skillLoading && <div className="text-xs text-muted-foreground py-2">{t("permission.loadingSkills")}</div>}
 
           {!skillLoading &&
             skillNames.map((name) => (
@@ -494,7 +494,7 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
                   onValueChange={(v) => handleSkillValueChange(name, v === "__unset__" ? "" : v)}
                 >
                   <SelectTrigger className="w-32">
-                    <SelectValue placeholder="未设置" />
+                    <SelectValue placeholder={t("permission.notSet")} />
                   </SelectTrigger>
                   <SelectContent>
                     {PERMISSION_OPTIONS.map((opt) => (
@@ -508,13 +508,13 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
             ))}
 
           {/* 自定义规则 */}
-          <div className="text-xs text-muted-foreground mt-3 pt-2 border-t">自定义规则（通配符模式）</div>
+          <div className="text-xs text-muted-foreground mt-3 pt-2 border-t">{t("permission.customRules")}</div>
           {skillPerm.rules.map((rule, idx) => (
             <div key={idx} className="flex items-center gap-2">
               <Input
                 value={rule.pattern}
                 onChange={(e) => handleSkillRulePatternChange(idx, e.target.value)}
-                placeholder='通配符，如 "internal-*"'
+                placeholder={t("permission.skillWildcardPlaceholder")}
                 className="w-44 h-8 text-sm"
               />
               <span className="text-muted-foreground text-xs">&rarr;</span>
@@ -536,7 +536,7 @@ export function PermissionTab({ agentName, permission, onPermissionChange }: Per
             </div>
           ))}
           <Button variant="outline" size="sm" type="button" onClick={handleAddSkillRule}>
-            + 添加自定义规则
+            {t("permission.addCustomRule")}
           </Button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { BatchActionBar } from "@/components/config/BatchActionBar";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
@@ -39,17 +40,17 @@ import { dispatchConfigChange } from "../lib/config-events";
 
 type CreateMode = "text" | "upload";
 
-export function validateSkillForm(name: string, content: string): string | null {
-  if (!name.trim()) return "名称不能为空";
-  if (!content.trim()) return "内容不能为空";
+export function validateSkillForm(name: string, content: string, t: (key: string) => string): string | null {
+  if (!name.trim()) return t("form.nameRequired");
+  if (!content.trim()) return t("form.contentRequired");
   return null;
 }
 
-export function getUploadResultMessage(imported: number, skipped: number): string {
+export function getUploadResultMessage(imported: number, skipped: number, t: (key: string) => string): string {
   if (skipped > 0) {
-    return `已导入 ${imported} 个技能，跳过 ${skipped} 个冲突技能`;
+    return t("toast.importResultWithSkipped", { imported, skipped });
   }
-  return `已导入 ${imported} 个技能`;
+  return t("toast.importResult", { imported });
 }
 
 export function getUploadConflictData(error: unknown): SkillUploadConflictResponse | null {
@@ -68,11 +69,11 @@ export function getUploadConflictData(error: unknown): SkillUploadConflictRespon
   return data;
 }
 
-export function getUploadItemSummaries(items: UploadSkillSummary[]): string[] {
+export function getUploadItemSummaries(items: UploadSkillSummary[], t: (key: string) => string): string[] {
   return items.map((item) =>
     item.hasSkillMd
-      ? `${item.skillName} (${item.fileCount} 个文件)`
-      : `${item.skillName} (${item.fileCount} 个文件，缺少 SKILL.md)`,
+      ? t("upload.itemSummary", { name: item.skillName, count: item.fileCount })
+      : t("upload.itemSummaryMissing", { name: item.skillName, count: item.fileCount }),
   );
 }
 
@@ -81,6 +82,7 @@ export function getInvalidUploadSkillNames(items: UploadSkillSummary[]): string[
 }
 
 function UploadItemCard({ item }: { item: UploadSkillSummary }) {
+  const { t } = useTranslation("skills");
   return (
     <div
       className={`flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors ${
@@ -93,34 +95,41 @@ function UploadItemCard({ item }: { item: UploadSkillSummary }) {
         <div className="flex items-center gap-2">
           <span className="font-mono text-sm font-medium text-text-bright truncate">{item.skillName}</span>
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-surface-2 text-text-muted">
-            {item.fileCount} 文件
+            {t("upload.files", { count: item.fileCount })}
           </span>
         </div>
       </div>
       {!item.hasSkillMd && (
-        <span className="text-xs text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">缺少 SKILL.md</span>
+        <span className="text-xs text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">
+          {t("upload.missingSkillMd")}
+        </span>
       )}
-      {item.hasSkillMd && <span className="text-xs text-status-active font-medium">可导入</span>}
+      {item.hasSkillMd && <span className="text-xs text-status-active font-medium">{t("upload.importable")}</span>}
     </div>
   );
 }
 
 const directoryInputProps = { webkitdirectory: "", directory: "" } as Record<string, string>;
 
-const statusConfig: Record<SkillSourceStatus, { badge: "configured" | "disabled" | "unconfigured"; label: string }> = {
-  online: { badge: "configured", label: "在线" },
-  offline: { badge: "disabled", label: "离线" },
-  timeout: { badge: "unconfigured", label: "扫描超时" },
-};
-
 function SourceStatusBadge({ status }: { status: SkillSourceStatus }) {
-  const cfg = statusConfig[status];
-  return <StatusBadge status={cfg.badge} label={cfg.label} />;
+  const { t } = useTranslation("skills");
+  const badgeMap: Record<SkillSourceStatus, "configured" | "disabled" | "unconfigured"> = {
+    online: "configured",
+    offline: "disabled",
+    timeout: "unconfigured",
+  };
+  const labelMap: Record<SkillSourceStatus, string> = {
+    online: t("status.online"),
+    offline: t("status.offline"),
+    timeout: t("status.timeout"),
+  };
+  return <StatusBadge status={badgeMap[status]} label={labelMap[status]} />;
 }
 
 // --- SkillSubrow: 展开后显示的 skill 列表 ---
 
 function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh: () => void }) {
+  const { t } = useTranslation("skills");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<SkillInfo | null>(null);
@@ -182,7 +191,7 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
         workspaceId: workspaceIdArg,
       });
       if (resErr) {
-        toast.error("加载技能详情失败");
+        toast.error(t("toast.loadDetailFailed"));
         return;
       }
       const detail = unwrapConfigData(res) ?? res;
@@ -191,7 +200,7 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
       setFormContent(detail.content);
       setDialogOpen(true);
     } catch {
-      toast.error("加载技能详情失败");
+      toast.error(t("toast.loadDetailFailed"));
     }
   };
 
@@ -210,8 +219,8 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
         workspaceId: workspaceIdArg,
       });
       if (resErr) {
-        console.error("加载技能详情失败", resErr);
-        toast.error("加载技能详情失败");
+        console.error(t("toast.loadDetailFailed"), resErr);
+        toast.error(t("toast.loadDetailFailed"));
         return;
       }
       const detail = unwrapConfigData(res) ?? res;
@@ -220,13 +229,13 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
       setFormContent(detail.content);
       setDialogOpen(true);
     } catch (e) {
-      console.error("加载技能详情失败", e);
-      toast.error("加载技能详情失败");
+      console.error(t("toast.loadDetailFailed"), e);
+      toast.error(t("toast.loadDetailFailed"));
     }
   };
 
   const handleTextSave = async () => {
-    const err = validateSkillForm(formName, formContent);
+    const err = validateSkillForm(formName, formContent, t);
     if (err) {
       toast.error(err);
       return;
@@ -240,13 +249,13 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
         source: sourceArg,
         workspaceId: workspaceIdArg,
       });
-      if (setErr) throw new Error(setErr.message ?? "保存失败");
-      toast.success(editingSkill ? "技能已更新" : "技能已创建");
+      if (setErr) throw new Error(setErr.message ?? t("toast.saveFailed"));
+      toast.success(editingSkill ? t("toast.skillUpdated") : t("toast.skillCreated"));
       setDialogOpen(false);
       onRefresh();
       dispatchConfigChange("skills");
     } catch (e) {
-      toast.error("保存失败: " + (e instanceof Error ? e.message : "未知错误"));
+      toast.error(t("toast.saveFailedWith", { message: e instanceof Error ? e.message : t("toast.saveFailed") }));
     } finally {
       setFormSaving(false);
     }
@@ -275,7 +284,7 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
       if (sourceArg) formData.append("source", sourceArg);
       if (workspaceIdArg) formData.append("workspaceId", workspaceIdArg);
       const result = await fetchUpload<{ imported: any[]; skipped: any[] }>("/web/config/skills/upload", formData);
-      toast.success(getUploadResultMessage(result.imported.length, result.skipped.length));
+      toast.success(getUploadResultMessage(result.imported.length, result.skipped.length, t));
       setDialogOpen(false);
       resetUploadState();
       onRefresh();
@@ -283,13 +292,15 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
     } catch (error) {
       const conflictData = getUploadConflictData(error);
       if (conflictData) {
-        console.error("导入技能冲突", error);
+        console.error(t("toast.importFailed"), error);
         setConflicts(conflictData.conflicts);
         setConflictStrategy(strategy ?? null);
-        toast.error("检测到同名技能，请选择忽略或覆盖策略");
+        toast.error(t("conflict.detected"));
       } else {
-        console.error("导入技能失败", error);
-        toast.error("导入失败: " + (error instanceof Error ? error.message : "未知错误"));
+        console.error(t("toast.importFailed"), error);
+        toast.error(
+          t("toast.importFailedWith", { message: error instanceof Error ? error.message : t("toast.saveFailed") }),
+        );
       }
     } finally {
       setUploadPending(false);
@@ -309,18 +320,18 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
     try {
       if (skill.enabled) {
         const { error: toggleErr } = await client.web.config.skills.post({ action: "disable", name: skill.name });
-        if (toggleErr) throw new Error(toggleErr.message ?? "操作失败");
-        toast.success(`已禁用 "${skill.name}"`);
+        if (toggleErr) throw new Error(toggleErr.message ?? t("toast.toggleFailed"));
+        toast.success(t("toast.disabled", { name: skill.name }));
       } else {
         const { error: toggleErr } = await client.web.config.skills.post({ action: "enable", name: skill.name });
-        if (toggleErr) throw new Error(toggleErr.message ?? "操作失败");
-        toast.success(`已启用 "${skill.name}"`);
+        if (toggleErr) throw new Error(toggleErr.message ?? t("toast.toggleFailed"));
+        toast.success(t("toast.enabled", { name: skill.name }));
       }
       onRefresh();
       dispatchConfigChange("skills");
     } catch (e) {
-      console.error("切换技能状态失败", e);
-      toast.error("操作失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("toast.toggleFailed"), e);
+      toast.error(t("toast.operationFailed", { message: e instanceof Error ? e.message : t("toast.saveFailed") }));
     }
   };
 
@@ -342,14 +353,14 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
         source: sourceArg,
         workspaceId: workspaceIdArg,
       });
-      if (delErr) throw new Error(delErr.message ?? "删除失败");
-      toast.success("技能已删除");
+      if (delErr) throw new Error(delErr.message ?? t("toast.deleteFailed"));
+      toast.success(t("toast.skillDeleted"));
       setConfirmOpen(false);
       onRefresh();
       dispatchConfigChange("skills");
     } catch (e) {
-      console.error("删除技能失败", e);
-      toast.error("删除失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("toast.deleteFailed"), e);
+      toast.error(t("toast.deleteFailedWith", { message: e instanceof Error ? e.message : t("toast.saveFailed") }));
     }
   };
 
@@ -360,18 +371,20 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
           client.web.config.skills
             .post({ action: "delete", name: s.name, source: sourceArg, workspaceId: workspaceIdArg })
             .then((r) => {
-              if (r.error) throw new Error(r.error.message ?? "删除失败");
+              if (r.error) throw new Error(r.error.message ?? t("toast.deleteFailed"));
             }),
         ),
       );
-      toast.success(`已删除 ${selected.length} 个技能`);
+      toast.success(t("toast.batchDeleted", { count: selected.length }));
       setBatchConfirmOpen(false);
       setSelected([]);
       onRefresh();
       dispatchConfigChange("skills");
     } catch (e) {
-      console.error("批量删除技能失败", e);
-      toast.error("批量删除失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("toast.batchDeleteFailed"), e);
+      toast.error(
+        t("toast.batchDeleteFailedWith", { message: e instanceof Error ? e.message : t("toast.saveFailed") }),
+      );
     }
   };
 
@@ -379,7 +392,7 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
     <>
       <div className="space-y-2">
         {source.skills.length === 0 ? (
-          <div className="py-6 text-center text-sm text-text-muted">暂无技能</div>
+          <div className="py-6 text-center text-sm text-text-muted">{t("noSkills")}</div>
         ) : (
           <div className="grid gap-2">
             {source.skills.map((skill) => (
@@ -412,14 +425,14 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
                 <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   {!isWorkspace && (
                     <Button size="xs" variant="outline" onClick={() => handleToggle(skill)}>
-                      {skill.enabled ? "禁用" : "启用"}
+                      {skill.enabled ? t("btn.disable") : t("btn.enable")}
                     </Button>
                   )}
                   <Button size="xs" variant="outline" onClick={() => handleOpenEdit(skill)}>
-                    编辑
+                    {t("btn.edit")}
                   </Button>
                   <Button size="xs" variant="destructive" onClick={() => handleDeleteClick(skill)}>
-                    删除
+                    {t("btn.delete")}
                   </Button>
                 </div>
               </div>
@@ -431,15 +444,15 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
         <BatchActionBar
           selectedCount={selected.length}
           onClear={() => setSelected([])}
-          actions={[{ label: "批量删除", variant: "destructive", onClick: () => setBatchConfirmOpen(true) }]}
+          actions={[{ label: t("btn.batchDelete"), variant: "destructive", onClick: () => setBatchConfirmOpen(true) }]}
         />
       )}
       <div className="flex gap-2 pt-2">
         <Button size="sm" variant="outline" className="w-full border-dashed" onClick={() => handleOpenCreate("text")}>
-          + 新建技能
+          {t("btn.createSkill")}
         </Button>
         <Button size="sm" variant="outline" className="w-full border-dashed" onClick={() => handleOpenCreate("upload")}>
-          上传技能
+          {t("btn.uploadSkill")}
         </Button>
       </div>
 
@@ -450,9 +463,9 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
           setDialogOpen(open);
           if (!open) resetUploadState();
         }}
-        title={editingSkill ? "编辑技能" : "新建技能"}
+        title={editingSkill ? t("dialog.editTitle") : t("dialog.createTitle")}
         onSubmit={handleDialogSubmit}
-        submitLabel={editingSkill || createMode === "text" ? "保存" : "开始上传"}
+        submitLabel={editingSkill || createMode === "text" ? t("dialog.save") : t("dialog.startUpload")}
         loading={editingSkill || createMode === "text" ? formSaving : uploadPending}
         disabled={!editingSkill && createMode === "upload" && uploadItems.filter((i) => i.hasSkillMd).length === 0}
         width="sm:max-w-4xl"
@@ -460,8 +473,8 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
         {!editingSkill ? (
           <Tabs value={createMode} onValueChange={(value) => setCreateMode(value as CreateMode)} className="min-h-0">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="upload">上传技能</TabsTrigger>
-              <TabsTrigger value="text">创建技能</TabsTrigger>
+              <TabsTrigger value="upload">{t("dialog.uploadTab")}</TabsTrigger>
+              <TabsTrigger value="text">{t("dialog.createTab")}</TabsTrigger>
             </TabsList>
             <TabsContent value="upload" className="space-y-4">
               <input
@@ -492,13 +505,15 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
                       />
                     </svg>
                   </div>
-                  <p className="text-sm font-medium text-text-primary">点击选择包含技能的文件夹</p>
-                  <p className="mt-1 text-xs text-text-muted">每个子目录将被识别为一个 skill，目录内需包含 SKILL.md</p>
+                  <p className="text-sm font-medium text-text-primary">{t("upload.selectFolder")}</p>
+                  <p className="mt-1 text-xs text-text-muted">{t("upload.selectFolderHint")}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-text-primary">已选择 {uploadItems.length} 个目录</span>
+                    <span className="text-sm font-medium text-text-primary">
+                      {t("upload.selectedDirs", { count: uploadItems.length })}
+                    </span>
                     <Button
                       type="button"
                       variant="ghost"
@@ -510,7 +525,7 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
                         fileInputRef.current?.click();
                       }}
                     >
-                      重新选择
+                      {t("btn.reselect")}
                     </Button>
                   </div>
                   <div className="grid gap-2 max-h-48 overflow-y-auto">
@@ -527,7 +542,7 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
               )}
               {conflicts.length > 0 && (
                 <div className="space-y-3 rounded-lg border border-warning-border bg-warning-bg px-4 py-3 text-sm">
-                  <div className="font-medium text-warning-text">检测到同名技能冲突</div>
+                  <div className="font-medium text-warning-text">{t("conflict.title")}</div>
                   <div className="space-y-1">
                     {conflicts.map((conflict) => (
                       <div key={conflict.name} className="flex items-center gap-2">
@@ -544,7 +559,7 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
                       onClick={() => handleUploadSubmit("ignore")}
                       disabled={uploadPending}
                     >
-                      跳过冲突项
+                      {t("conflict.skipConflicts")}
                     </Button>
                     <Button
                       type="button"
@@ -553,7 +568,7 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
                       onClick={() => setOverwriteConfirmOpen(true)}
                       disabled={uploadPending}
                     >
-                      覆盖已有技能
+                      {t("conflict.overwriteExisting")}
                     </Button>
                   </div>
                 </div>
@@ -561,7 +576,7 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
             </TabsContent>
             <TabsContent value="text" className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-text-primary">技能名称</label>
+                <label className="text-sm font-medium text-text-primary">{t("form.name")}</label>
                 <Input
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
@@ -570,22 +585,22 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-text-primary">描述</label>
+                <label className="text-sm font-medium text-text-primary">{t("form.description")}</label>
                 <Textarea
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   className="mt-1 min-h-[80px] text-sm"
-                  placeholder="可选，简要描述技能用途"
+                  placeholder={t("form.descriptionPlaceholder")}
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-text-primary">内容</label>
-                <p className="text-xs text-text-muted mb-1.5">Markdown 格式的技能指令</p>
+                <label className="text-sm font-medium text-text-primary">{t("form.content")}</label>
+                <p className="text-xs text-text-muted mb-1.5">{t("form.contentHint")}</p>
                 <Textarea
                   value={formContent}
                   onChange={(e) => setFormContent(e.target.value)}
                   className="min-h-[300px] font-mono text-sm"
-                  placeholder="输入 Markdown 内容..."
+                  placeholder={t("form.contentPlaceholder")}
                 />
               </div>
             </TabsContent>
@@ -593,7 +608,7 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
         ) : (
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-text-primary">技能名称</label>
+              <label className="text-sm font-medium text-text-primary">{t("form.name")}</label>
               <Input
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
@@ -602,22 +617,22 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-text-primary">描述</label>
+              <label className="text-sm font-medium text-text-primary">{t("form.description")}</label>
               <Textarea
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
                 className="mt-1 min-h-[80px] text-sm"
-                placeholder="可选，简要描述技能用途"
+                placeholder={t("form.descriptionPlaceholder")}
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-text-primary">内容</label>
-              <p className="text-xs text-text-muted mb-1.5">Markdown 格式的技能指令</p>
+              <label className="text-sm font-medium text-text-primary">{t("form.content")}</label>
+              <p className="text-xs text-text-muted mb-1.5">{t("form.contentHint")}</p>
               <Textarea
                 value={formContent}
                 onChange={(e) => setFormContent(e.target.value)}
                 className="min-h-[300px] font-mono text-sm"
-                placeholder="输入 Markdown 内容..."
+                placeholder={t("form.contentPlaceholder")}
               />
             </div>
           </div>
@@ -628,11 +643,11 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="确认删除"
+        title={t("confirm.deleteTitle")}
         description={
           isWorkspace && deleteTarget
-            ? `此操作将永久删除项目文件：\n${deleteTarget.path}\n\n此操作不可撤销。确定要继续吗？`
-            : `此操作不可逆。确定要删除技能 "${deleteTarget?.name}" 吗？`
+            ? t("confirm.deleteWorkspaceDescription", { path: deleteTarget.path })
+            : t("confirm.deleteDescription", { name: deleteTarget?.name ?? "" })
         }
         variant="destructive"
         onConfirm={confirmDelete}
@@ -642,8 +657,12 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
       <ConfirmDialog
         open={workspaceEditConfirmOpen}
         onOpenChange={setWorkspaceEditConfirmOpen}
-        title="编辑工作区技能"
-        description={`你正在编辑工作区「${source.name}」中的技能「${pendingEditSkill?.name}」，修改将直接影响项目文件：${source.path}/.agents/skills/${pendingEditSkill?.name}。确定继续吗？`}
+        title={t("confirm.editWorkspaceTitle")}
+        description={t("confirm.editWorkspaceDescription", {
+          sourceName: source.name,
+          skillName: pendingEditSkill?.name ?? "",
+          path: `${source.path}/.agents/skills/${pendingEditSkill?.name ?? ""}`,
+        })}
         onConfirm={confirmWorkspaceEdit}
       />
 
@@ -651,8 +670,11 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
       <ConfirmDialog
         open={batchConfirmOpen}
         onOpenChange={setBatchConfirmOpen}
-        title="批量删除确认"
-        description={`确定要删除选中的 ${selected.length} 个技能吗？${isWorkspace ? "此操作将永久删除项目文件，不可撤销。" : "此操作不可逆。"}`}
+        title={t("confirm.batchDeleteTitle")}
+        description={t("confirm.batchDeleteDescription", {
+          count: selected.length,
+          workspaceHint: isWorkspace ? t("confirm.batchDeleteWorkspaceHint") : t("confirm.batchDeleteHint"),
+        })}
         variant="destructive"
         onConfirm={confirmBatchDelete}
       />
@@ -661,10 +683,10 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
       <ConfirmDialog
         open={overwriteConfirmOpen}
         onOpenChange={setOverwriteConfirmOpen}
-        title="确认覆盖冲突技能"
-        description="覆盖会整目录替换已有技能内容，旧文件会被删除。确定继续吗？"
+        title={t("confirm.overwriteTitle")}
+        description={t("confirm.overwriteDescription")}
         variant="destructive"
-        confirmLabel="确认覆盖"
+        confirmLabel={t("confirm.overwriteConfirm")}
         onConfirm={() => void handleUploadSubmit("overwrite")}
         loading={uploadPending}
       />
@@ -675,6 +697,7 @@ function SkillSubrow({ source, onRefresh }: { source: SkillSourceInfo; onRefresh
 // --- Main Page ---
 
 export function SkillsPage() {
+  const { t } = useTranslation("skills");
   const [sources, setSources] = useState<SkillSourceInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -684,19 +707,19 @@ export function SkillsPage() {
     try {
       const { data: res, error: resErr } = await client.web.config.skills.post({ action: "workspace_list" });
       if (resErr) {
-        console.error("加载技能列表失败", resErr);
-        toast.error("加载技能列表失败: " + (resErr.message ?? "未知错误"));
+        console.error(t("toast.loadListFailed"), resErr);
+        toast.error(t("toast.loadListFailedWith", { message: resErr.message ?? t("toast.saveFailed") }));
         return;
       }
       const d = unwrapConfigData(res) ?? res;
       setSources(d.sources ?? d);
     } catch (e) {
-      console.error("加载技能列表失败", e);
-      toast.error("加载技能列表失败: " + (e instanceof Error ? e.message : "未知错误"));
+      console.error(t("toast.loadListFailed"), e);
+      toast.error(t("toast.loadListFailedWith", { message: e instanceof Error ? e.message : t("toast.saveFailed") }));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadSources();
@@ -716,7 +739,7 @@ export function SkillsPage() {
   const columns: Column<SkillSourceInfo>[] = [
     {
       key: "name",
-      header: "来源",
+      header: t("column.source"),
       sortable: true,
       filterable: true,
       render: (row) => (
@@ -732,16 +755,16 @@ export function SkillsPage() {
     },
     {
       key: "status",
-      header: "状态",
+      header: t("column.status"),
       filterable: true,
       render: (row) => {
-        if (row.type === "global") return <StatusBadge status="configured" label="全局" />;
+        if (row.type === "global") return <StatusBadge status="configured" label={t("status.global")} />;
         return <SourceStatusBadge status={row.status} />;
       },
     },
     {
       key: "skills",
-      header: "技能数",
+      header: t("column.skillCount"),
       sortable: true,
       render: (row) => (
         <span
@@ -776,8 +799,8 @@ export function SkillsPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-text-bright">技能管理</h2>
-          <p className="text-sm text-text-muted mt-0.5">管理 AI Agent 可用的技能模板</p>
+          <h2 className="text-xl font-semibold text-text-bright">{t("title")}</h2>
+          <p className="text-sm text-text-muted mt-0.5">{t("subtitle")}</p>
         </div>
       </div>
       <div className="relative">
@@ -797,7 +820,7 @@ export function SkillsPage() {
         <Input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="搜索技能..."
+          placeholder={t("search")}
           className="pl-9"
         />
       </div>
@@ -807,7 +830,7 @@ export function SkillsPage() {
         rowKey={(row) => (row.type === "global" ? "__global__" : row.id!)}
         expandableRow={(row) => <SkillSubrow source={row} onRefresh={loadSources} />}
         defaultExpandAll
-        emptyMessage={"暂无技能"}
+        emptyMessage={t("empty")}
       />
     </div>
   );

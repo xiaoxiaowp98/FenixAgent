@@ -1,0 +1,130 @@
+{
+  "navbar": {
+    "status": {
+      "active": "Active",
+      "running": "Running",
+      "idle": "Idle",
+      "inactive": "Offline",
+      "requires_action": "Pending",
+      "archived": "Archived",
+      "error": "Error",
+      "disconnected": "Disconnected"
+    }
+  },
+  "controlBar": {
+    "sessionClosed": "Session is closed",
+    "typeMessage": "Type a message...",
+    "stop": "Stop",
+    "send": "Send"
+  },
+  "newSession": {
+    "title": "New Session",
+    "titleLabel": "Title (optional)",
+    "titlePlaceholder": "My session",
+    "environment": "Environment",
+    "noneOption": "-- None --",
+    "noBranch": "no branch",
+    "cancel": "Cancel",
+    "creating": "Creating...",
+    "create": "Create",
+    "createFailed": "Failed to create session"
+  },
+  "filePicker": {
+    "title": "Select File",
+    "searchPlaceholder": "Search files...",
+    "uploadFile": "Upload file",
+    "noFiles": "No files",
+    "loadFailed": "Failed to load files",
+    "uploadFailed": "Upload failed"
+  },
+  "identity": {
+    "title": "Identity",
+    "yourUuid": "Your UUID",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "scanOnAnotherDevice": "Scan on another device",
+    "cameraScanner": "Camera scanner",
+    "stopScanning": "Stop scanning",
+    "stopCamera": "Stop Camera",
+    "scanWithCamera": "Scan with Camera",
+    "uploadQrImage": "Upload QR Image",
+    "qrNotFound": "QR code not found, please try a clearer image"
+  },
+  "loading": {
+    "thinking": "Thinking"
+  },
+  "permission": {
+    "notSet": "Not set",
+    "ask": "Ask",
+    "allow": "Allow",
+    "deny": "Deny",
+    "globalStrategy": "Global Strategy",
+    "globalStrategyDesc": "When set, all tools inherit this strategy. When unset, the Agent engine built-in defaults are used",
+    "toolPermissions": "Tool Permissions",
+    "toggleTools": "Toggle Tools",
+    "ruleTools": "Rule-based Tools (supports wildcard rules)",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "wildcardPlaceholder": "Wildcard, e.g. *.env",
+    "addRule": "+ Add Rule",
+    "skillPermissions": "Skill Permissions",
+    "loadingSkills": "Loading skills...",
+    "customRules": "Custom Rules (wildcard pattern)",
+    "skillWildcardPlaceholder": "Wildcard, e.g. \"internal-*\"",
+    "addCustomRule": "+ Add Custom Rule"
+  },
+  "permissionViews": {
+    "permissionRequest": "Permission Request",
+    "approve": "Approve",
+    "reject": "Reject",
+    "other": "Other...",
+    "send": "Send",
+    "submit": "Submit",
+    "skip": "Skip",
+    "submitAll": "Submit All",
+    "question": "Question",
+    "questions": "Questions",
+    "exitPlanMode": "Exit plan mode?",
+    "readyToCode": "Ready to code?",
+    "yes": "Yes",
+    "no": "No",
+    "yesAutoAccept": "Yes, auto-accept edits",
+    "yesAutoAcceptDesc": "Approve plan and auto-accept file edits",
+    "yesManualApprove": "Yes, manually approve edits",
+    "yesManualApproveDesc": "Approve plan but confirm each edit",
+    "noKeepPlanning": "No, keep planning",
+    "noKeepPlanningDesc": "Provide feedback to refine the plan",
+    "planFeedbackPlaceholder": "Tell the agent what needs to be changed..."
+  },
+  "sessionList": {
+    "noSessions": "No sessions"
+  },
+  "taskPanel": {
+    "title": "Tasks",
+    "noActiveTasks": "No active tasks"
+  },
+  "tokenManager": {
+    "title": "Token Manager",
+    "description": "Manage API tokens for RCS authentication.",
+    "noTokens": "No tokens saved yet. Add one below.",
+    "addToken": "Add Token",
+    "tokenPlaceholder": "API Token",
+    "labelPlaceholder": "Label (optional)",
+    "tokenRequired": "Token is required",
+    "unnamed": "Unnamed",
+    "toggleVisibility": "Toggle token visibility",
+    "copyToken": "Copy token",
+    "editLabel": "Edit label",
+    "deleteToken": "Delete token"
+  },
+  "acpDirect": {
+    "loginExpired": "Session expired, please log in again",
+    "backToDashboard": "Back to Dashboard",
+    "connectingAgent": "Connecting to ACP agent...",
+    "connectionFailed": "Connection Failed"
+  },
+  "artifact": {
+    "contextPlaceholder": "Context (placeholder), entries: {{count}}",
+    "previewPlaceholder": "Preview (placeholder), entries: {{count}}"
+  }
+}

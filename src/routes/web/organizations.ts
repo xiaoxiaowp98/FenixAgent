@@ -9,22 +9,39 @@ interface OrgApi {
   listOrganizations: (opts: { headers: Headers }) => Promise<unknown>;
   getFullOrganization: (opts: { query: { organizationId: string }; headers: Headers }) => Promise<unknown>;
   listMembers: (opts: { query: { organizationId: string }; headers: Headers }) => Promise<unknown>;
-  createOrganization: (opts: { body: { name: string; slug: string; metadata?: string | null }; headers: Headers }) => Promise<unknown>;
-  updateOrganization: (opts: { body: { data: Record<string, unknown>; organizationId: string }; headers: Headers }) => Promise<unknown>;
+  createOrganization: (opts: {
+    body: { name: string; slug: string; metadata?: string | null };
+    headers: Headers;
+  }) => Promise<unknown>;
+  updateOrganization: (opts: {
+    body: { data: Record<string, unknown>; organizationId: string };
+    headers: Headers;
+  }) => Promise<unknown>;
   deleteOrganization: (opts: { body: { organizationId: string }; headers: Headers }) => Promise<void>;
   setActiveOrganization: (opts: { body: { organizationId: string }; headers: Headers }) => Promise<void>;
-  createInvitation: (opts: { body: { email: string; role: string; organizationId: string }; headers: Headers }) => Promise<unknown>;
+  createInvitation: (opts: {
+    body: { email: string; role: string; organizationId: string };
+    headers: Headers;
+  }) => Promise<unknown>;
   removeMember: (opts: { body: { organizationId: string; userId: string }; headers: Headers }) => Promise<void>;
-  updateMemberRole: (opts: { body: { organizationId: string; userId: string; role: string }; headers: Headers }) => Promise<void>;
+  updateMemberRole: (opts: {
+    body: { organizationId: string; userId: string; role: string };
+    headers: Headers;
+  }) => Promise<void>;
   listApiKeys: (opts: { headers: Headers }) => Promise<unknown>;
-  createApiKey: (opts: { body: { name: string; prefix: string; expiresIn: number | null; metadata: unknown }; headers: Headers }) => Promise<unknown>;
+  createApiKey: (opts: {
+    body: { name: string; prefix: string; expiresIn: number | null; metadata: unknown };
+    headers: Headers;
+  }) => Promise<unknown>;
   deleteApiKey: (opts: { body: { id: string }; headers: Headers }) => Promise<void>;
   updateApiKey: (opts: { body: { id: string; name?: string }; headers: Headers }) => Promise<void>;
 }
 
 const api = auth.api as unknown as OrgApi;
 
-function extractMembers(res: unknown): { id: string; userId: string; role: string; user?: { id: string; name: string; email: string } }[] {
+function extractMembers(
+  res: unknown,
+): { id: string; userId: string; role: string; user?: { id: string; name: string; email: string } }[] {
   if (Array.isArray(res)) return res;
   if (res && typeof res === "object" && "members" in res) return (res as { members: unknown[] }).members as any[];
   return [];
@@ -146,7 +163,10 @@ app.post(
             success: false,
             error: { code: "VALIDATION_ERROR", message: "organizationId, userId required" },
           });
-        await api.removeMember({ body: { organizationId: b.organizationId, userId: b.userId }, headers: request.headers });
+        await api.removeMember({
+          body: { organizationId: b.organizationId, userId: b.userId },
+          headers: request.headers,
+        });
         return { success: true };
       }
       case "update-role": {
@@ -189,7 +209,12 @@ app.post(
         if (!b.name)
           return error(400, { success: false, error: { code: "VALIDATION_ERROR", message: "name required" } });
         const result = await api.createApiKey({
-          body: { name: b.name, prefix: "rcs_", expiresIn: b.expiresAt ? Math.ceil((new Date(b.expiresAt).getTime() - Date.now()) / 1000) : null, metadata: b.metadata ?? null },
+          body: {
+            name: b.name,
+            prefix: "rcs_",
+            expiresIn: b.expiresAt ? Math.ceil((new Date(b.expiresAt).getTime() - Date.now()) / 1000) : null,
+            metadata: b.metadata ?? null,
+          },
           headers: request.headers,
         });
         return { success: true, data: result };

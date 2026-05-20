@@ -1,5 +1,6 @@
 import { ArrowLeft, ChevronRight, File, Folder, Loader2, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
@@ -20,6 +21,7 @@ function formatFileSize(bytes: number): string {
 }
 
 export function FilePickerDialog({ open, sessionId, onClose, onSelect }: FilePickerDialogProps) {
+  const { t } = useTranslation("components");
   const [entries, setEntries] = useState<FileInfo[]>([]);
   const [currentDir, setCurrentDir] = useState<string>("");
   const [dirStack, setDirStack] = useState<string[]>([]);
@@ -38,12 +40,12 @@ export function FilePickerDialog({ open, sessionId, onClose, onSelect }: FilePic
         setEntries((result as any)?.entries ?? []);
         setCurrentDir(dirPath);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load files");
+        setError(err instanceof Error ? err.message : t("filePicker.loadFailed"));
       } finally {
         setLoading(false);
       }
     },
-    [sessionId],
+    [sessionId, t],
   );
 
   useEffect(() => {
@@ -83,13 +85,13 @@ export function FilePickerDialog({ open, sessionId, onClose, onSelect }: FilePic
         await fetchUpload(`/web/sessions/${sessionId}/user/user`, formData);
         await loadDirectory(currentDir);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Upload failed");
+        setError(err instanceof Error ? err.message : t("filePicker.uploadFailed"));
       } finally {
         setLoading(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [sessionId, currentDir, loadDirectory],
+    [sessionId, currentDir, loadDirectory, t],
   );
 
   const handleItemClick = useCallback(
@@ -117,12 +119,14 @@ export function FilePickerDialog({ open, sessionId, onClose, onSelect }: FilePic
     >
       <DialogContent className="max-w-lg rounded-2xl border-border bg-surface-1 p-0 shadow-2xl overflow-hidden">
         <DialogHeader className="px-4 pt-4 pb-2">
-          <DialogTitle className="font-display text-lg font-semibold text-text-primary">选择文件</DialogTitle>
+          <DialogTitle className="font-display text-lg font-semibold text-text-primary">
+            {t("filePicker.title")}
+          </DialogTitle>
         </DialogHeader>
         <div className="flex items-center gap-2 px-4 pb-2">
           <Input
             type="text"
-            placeholder="搜索文件..."
+            placeholder={t("filePicker.searchPlaceholder")}
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
             className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm"
@@ -133,7 +137,7 @@ export function FilePickerDialog({ open, sessionId, onClose, onSelect }: FilePic
             size="icon"
             onClick={() => fileInputRef.current?.click()}
             className="h-8 w-8 text-text-muted hover:text-brand hover:bg-brand/10"
-            title="上传文件"
+            title={t("filePicker.uploadFile")}
           >
             <Upload className="h-4 w-4" />
           </Button>
@@ -163,7 +167,7 @@ export function FilePickerDialog({ open, sessionId, onClose, onSelect }: FilePic
           )}
           {error && <div className="px-2 py-4 text-center text-sm text-status-error">{error}</div>}
           {!loading && !error && filteredEntries.length === 0 && (
-            <div className="px-2 py-4 text-center text-sm text-text-muted">暂无文件</div>
+            <div className="px-2 py-4 text-center text-sm text-text-muted">{t("filePicker.noFiles")}</div>
           )}
           {!loading &&
             !error &&

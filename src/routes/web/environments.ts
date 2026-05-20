@@ -23,7 +23,10 @@ import { loadOrgContext } from "../../services/org-context";
 async function requireAuthContext(store: any, request: Request, error: any): Promise<AuthContext | Response> {
   const ctx = await loadOrgContext(store.user!, request);
   if (!ctx)
-    return error(500, { success: false, error: { code: "NO_ORG_CONTEXT", message: "Failed to load organization context" } });
+    return error(500, {
+      success: false,
+      error: { code: "NO_ORG_CONTEXT", message: "Failed to load organization context" },
+    });
   return ctx;
 }
 

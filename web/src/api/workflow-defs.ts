@@ -49,7 +49,7 @@ async function defFetch<T>(action: string, extra?: Record<string, unknown>): Pro
 
   if (!res.ok) {
     const errInfo = json.error ?? { message: res.statusText };
-    throw new Error(errInfo.message ?? errInfo.type ?? `请求失败 (${res.status})`);
+    throw new Error(errInfo.message ?? errInfo.type ?? `Request failed (${res.status})`);
   }
 
   return json.success && json.data !== undefined ? (json.data as T) : (json as T);

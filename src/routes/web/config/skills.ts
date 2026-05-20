@@ -242,7 +242,10 @@ app.post(
   async ({ store, body, error, request }: any) => {
     const authContext = await loadOrgContext(store.user!, request);
     if (!authContext)
-      return error(500, { success: false, error: { code: "NO_ORG_CONTEXT", message: "Failed to load organization context" } });
+      return error(500, {
+        success: false,
+        error: { code: "NO_ORG_CONTEXT", message: "Failed to load organization context" },
+      });
     const authCtx = authContext;
     const b = (body as any) ?? {};
     const payload: SkillBody = {
@@ -283,7 +286,10 @@ app.post(
   async ({ store, request, error }: any) => {
     const authContext = await loadOrgContext(store.user!, request);
     if (!authContext)
-      return error(500, { success: false, error: { code: "NO_ORG_CONTEXT", message: "Failed to load organization context" } });
+      return error(500, {
+        success: false,
+        error: { code: "NO_ORG_CONTEXT", message: "Failed to load organization context" },
+      });
     const authCtx = authContext;
     return await handleUpload(authCtx, request, (status, data) => error(status, data));
   },

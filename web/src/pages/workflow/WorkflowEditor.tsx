@@ -1,4 +1,6 @@
+import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -76,13 +78,13 @@ import { workflowDefApi } from "../../api/workflow-defs";
 import "./workflow.css";
 
 const PALETTE_ITEMS = [
-  { type: "shell", label: "Shell", icon: Terminal, color: "#3b82f6" },
-  { type: "python", label: "Python", icon: Code, color: "#0ea5e9" },
-  { type: "agent", label: "Agent", icon: Bot, color: "#22c55e" },
-  { type: "api", label: "API", icon: Globe, color: "#8b5cf6" },
-  { type: "audit", label: "审批", icon: ShieldCheck, color: "#f59e0b" },
-  // { type: "workflow", label: "子流程", icon: GitBranch, color: "#ec4899" },
-  // { type: "loop", label: "循环", icon: RefreshCw, color: "#06b6d4" },
+  { type: "shell", labelKey: "nodes.shell", icon: Terminal, color: "#3b82f6" },
+  { type: "python", labelKey: "nodes.python", icon: Code, color: "#0ea5e9" },
+  { type: "agent", labelKey: "nodes.agent", icon: Bot, color: "#22c55e" },
+  { type: "api", labelKey: "nodes.api", icon: Globe, color: "#8b5cf6" },
+  { type: "audit", labelKey: "editor.palette_audit", icon: ShieldCheck, color: "#f59e0b" },
+  // { type: "workflow", labelKey: "editor.palette_subworkflow", icon: GitBranch, color: "#ec4899" },
+  // { type: "loop", labelKey: "editor.palette_loop", icon: RefreshCw, color: "#06b6d4" },
 ] as const;
 
 interface WorkflowEditorProps {
@@ -91,6 +93,7 @@ interface WorkflowEditorProps {
 }
 
 function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
+  const { t } = useTranslation("workflows");
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([createStartNode()]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { fitView, screenToFlowPosition } = useReactFlow();
@@ -130,22 +133,22 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
   const scenePrompt = useMemo(() => {
     if (!workflowId) return undefined;
     const lines = [
-      "[工作流上下文]",
-      `- 工作流 ID: ${workflowId}`,
-      `- 名称: ${meta.name || "(未命名)"}`,
-      `- 描述: ${meta.description || "(无)"}`,
-      `- 草稿路径: .agents/workflows/${workflowId}/draft.yaml`,
-      "请先读取草稿文件再响应用户请求。",
+      t("editor.workflow_context"),
+      `- ${t("editor.workflow_id")}: ${workflowId}`,
+      `- ${t("editor.workflow_name")}: ${meta.name || t("editor.workflow_unnamed")}`,
+      `- ${t("editor.workflow_desc_label")}: ${meta.description || t("editor.workflow_no_desc")}`,
+      `- ${t("editor.workflow_draft_path")}: .agents/workflows/${workflowId}/draft.yaml`,
+      t("editor.workflow_read_prompt"),
     ];
     return lines.join("\n");
-  }, [workflowId, meta.name, meta.description]);
+  }, [workflowId, meta.name, meta.description, t]);
 
   useEffect(() => {
     localStorage.setItem("wf-editor:chat-open", String(chatOpen));
     if (chatOpen && !metaAgentId) {
       ensureMetaAgent()
         .then((res) => setMetaAgentId(res.environmentId))
-        .catch((err) => console.error("启动 Meta Agent 失败:", err));
+        .catch((err) => console.error("Meta Agent failed:", err));
     }
   }, [chatOpen]);
 
@@ -175,7 +178,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
           );
         }
       })
-      .catch((err) => console.error("加载 agent 列表失败:", err));
+      .catch((err) => console.error("Failed to load agent list:", err));
   }, []);
 
   const isRunMode = activeRunId !== null;
@@ -213,12 +216,12 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
         if (wf.name) setMeta((m) => ({ ...m, name: wf.name }));
         if (wf.description) setMeta((m) => ({ ...m, description: wf.description }));
       } catch (err) {
-        console.error("加载工作流失败:", err);
+        console.error("Failed to load workflow:", err);
       }
     })();
   }, [workflowId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 加载历史运行数据（定点回放）
+  // Load historical run data (point-in-time replay)
   useEffect(() => {
     if (!runId) return;
     let abort = false;
@@ -243,7 +246,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
         }
         if (Array.isArray(evts)) setRunEvents(dedupEvents(evts));
       } catch (err) {
-        console.error("加载运行记录失败:", err);
+        console.error(t("editor.load_run_failed") + ":", err);
       }
     })();
     return () => {
@@ -406,7 +409,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
         setTimeout(() => fitView({ padding: 0.15, duration: 300 }), 50);
       } catch (err) {
         console.error(err);
-        alert("YAML 解析失败: " + (err instanceof Error ? err.message : String(err)));
+        alert(t("editor.import_yaml_failed") + ": " + (err instanceof Error ? err.message : String(err)));
       }
     } else {
       syncYaml();
@@ -445,7 +448,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
           setTimeout(() => fitView({ padding: 0.15, duration: 300 }), 50);
         } catch (err) {
           console.error(err);
-          alert("文件解析失败: " + (err instanceof Error ? err.message : String(err)));
+          alert(t("editor.import_file_failed") + ": " + (err instanceof Error ? err.message : String(err)));
         }
       };
       reader.readAsText(file);
@@ -466,7 +469,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (err) {
       console.error(err);
-      alert("保存失败: " + (err as Error).message);
+      alert(t("editor.save_failed") + ": " + (err as Error).message);
       setSaveStatus("idle");
     }
   }, [syncYaml, workflowId]);
@@ -482,7 +485,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
       setSaveStatus("idle");
     } catch (err) {
       console.error(err);
-      alert("保存失败: " + (err as Error).message);
+      alert(t("editor.save_failed") + ": " + (err as Error).message);
       setSaveStatus("idle");
       return;
     }
@@ -490,10 +493,10 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
     setPublishing(true);
     try {
       const result = await workflowDefApi.publish(workflowId);
-      alert(`已发布为 v${result.version}`);
+      alert(t("editor.published_as", { version: result.version }));
     } catch (err) {
       console.error(err);
-      alert("发布失败: " + (err as Error).message);
+      alert(t("editor.publish_failed") + ": " + (err as Error).message);
     } finally {
       setPublishing(false);
     }
@@ -580,13 +583,13 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
             const snap = await workflowEngineApi.getRunStatus(activeRunId);
             if (snap) updateNodesFromSnapshot(snap);
           } catch (err) {
-            console.error("恢复运行状态失败:", err);
+            console.error(t("editor.restore_run_failed") + ":", err);
           }
         }
         setTimeout(() => fitView({ padding: 0.15, duration: 300 }), 50);
       }
     } catch (err) {
-      console.error("刷新工作流失败:", err);
+      console.error(t("editor.refresh_failed") + ":", err);
     }
   }, [workflowId, isRunMode, isRunDone, activeRunId, setNodes, setEdges, fitView, updateNodesFromSnapshot]);
 
@@ -663,7 +666,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
       try {
         await workflowDefApi.save(workflowId, y);
       } catch (err) {
-        console.error("自动保存失败:", err);
+        console.error(t("editor.auto_save_failed") + ":", err);
       }
     }
 
@@ -778,7 +781,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
         await loadRunData(result.runId);
       } catch (err) {
         console.error(err);
-        alert("重跑失败: " + (err as Error).message);
+        alert(t("editor.rerun_failed") + ": " + (err as Error).message);
       } finally {
         setRunning(false);
       }
@@ -829,7 +832,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
       if (!selectedNode || newId === selectedNode.id || !newId.trim()) return;
       if (newId === START_NODE_ID) return;
       if (nodes.some((n) => n.id === newId)) {
-        alert("节点 ID 已存在");
+        alert(t("editor.node_id_exists"));
         return;
       }
       const oldId = selectedNode.id;
@@ -871,7 +874,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
 
       {readOnly && (
         <div className="wf-readonly-badge">
-          <Lock size={12} /> 只读模式
+          <Lock size={12} /> {t("editor.readonly_mode")}
         </div>
       )}
 
@@ -924,7 +927,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
           {!readOnly && (
             <Panel position="top-left" className="wf-panel-palette">
               <div className="wf-palette">
-                <div className="wf-palette-title">拖拽或点击添加</div>
+                <div className="wf-palette-title">{t("editor.palette_drag_hint")}</div>
                 {PALETTE_ITEMS.map(({ type, label, icon: Icon, color }) => (
                   <button
                     key={type}
@@ -955,7 +958,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                   type="button"
                   className="wf-toolbar-btn"
                   onClick={handleNew}
-                  data-tooltip="清空画布，新建工作流"
+                  data-tooltip={t("editor.tooltip_new")}
                 >
                   <FilePlus size={15} />
                 </button>
@@ -964,7 +967,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                 type="button"
                 className="wf-toolbar-btn"
                 onClick={() => fileInputRef.current?.click()}
-                data-tooltip="从 .yaml / .yml 文件导入工作流"
+                data-tooltip={t("editor.tooltip_import")}
               >
                 <Upload size={15} />
               </button>
@@ -972,7 +975,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                 type="button"
                 className="wf-toolbar-btn"
                 onClick={handleExportYaml}
-                data-tooltip="将当前工作流导出为 YAML 文件"
+                data-tooltip={t("editor.tooltip_export")}
               >
                 <Download size={15} />
               </button>
@@ -981,7 +984,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                 type="button"
                 className="wf-toolbar-btn"
                 onClick={handleAutoLayout}
-                data-tooltip="自动排列节点布局（Dagre）"
+                data-tooltip={t("editor.tooltip_layout")}
               >
                 <LayoutGrid size={15} />
               </button>
@@ -991,7 +994,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                   className="wf-toolbar-btn"
                   onClick={handleRefreshDraft}
                   disabled={isRunMode && !isRunDone}
-                  data-tooltip="刷新"
+                  data-tooltip={t("editor.tooltip_refresh")}
                 >
                   <RefreshCw size={15} />
                 </button>
@@ -1004,7 +1007,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                     className="wf-toolbar-btn"
                     onClick={handleSaveDraft}
                     disabled={saveStatus === "saving"}
-                    data-tooltip="保存草稿到服务器（Cmd+S）"
+                    data-tooltip={t("editor.tooltip_save")}
                   >
                     <Save size={15} />
                   </button>
@@ -1012,7 +1015,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                     type="button"
                     className={`wf-toolbar-btn ${rightTab === "versions" ? "active" : ""}`}
                     onClick={() => setRightTab(rightTab === "versions" ? "config" : "versions")}
-                    data-tooltip="版本管理（发布、回滚、查看历史）"
+                    data-tooltip={t("editor.tooltip_versions")}
                   >
                     <Rocket size={15} />
                   </button>
@@ -1025,7 +1028,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                   if (!yamlOpen) syncYaml();
                   setYamlOpen(!yamlOpen);
                 }}
-                data-tooltip="打开 / 关闭 YAML 编辑面板"
+                data-tooltip={t("editor.tooltip_yaml")}
               >
                 <Code size={15} />
               </button>
@@ -1035,7 +1038,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                 className="wf-toolbar-btn"
                 onClick={handleDryRun}
                 disabled={running}
-                data-tooltip="校验工作流结构（检查引用、依赖、循环，不实际执行）"
+                data-tooltip={t("editor.tooltip_validate")}
               >
                 <CheckCircle size={15} />
               </button>
@@ -1044,7 +1047,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                 className="wf-toolbar-btn"
                 onClick={handleRun}
                 disabled={running}
-                data-tooltip="执行工作流（自动保存草稿，结果直接显示在画布上）"
+                data-tooltip={t("editor.tooltip_run")}
                 style={running ? { opacity: 0.5 } : undefined}
               >
                 <Play size={15} />
@@ -1054,7 +1057,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                 type="button"
                 className={`wf-toolbar-btn ${readOnly ? "active" : ""}`}
                 onClick={() => setReadOnly(!readOnly)}
-                data-tooltip={readOnly ? "切换到编辑模式（可拖拽、连线、修改属性）" : "切换到只读模式（防止误操作）"}
+                data-tooltip={readOnly ? t("editor.tooltip_readonly_off") : t("editor.tooltip_readonly_on")}
               >
                 {readOnly ? <Eye size={15} /> : <Edit3 size={15} />}
               </button>
@@ -1063,7 +1066,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                 type="button"
                 className={`wf-toolbar-btn ${chatOpen ? "active" : ""}`}
                 onClick={() => setChatOpen(!chatOpen)}
-                data-tooltip="打开 / 关闭 Meta Agent Chat 助手"
+                data-tooltip={t("editor.tooltip_chat")}
               >
                 <MessageSquare size={15} />
               </button>
@@ -1071,7 +1074,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                 type="button"
                 className={`wf-toolbar-btn ${rightTab === "run" ? "active" : ""}`}
                 onClick={() => setRightTab(rightTab === "run" ? "config" : "run")}
-                data-tooltip="查看历史运行记录"
+                data-tooltip={t("editor.tooltip_run_history")}
               >
                 <List size={15} />
               </button>
@@ -1096,7 +1099,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
               zIndex: 10,
             }}
           >
-            保存中...
+            {t("editor.saving")}
           </div>
         )}
         {saveStatus === "saved" && (
@@ -1115,7 +1118,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
               zIndex: 10,
             }}
           >
-            已保存
+            {t("editor.saved")}
           </div>
         )}
 
@@ -1147,7 +1150,9 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
               }}
             >
               {dryRunResult.valid ? <CheckCircle size={13} /> : <AlertTriangle size={13} />}
-              {dryRunResult.valid ? "校验通过" : `校验失败 (${dryRunResult.issues.length} 个问题)`}
+              {dryRunResult.valid
+                ? t("editor.validate_pass")
+                : t("editor.validate_fail", { count: dryRunResult.issues.length })}
               <button
                 type="button"
                 onClick={() => setDryRunResult(null)}
@@ -1178,10 +1183,15 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
         {/* YAML 滑出面板 */}
         <div className={`wf-yaml-slide ${yamlOpen ? "open" : ""}`}>
           <div className="wf-yaml-slide-header">
-            <span className="wf-yaml-slide-title">YAML</span>
+            <span className="wf-yaml-slide-title">{t("editor.yaml_title")}</span>
             <div style={{ display: "flex", gap: 4 }}>
               {!readOnly && (
-                <button type="button" className="wf-toolbar-btn" onClick={handleImportYaml} data-tooltip="应用 YAML">
+                <button
+                  type="button"
+                  className="wf-toolbar-btn"
+                  onClick={handleImportYaml}
+                  data-tooltip={t("editor.yaml_tooltip_apply")}
+                >
                   <Upload size={14} />
                 </button>
               )}
@@ -1195,7 +1205,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
             value={yamlText}
             onChange={(e) => setYamlText(e.target.value)}
             spellCheck={false}
-            placeholder="# YAML 内容"
+            placeholder={t("editor.yaml_placeholder")}
             readOnly={readOnly}
           />
         </div>
@@ -1206,9 +1216,9 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
         {/* Tab 头 */}
         <div style={{ display: "flex", borderBottom: "1px solid #e5e7eb" }}>
           {[
-            { key: "config" as const, label: "配置" },
-            { key: "run" as const, label: "运行" },
-            { key: "versions" as const, label: "版本" },
+            { key: "config" as const, label: t("editor.tab_config") },
+            { key: "run" as const, label: t("editor.tab_run") },
+            { key: "versions" as const, label: t("editor.tab_versions") },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -1247,25 +1257,25 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                   gap: 4,
                 }}
               >
-                <Lock size={10} /> 只读
+                <Lock size={10} /> {t("editor.readonly")}
               </div>
             )}
             {/* 开始节点 */}
             {isStartNode ? (
               <div className="wf-prop-section">
-                <div className="wf-prop-section-title">开始节点</div>
+                <div className="wf-prop-section-title">{t("editor.start_node_title")}</div>
                 <div className="wf-prop-hint">
-                  <p>这是工作流的入口点，不可删除。</p>
-                  <p>从右侧端口拖出连线创建第一个任务节点。</p>
+                  <p>{t("editor.start_node_hint_1")}</p>
+                  <p>{t("editor.start_node_hint_2")}</p>
                 </div>
               </div>
             ) : selectedNode ? (
               <>
                 {/* 节点基本信息 */}
                 <div className="wf-prop-section">
-                  <div className="wf-prop-section-title">基本信息</div>
+                  <div className="wf-prop-section-title">{t("editor.basic_info")}</div>
                   <div className="wf-prop-field">
-                    <label>节点 ID</label>
+                    <label>{t("editor.node_id")}</label>
                     <input
                       value={selectedNode.id}
                       onChange={(e) => handleIdChange(e.target.value)}
@@ -1273,7 +1283,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                     />
                   </div>
                   <div className="wf-prop-field">
-                    <label>类型</label>
+                    <label>{t("editor.type")}</label>
                     <select
                       value={nodeType}
                       onChange={(e) => {
@@ -1287,17 +1297,17 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                       <option value="python">Python</option>
                       <option value="agent">Agent</option>
                       <option value="api">API</option>
-                      <option value="audit">审批 (Audit)</option>
-                      <option value="workflow">子流程 (Workflow)</option>
-                      <option value="loop">循环 (Loop)</option>
+                      <option value="audit">{t("editor.type_audit")}</option>
+                      <option value="workflow">{t("editor.type_workflow")}</option>
+                      <option value="loop">{t("editor.type_loop")}</option>
                     </select>
                   </div>
                   <div className="wf-prop-field">
-                    <label>描述</label>
+                    <label>{t("editor.description")}</label>
                     <input
                       value={String(sd?.description ?? "")}
                       onChange={(e) => updateNodeData({ description: e.target.value || undefined })}
-                      placeholder="说明该节点的用途..."
+                      placeholder={t("editor.description_placeholder")}
                       readOnly={readOnly}
                     />
                   </div>
@@ -1305,12 +1315,12 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
 
                 {/* 节点配置（按类型） */}
                 <div className="wf-prop-section">
-                  <div className="wf-prop-section-title">配置</div>
+                  <div className="wf-prop-section-title">{t("editor.config")}</div>
 
                   {nodeType === "shell" && (
                     <>
                       <div className="wf-prop-field">
-                        <label>命令 (command)</label>
+                        <label>{t("editor.shell_command")}</label>
                         <textarea
                           value={String(sd?.command ?? "")}
                           onChange={(e) => updateNodeData({ command: e.target.value })}
@@ -1320,11 +1330,11 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                         />
                       </div>
                       <div className="wf-prop-field">
-                        <label>环境变量</label>
+                        <label>{t("editor.shell_env")}</label>
                         <textarea
                           value={String(sd?.env ?? "")}
                           onChange={(e) => updateNodeData({ env: e.target.value })}
-                          placeholder="KEY=value（每行一个）"
+                          placeholder={t("editor.shell_env_placeholder")}
                           rows={2}
                           readOnly={readOnly}
                         />
@@ -1335,7 +1345,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                   {nodeType === "python" && (
                     <>
                       <div className="wf-prop-field">
-                        <label>Python 代码 (code)</label>
+                        <label>{t("editor.python_code")}</label>
                         <textarea
                           value={String(sd?.code ?? "")}
                           onChange={(e) => updateNodeData({ code: e.target.value })}
@@ -1345,7 +1355,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                         />
                       </div>
                       <div className="wf-prop-field">
-                        <label>依赖包 (requirements)</label>
+                        <label>{t("editor.python_requirements")}</label>
                         <textarea
                           value={
                             Array.isArray(sd?.requirements)
@@ -1362,17 +1372,17 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                                 : undefined,
                             })
                           }
-                          placeholder={"requests\nnumpy（每行一个）"}
+                          placeholder={t("editor.python_requirements_placeholder")}
                           rows={2}
                           readOnly={readOnly}
                         />
                       </div>
                       <div className="wf-prop-field">
-                        <label>环境变量</label>
+                        <label>{t("editor.shell_env")}</label>
                         <textarea
                           value={String(sd?.env ?? "")}
                           onChange={(e) => updateNodeData({ env: e.target.value })}
-                          placeholder="KEY=value（每行一个）"
+                          placeholder={t("editor.shell_env_placeholder")}
                           rows={2}
                           readOnly={readOnly}
                         />
@@ -1383,23 +1393,23 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                   {nodeType === "agent" && (
                     <>
                       <div className="wf-prop-field">
-                        <label>Prompt</label>
+                        <label>{t("editor.agent_prompt")}</label>
                         <textarea
                           value={String(sd?.prompt ?? "")}
                           onChange={(e) => updateNodeData({ prompt: e.target.value })}
-                          placeholder="描述任务..."
+                          placeholder={t("editor.agent_prompt_placeholder")}
                           rows={4}
                           readOnly={readOnly}
                         />
                       </div>
                       <div className="wf-prop-field">
-                        <label>Agent 名称</label>
+                        <label>{t("editor.agent_name")}</label>
                         <select
                           value={String(sd?.agent ?? "")}
                           onChange={(e) => updateNodeData({ agent: e.target.value })}
                           disabled={readOnly}
                         >
-                          <option value="">（默认）</option>
+                          <option value="">{t("editor.agent_default")}</option>
                           {agentList.map((a) => (
                             <option key={a.name} value={a.name}>
                               {a.name}
@@ -1412,7 +1422,11 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                             if (!found) return null;
                             return (
                               <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>
-                                {found.model && <span>模型: {found.model}</span>}
+                                {found.model && (
+                                  <span>
+                                    {t("editor.agent_model")}: {found.model}
+                                  </span>
+                                )}
                                 {found.model && found.description && <span> · </span>}
                                 {found.description && <span>{found.description}</span>}
                               </div>
@@ -1420,7 +1434,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                           })()}
                       </div>
                       <div className="wf-prop-field">
-                        <label>Skill</label>
+                        <label>{t("editor.agent_skill")}</label>
                         <input
                           value={String(sd?.skill ?? "")}
                           onChange={(e) => updateNodeData({ skill: e.target.value })}
@@ -1451,21 +1465,21 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                               transition: "transform 0.15s",
                             }}
                           />
-                          覆盖配置（可选）
+                          {t("editor.agent_override")}
                         </button>
                         {agentOverrideOpen && (
                           <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
                             <div>
-                              <label style={{ fontSize: 10, color: "#9ca3af" }}>模型</label>
+                              <label style={{ fontSize: 10, color: "#9ca3af" }}>{t("editor.agent_model_label")}</label>
                               <input
                                 value={String(sd?.model ?? "")}
                                 onChange={(e) => updateNodeData({ model: e.target.value || undefined })}
-                                placeholder="沿用 agent 配置"
+                                placeholder={t("editor.agent_fallback_hint")}
                                 readOnly={readOnly}
                               />
                             </div>
                             <div>
-                              <label style={{ fontSize: 10, color: "#9ca3af" }}>Temperature</label>
+                              <label style={{ fontSize: 10, color: "#9ca3af" }}>{t("editor.agent_temperature")}</label>
                               <input
                                 type="number"
                                 step="0.1"
@@ -1477,12 +1491,12 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                                     temperature: e.target.value ? Number(e.target.value) : undefined,
                                   })
                                 }
-                                placeholder="沿用 agent 配置"
+                                placeholder={t("editor.agent_fallback_hint")}
                                 readOnly={readOnly}
                               />
                             </div>
                             <div>
-                              <label style={{ fontSize: 10, color: "#9ca3af" }}>最大步数</label>
+                              <label style={{ fontSize: 10, color: "#9ca3af" }}>{t("editor.agent_max_steps")}</label>
                               <input
                                 type="number"
                                 min="1"
@@ -1493,7 +1507,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                                     steps: e.target.value ? Number(e.target.value) : undefined,
                                   })
                                 }
-                                placeholder="沿用 agent 配置"
+                                placeholder={t("editor.agent_fallback_hint")}
                                 readOnly={readOnly}
                               />
                             </div>
@@ -1515,7 +1529,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                         />
                       </div>
                       <div className="wf-prop-field">
-                        <label>方法</label>
+                        <label>{t("editor.api_method")}</label>
                         <select
                           value={String(sd?.method ?? "GET")}
                           onChange={(e) => updateNodeData({ method: e.target.value })}
@@ -1529,7 +1543,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                         </select>
                       </div>
                       <div className="wf-prop-field">
-                        <label>Headers (JSON)</label>
+                        <label>{t("editor.api_headers")}</label>
                         <textarea
                           value={String(sd?.headers ?? "")}
                           onChange={(e) => updateNodeData({ headers: e.target.value })}
@@ -1539,7 +1553,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                         />
                       </div>
                       <div className="wf-prop-field">
-                        <label>Body</label>
+                        <label>{t("editor.api_body")}</label>
                         <textarea
                           value={String(sd?.body ?? "")}
                           onChange={(e) => updateNodeData({ body: e.target.value })}
@@ -1554,7 +1568,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                   {nodeType === "audit" && (
                     <>
                       <div className="wf-prop-field">
-                        <label>审批提示消息</label>
+                        <label>{t("editor.audit_message")}</label>
                         <input
                           value={String(
                             (typeof sd?.display_data === "object" && sd?.display_data !== null
@@ -1562,12 +1576,12 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                               : sd?.display_data) ?? "",
                           )}
                           onChange={(e) => updateNodeData({ display_data: { message: e.target.value } })}
-                          placeholder="请审核此步骤"
+                          placeholder={t("editor.audit_message_placeholder")}
                           readOnly={readOnly}
                         />
                       </div>
                       <div className="wf-prop-field">
-                        <label>过期时间 (秒)</label>
+                        <label>{t("editor.audit_expires")}</label>
                         <input
                           type="number"
                           value={sd?.expires_in != null ? String(sd.expires_in) : ""}
@@ -1584,7 +1598,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
 
                   {nodeType === "workflow" && (
                     <div className="wf-prop-field">
-                      <label>子流程路径 (ref)</label>
+                      <label>{t("editor.workflow_ref")}</label>
                       <input
                         value={String(sd?.ref ?? "")}
                         onChange={(e) => updateNodeData({ ref: e.target.value })}
@@ -1597,7 +1611,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                   {nodeType === "loop" && (
                     <>
                       <div className="wf-prop-field">
-                        <label>循环条件 (condition)</label>
+                        <label>{t("editor.loop_condition")}</label>
                         <input
                           value={String(sd?.condition ?? "")}
                           onChange={(e) => updateNodeData({ condition: e.target.value })}
@@ -1606,7 +1620,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                         />
                       </div>
                       <div className="wf-prop-field">
-                        <label>最大迭代次数</label>
+                        <label>{t("editor.loop_max_iterations")}</label>
                         <input
                           type="number"
                           value={sd?.max_iterations != null ? String(sd.max_iterations) : ""}
@@ -1619,7 +1633,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                         />
                       </div>
                       <div className="wf-prop-hint" style={{ marginTop: 4 }}>
-                        <p>循环体 (body) 请在 YAML 面板中编辑。</p>
+                        <p>{t("editor.loop_body_hint")}</p>
                       </div>
                     </>
                   )}
@@ -1627,9 +1641,9 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
 
                 {/* 高级配置 */}
                 <div className="wf-prop-section">
-                  <div className="wf-prop-section-title">高级</div>
+                  <div className="wf-prop-section-title">{t("editor.advanced")}</div>
                   <div className="wf-prop-field">
-                    <label>超时 (秒)</label>
+                    <label>{t("editor.timeout_seconds")}</label>
                     <input
                       type="number"
                       value={sd?.timeout != null ? String(sd.timeout) : ""}
@@ -1642,7 +1656,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                     />
                   </div>
                   <div className="wf-prop-field">
-                    <label>重试次数</label>
+                    <label>{t("editor.retry_count")}</label>
                     <input
                       type="number"
                       value={sd?.retry != null ? String(sd.retry) : ""}
@@ -1660,13 +1674,13 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
               <>
                 {/* 工作流元数据 */}
                 <div className="wf-prop-section">
-                  <div className="wf-prop-section-title">基本信息</div>
+                  <div className="wf-prop-section-title">{t("editor.basic_info")}</div>
                   <div className="wf-prop-field">
-                    <label>Schema 版本</label>
+                    <label>{t("editor.schema_version")}</label>
                     <input value={meta.schema_version} readOnly />
                   </div>
                   <div className="wf-prop-field">
-                    <label>名称</label>
+                    <label>{t("editor.name")}</label>
                     <input
                       value={meta.name}
                       onChange={(e) => updateMeta({ name: e.target.value })}
@@ -1674,17 +1688,17 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                     />
                   </div>
                   <div className="wf-prop-field">
-                    <label>描述</label>
+                    <label>{t("editor.meta_description")}</label>
                     <textarea
                       value={meta.description}
                       onChange={(e) => updateMeta({ description: e.target.value })}
-                      placeholder="工作流描述..."
+                      placeholder={t("editor.meta_desc_placeholder")}
                       rows={2}
                       readOnly={readOnly}
                     />
                   </div>
                   <div className="wf-prop-field">
-                    <label>超时 (秒)</label>
+                    <label>{t("editor.timeout_seconds")}</label>
                     <input
                       type="number"
                       value={meta.timeout}
@@ -1696,9 +1710,9 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                 </div>
 
                 <div className="wf-prop-section">
-                  <div className="wf-prop-section-title">参数 (params)</div>
+                  <div className="wf-prop-section-title">{t("editor.params")}</div>
                   <div className="wf-prop-field">
-                    <label>参数定义 (JSON)</label>
+                    <label>{t("editor.params_json")}</label>
                     <textarea
                       value={Object.keys(meta.params).length ? JSON.stringify(meta.params, null, 2) : ""}
                       onChange={(e) => {
@@ -1717,9 +1731,9 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                 </div>
 
                 <div className="wf-prop-section">
-                  <div className="wf-prop-section-title">密钥 (secrets)</div>
+                  <div className="wf-prop-section-title">{t("editor.secrets")}</div>
                   <div className="wf-prop-field">
-                    <label>环境变量名（每行一个）</label>
+                    <label>{t("editor.secrets_env_names")}</label>
                     <textarea
                       value={meta.secrets.join("\n")}
                       onChange={(e) =>
@@ -1738,12 +1752,12 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                 </div>
 
                 <div className="wf-prop-hint">
-                  <p>点击画布中的节点查看属性</p>
+                  <p>{t("editor.hint_click_node")}</p>
                   {!readOnly && (
                     <>
-                      <p>从左侧面板点击或拖拽添加节点</p>
-                      <p>从节点右侧端口拖出可快速创建后续节点</p>
-                      <p>按 Delete 键删除选中的节点或连线</p>
+                      <p>{t("editor.hint_drag_add")}</p>
+                      <p>{t("editor.hint_connect")}</p>
+                      <p>{t("editor.hint_delete")}</p>
                     </>
                   )}
                 </div>
@@ -1767,7 +1781,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                     gap: 6,
                   }}
                 >
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#111827" }}>运行结果</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#111827" }}>{t("editor.run_result")}</span>
                   {runSnapshot && (
                     <span
                       style={{
@@ -1854,11 +1868,13 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                         gap: 4,
                       }}
                     >
-                      <ShieldCheck size={12} /> 等待审批
+                      <ShieldCheck size={12} /> {t("editor.waiting_approval")}
                     </div>
                     {runApprovals.map((a) => (
                       <div key={a.nodeId} style={{ fontSize: 10, color: "#78350f", marginBottom: 6 }}>
-                        <div style={{ fontWeight: 500, marginBottom: 2 }}>节点: {a.nodeId}</div>
+                        <div style={{ fontWeight: 500, marginBottom: 2 }}>
+                          {t("editor.approval_node", { nodeId: a.nodeId })}
+                        </div>
                         {a.displayData && typeof a.displayData === "object" && (
                           <div style={{ color: "#92400e", marginBottom: 3 }}>
                             {(a.displayData as Record<string, string>).message ?? ""}
@@ -1878,7 +1894,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                             cursor: "pointer",
                           }}
                         >
-                          通过
+                          {t("editor.approve")}
                         </button>
                       </div>
                     ))}
@@ -1898,8 +1914,11 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                     }}
                   >
                     <span>
-                      {Object.values(runSnapshot.node_states).filter((s) => s.status === "COMPLETED").length}/
-                      {Object.keys(runSnapshot.node_states).length} 节点
+                      {t("editor.progress_nodes", {
+                        completed: Object.values(runSnapshot.node_states).filter((s) => s.status === "COMPLETED")
+                          .length,
+                        total: Object.keys(runSnapshot.node_states).length,
+                      })}
                     </span>
                     <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 9 }}>
                       {activeRunId?.substring(0, 16)}...
@@ -1924,11 +1943,11 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                       cursor: "pointer",
                     }}
                   >
-                    事件流 (
-                    {selectedRunNodeId
-                      ? runEvents.filter((e) => e.node_id === selectedRunNodeId).length
-                      : runEvents.length}
-                    )
+                    {t("editor.events_tab", {
+                      count: selectedRunNodeId
+                        ? runEvents.filter((e) => e.node_id === selectedRunNodeId).length
+                        : runEvents.length,
+                    })}
                   </button>
                   <button
                     type="button"
@@ -1945,7 +1964,9 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                       cursor: "pointer",
                     }}
                   >
-                    {selectedRunNodeId ? `输出 (${selectedRunNodeId})` : "节点输出"}
+                    {selectedRunNodeId
+                      ? t("editor.output_tab_selected", { nodeId: selectedRunNodeId })
+                      : t("editor.output_tab")}
                   </button>
                 </div>
 
@@ -1958,7 +1979,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                         : runEvents;
                       return filtered.length === 0 ? (
                         <div style={{ padding: 20, textAlign: "center", color: "#d1d5db" }}>
-                          {selectedRunNodeId ? "该节点暂无事件" : "暂无事件"}
+                          {selectedRunNodeId ? t("editor.no_events_for_node") : t("editor.no_events")}
                         </div>
                       ) : (
                         filtered.map((evt) => (
@@ -2017,7 +2038,9 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                 {runRightTab === "output" && (
                   <div style={{ flex: 1, overflowY: "auto", fontSize: 11 }}>
                     {!selectedRunNodeId ? (
-                      <div style={{ padding: 20, textAlign: "center", color: "#d1d5db" }}>点击节点查看输出</div>
+                      <div style={{ padding: 20, textAlign: "center", color: "#d1d5db" }}>
+                        {t("editor.click_node_output")}
+                      </div>
                     ) : nodeOutputLoading ? (
                       <div style={{ padding: 20, textAlign: "center", color: "#9ca3af" }}>
                         <Loader
@@ -2026,7 +2049,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                         />
                       </div>
                     ) : !selectedNodeOutput ? (
-                      <div style={{ padding: 20, textAlign: "center", color: "#d1d5db" }}>暂无输出</div>
+                      <div style={{ padding: 20, textAlign: "center", color: "#d1d5db" }}>{t("editor.no_output")}</div>
                     ) : (
                       <>
                         <div
@@ -2061,7 +2084,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                               opacity: running ? 0.5 : 1,
                             }}
                           >
-                            <RefreshCw size={10} /> 从此重跑
+                            <RefreshCw size={10} /> {t("editor.rerun_from_here")}
                           </button>
                         </div>
                         <NodeOutputView output={selectedNodeOutput} />
@@ -2091,7 +2114,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                     }
                     if (Array.isArray(evts)) setRunEvents(dedupEvents(evts));
                   } catch (err) {
-                    console.error("加载运行数据失败:", err);
+                    console.error(t("editor.load_run_data_failed") + ":", err);
                   }
                 }}
                 onClose={() => setRightTab("config")}
@@ -2150,7 +2173,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                   alignItems: "center",
                 }}
                 onClick={() => setChatOpen(false)}
-                title="收起 Chat 面板"
+                title={t("editor.chat_collapse")}
               >
                 <ChevronRight size={14} />
               </button>
@@ -2236,7 +2259,7 @@ function VersionPanel({
         loadData();
       } catch (err) {
         console.error(err);
-        alert("操作失败: " + (err as Error).message);
+        alert(t("versions.operation_failed") + ": " + (err as Error).message);
       }
     },
     [workflowId, loadData],
@@ -2247,10 +2270,10 @@ function VersionPanel({
       if (!workflowId) return;
       try {
         await workflowDefApi.restoreToDraft(workflowId, version);
-        alert("已恢复到草稿");
+        alert(t("versions.restore_success"));
       } catch (err) {
         console.error(err);
-        alert("恢复失败: " + (err as Error).message);
+        alert(t("versions.restore_failed") + ": " + (err as Error).message);
       }
     },
     [workflowId],
@@ -2283,7 +2306,7 @@ function VersionPanel({
         className="wf-prop-header"
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
       >
-        <span className="wf-prop-title">版本管理</span>
+        <span className="wf-prop-title">{t("editor.version_management")}</span>
         <button
           type="button"
           onClick={onClose}
@@ -2328,7 +2351,11 @@ function VersionPanel({
             }}
           >
             <Rocket size={13} />
-            {isBusy ? "发布中..." : `发布新版本${wf?.latestVersion ? `（当前 v${wf.latestVersion}）` : ""}`}
+            {isBusy
+              ? t("editor.publishing")
+              : t("editor.publish_new", {
+                  current: wf?.latestVersion ? t("editor.publish_current", { version: wf.latestVersion }) : "",
+                })}
           </button>
         </div>
       )}
@@ -2348,10 +2375,10 @@ function VersionPanel({
           <span>
             latest:{" "}
             <strong style={{ color: wf.latestVersion ? "#22c55e" : "#d1d5db" }}>
-              {wf.latestVersion ? `v${wf.latestVersion}` : "未发布"}
+              {wf.latestVersion ? `v${wf.latestVersion}` : t("editor.no_published")}
             </strong>
           </span>
-          <span>共 {versions.length} 个版本</span>
+          <span>{t("editor.version_total", { count: versions.length })}</span>
         </div>
       )}
 
@@ -2360,13 +2387,13 @@ function VersionPanel({
         {loading ? (
           <div style={{ textAlign: "center", padding: 24, color: "#9ca3af", fontSize: 11 }}>
             <Loader size={16} style={{ animation: "wf-spin 1s linear infinite", display: "inline-block" }} />
-            <p style={{ marginTop: 4 }}>加载中...</p>
+            <p style={{ marginTop: 4 }}>{t("editor.load_failed")}</p>
           </div>
         ) : versions.length === 0 ? (
           <div style={{ textAlign: "center", padding: 24, color: "#d1d5db", fontSize: 11 }}>
             <Inbox size={24} style={{ margin: "0 auto 4px" }} />
-            <p>暂无发布版本</p>
-            <p style={{ fontSize: 9, marginTop: 2 }}>点击上方按钮发布第一个版本</p>
+            <p>{t("editor.no_published")}</p>
+            <p style={{ fontSize: 9, marginTop: 2 }}>{t("versions.no_versions_hint")}</p>
           </div>
         ) : (
           versions.map((v) => {
@@ -2432,7 +2459,7 @@ function VersionPanel({
                           cursor: "pointer",
                         }}
                       >
-                        设为 latest
+                        {t("versions.set_latest")}
                       </button>
                     )}
                     <button
@@ -2448,7 +2475,7 @@ function VersionPanel({
                         cursor: "pointer",
                       }}
                     >
-                      恢复到草稿
+                      {t("versions.restore_to_draft")}
                     </button>
                   </div>
                 </div>
@@ -2485,6 +2512,7 @@ function VersionPanel({
 // ── 历史运行记录面板 ──
 
 function RunListPanel({ onClose, onSelect }: { onClose: () => void; onSelect: (runId: string) => void }) {
+  const { t } = useTranslation("workflows");
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -2514,7 +2542,7 @@ function RunListPanel({ onClose, onSelect }: { onClose: () => void; onSelect: (r
         className="wf-prop-header"
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
       >
-        <span className="wf-prop-title">运行记录</span>
+        <span className="wf-prop-title">{t("editor.run_history")}</span>
         <button
           type="button"
           onClick={onClose}
@@ -2556,7 +2584,7 @@ function RunListPanel({ onClose, onSelect }: { onClose: () => void; onSelect: (r
               cursor: "pointer",
             }}
           >
-            {s === "all" ? "全部" : (DAG_STATUS_CFG[s]?.label ?? s)}
+            {s === "all" ? t("runs.filter_all") : (DAG_STATUS_CFG[s]?.label ?? s)}
           </button>
         ))}
       </div>
@@ -2566,17 +2594,17 @@ function RunListPanel({ onClose, onSelect }: { onClose: () => void; onSelect: (r
         {loading ? (
           <div style={{ textAlign: "center", padding: 24, color: "#9ca3af", fontSize: 11 }}>
             <Loader size={16} style={{ animation: "wf-spin 1s linear infinite", display: "inline-block" }} />
-            <p style={{ marginTop: 4 }}>加载中...</p>
+            <p style={{ marginTop: 4 }}>{t("editor.load_failed")}</p>
           </div>
         ) : error ? (
           <div style={{ textAlign: "center", padding: 24 }}>
             <AlertTriangle size={20} style={{ color: "#ef4444", margin: "0 auto 4px" }} />
-            <p style={{ fontSize: 11, color: "#6b7280" }}>加载失败</p>
+            <p style={{ fontSize: 11, color: "#6b7280" }}>{t("editor.load_failed_short")}</p>
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: 24, color: "#d1d5db", fontSize: 11 }}>
             <Inbox size={24} style={{ margin: "0 auto 4px" }} />
-            <p>{statusFilter !== "all" ? "没有匹配的记录" : "暂无运行记录"}</p>
+            <p>{statusFilter !== "all" ? t("editor.no_match") : t("runs.no_runs")}</p>
           </div>
         ) : (
           filtered.map((r) => {
@@ -2661,33 +2689,44 @@ function RunListPanel({ onClose, onSelect }: { onClose: () => void; onSelect: (r
             textAlign: "center",
           }}
         >
-          共 {runs.length} 条记录
+          {t("runs.total_records", { count: runs.length })}
         </div>
       )}
     </>
   );
 }
 
+import _i18n from "i18next";
+
+function i18nStatusLabel(key: string): string {
+  try {
+    return _i18n.t(key, { ns: "workflows" });
+  } catch {
+    return key;
+  }
+}
+
 function relativeTime(iso?: string | null): string {
+  const t = _i18n.t.bind(_i18n);
   if (!iso) return "--";
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 0) return "刚刚";
-  if (diff < 60) return "刚刚";
-  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)} 天前`;
-  return new Date(iso).toLocaleDateString("zh-CN");
+  if (diff < 0) return t("runs.relative_now");
+  if (diff < 60) return t("runs.relative_now");
+  if (diff < 3600) return t("runs.relative_minutes", { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t("runs.relative_hours", { count: Math.floor(diff / 3600) });
+  if (diff < 604800) return t("runs.relative_days", { count: Math.floor(diff / 86400) });
+  return new Date(iso).toLocaleDateString();
 }
 
 // ── DAG 状态样式 ──
 const DAG_STATUS_CFG: Record<string, { color: string; bg: string; label: string }> = {
-  PENDING: { color: "#94a3b8", bg: "#f1f5f9", label: "等待中" },
-  RUNNING: { color: "#3b82f6", bg: "#eff6ff", label: "运行中" },
-  SUSPENDED: { color: "#f59e0b", bg: "#fffbeb", label: "等待审批" },
-  SUCCESS: { color: "#22c55e", bg: "#f0fdf4", label: "成功" },
-  FAILED: { color: "#ef4444", bg: "#fef2f2", label: "失败" },
-  CANCELLED: { color: "#94a3b8", bg: "#f8fafc", label: "已取消" },
-  ERROR: { color: "#ef4444", bg: "#fef2f2", label: "错误" },
+  PENDING: { color: "#94a3b8", bg: "#f1f5f9", label: i18nStatusLabel("editor.dag_status_pending") },
+  RUNNING: { color: "#3b82f6", bg: "#eff6ff", label: i18nStatusLabel("editor.dag_status_running") },
+  SUSPENDED: { color: "#f59e0b", bg: "#fffbeb", label: i18nStatusLabel("editor.dag_status_suspended") },
+  SUCCESS: { color: "#22c55e", bg: "#f0fdf4", label: i18nStatusLabel("editor.dag_status_success") },
+  FAILED: { color: "#ef4444", bg: "#fef2f2", label: i18nStatusLabel("editor.dag_status_failed") },
+  CANCELLED: { color: "#94a3b8", bg: "#f8fafc", label: i18nStatusLabel("editor.dag_status_cancelled") },
+  ERROR: { color: "#ef4444", bg: "#fef2f2", label: i18nStatusLabel("editor.dag_status_error") },
 };
 
 // ── 事件渲染辅助 ──
@@ -2716,21 +2755,21 @@ function EventIcon({ type }: { type: string }) {
 
 function formatEventType(type: string): string {
   const map: Record<string, string> = {
-    "dag.started": "工作流启动",
-    "dag.completed": "工作流完成",
-    "dag.cancelled": "工作流取消",
-    "node.started": "节点开始",
-    "node.completed": "节点完成",
-    "node.failed": "节点失败",
-    "node.cancelled": "节点取消",
-    "node.retrying": "节点重试",
-    "node.skipped": "节点跳过",
-    "sub_workflow.started": "子流程启动",
-    "sub_workflow.completed": "子流程完成",
-    "loop.iteration_started": "循环迭代开始",
-    "loop.iteration_completed": "循环迭代完成",
-    "audit.requested": "审批请求",
-    "audit.approved": "审批通过",
+    "dag.started": i18nStatusLabel("editor.dag_started"),
+    "dag.completed": i18nStatusLabel("editor.dag_completed"),
+    "dag.cancelled": i18nStatusLabel("editor.dag_cancelled"),
+    "node.started": i18nStatusLabel("editor.node_started"),
+    "node.completed": i18nStatusLabel("editor.node_completed"),
+    "node.failed": i18nStatusLabel("editor.node_failed"),
+    "node.cancelled": i18nStatusLabel("editor.node_cancelled"),
+    "node.retrying": i18nStatusLabel("editor.node_retrying"),
+    "node.skipped": i18nStatusLabel("editor.node_skipped"),
+    "sub_workflow.started": i18nStatusLabel("editor.sub_workflow_started"),
+    "sub_workflow.completed": i18nStatusLabel("editor.sub_workflow_completed"),
+    "loop.iteration_started": i18nStatusLabel("editor.loop_iteration_started"),
+    "loop.iteration_completed": i18nStatusLabel("editor.loop_iteration_completed"),
+    "audit.requested": i18nStatusLabel("editor.audit_requested"),
+    "audit.approved": t("editor.audit_approved"),
   };
   return map[type] ?? type;
 }
@@ -2744,7 +2783,7 @@ function formatMeta(type: string, meta: Record<string, unknown>): string {
     return parts.join(" · ");
   }
   if (type === "node.failed") return String(meta.error ?? "");
-  if (type === "node.retrying") return `第${meta.attempt}次 · ${meta.next_delay_ms}ms 后重试`;
+  if (type === "node.retrying") return t("editor.retry_meta", { attempt: meta.attempt, delay: meta.next_delay_ms });
   if (type === "node.started") {
     if (meta.pid) return `pid=${meta.pid}`;
     return "";
@@ -2779,7 +2818,7 @@ function NodeOutputView({ output }: { output: NodeOutput }) {
       >
         <span>exit_code: {output.exit_code}</span>
         {output.size != null && <span>· {output.size}B</span>}
-        {output.ref && <span style={{ color: "#f59e0b" }}>· 大输出(ref)</span>}
+        {output.ref && <span style={{ color: "#f59e0b" }}>· {t("editor.large_output_ref")}</span>}
         <button
           type="button"
           onClick={handleCopy}
@@ -2795,7 +2834,7 @@ function NodeOutputView({ output }: { output: NodeOutput }) {
             fontSize: 9,
           }}
         >
-          {copied ? <Check size={10} /> : <Copy size={10} />} {copied ? "已复制" : "复制"}
+          {copied ? <Check size={10} /> : <Copy size={10} />} {copied ? t("editor.copied") : t("editor.copy")}
         </button>
       </div>
       {output.stdout ? (
@@ -2815,11 +2854,13 @@ function NodeOutputView({ output }: { output: NodeOutput }) {
           {output.stdout}
         </pre>
       ) : (
-        <div style={{ padding: 14, textAlign: "center", color: "#d1d5db" }}>无输出</div>
+        <div style={{ padding: 14, textAlign: "center", color: "#d1d5db" }}>{t("editor.no_stdout")}</div>
       )}
       {output.json !== undefined && output.json !== null && (
         <div style={{ borderTop: "1px solid #f3f4f6" }}>
-          <div style={{ padding: "5px 10px", fontSize: 9, color: "#6b7280", fontWeight: 500 }}>JSON 输出</div>
+          <div style={{ padding: "5px 10px", fontSize: 9, color: "#6b7280", fontWeight: 500 }}>
+            {t("editor.json_output")}
+          </div>
           <pre
             style={{
               padding: 10,

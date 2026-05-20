@@ -21,7 +21,7 @@ export async function ensureMetaAgent(): Promise<EnsureMetaResult> {
 
   if (!res.ok) {
     const errInfo = json.error ?? { message: res.statusText };
-    throw new Error(errInfo.message ?? errInfo.type ?? `请求失败 (${res.status})`);
+    throw new Error(errInfo.message ?? errInfo.type ?? `Request failed (${res.status})`);
   }
 
   return json.data as EnsureMetaResult;

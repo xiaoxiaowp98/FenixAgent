@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { WorkflowList } from "./workflow/WorkflowList";
 import { WorkflowEditor } from "./workflow/WorkflowEditor";
 import { WorkflowVersions } from "./workflow/WorkflowVersions";
@@ -37,12 +38,15 @@ function parseWfPath(): WfRoute {
   return { view: "list" };
 }
 
-const TAB_ITEMS = [
-  { id: "list" as const, label: "工作流", icon: Pencil },
-  { id: "runs" as const, label: "运行记录", icon: History },
-];
+function TabItems(t: (key: string) => string) {
+  return [
+    { id: "list" as const, label: t("page.tab_workflows"), icon: Pencil },
+    { id: "runs" as const, label: t("page.tab_runs"), icon: History },
+  ];
+}
 
 export function WorkflowPage() {
+  const { t } = useTranslation("workflows");
   const [route, setRoute] = useState(parseWfPath);
 
   useEffect(() => {
@@ -92,7 +96,7 @@ export function WorkflowPage() {
               cursor: "pointer",
             }}
           >
-            <ArrowLeft size={14} /> 返回列表
+            <ArrowLeft size={14} /> {t("page.back_to_list")}
           </button>
         </div>
         <div style={{ flex: 1, overflow: "hidden" }}>
@@ -133,7 +137,7 @@ export function WorkflowPage() {
               cursor: "pointer",
             }}
           >
-            <ArrowLeft size={14} /> 返回列表
+            <ArrowLeft size={14} /> {t("page.back_to_list")}
           </button>
           <button
             type="button"
@@ -150,7 +154,7 @@ export function WorkflowPage() {
               cursor: "pointer",
             }}
           >
-            <Pencil size={14} /> 编辑器
+            <Pencil size={14} /> {t("page.editor")}
           </button>
         </div>
         <div style={{ flex: 1, overflow: "hidden" }}>
@@ -177,7 +181,7 @@ export function WorkflowPage() {
           flexShrink: 0,
         }}
       >
-        {TAB_ITEMS.map((tab) => {
+        {TabItems(t).map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
           return (

@@ -1,4 +1,5 @@
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { OrgSwitcher } from "../../components/OrgSwitcher";
 import { AgentSidebarConfig } from "./AgentSidebarConfig";
 import { AgentSidebarTree } from "./AgentSidebarTree";
@@ -18,6 +19,8 @@ export function AgentSidebar({
   onSelectInstance,
   onNavigate,
 }: AgentSidebarProps) {
+  const { t } = useTranslation("agentPanel");
+
   return (
     <aside className={["agent-sidebar", collapsed ? "collapsed" : ""].join(" ")}>
       {/* 品牌区 */}
@@ -48,7 +51,7 @@ export function AgentSidebar({
             collapsed ? "opacity-0" : "opacity-100",
           ].join(" ")}
         >
-          XAgent
+          {t("brand")}
         </span>
         <button
           type="button"
@@ -61,7 +64,7 @@ export function AgentSidebar({
             "transition-all duration-150",
             "hover:bg-surface-hover hover:text-text-primary",
           ].join(" ")}
-          title={collapsed ? "展开侧栏" : "收起侧栏"}
+          title={collapsed ? t("expandSidebar") : t("collapseSidebar")}
         >
           {collapsed ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
         </button>

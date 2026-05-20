@@ -116,6 +116,8 @@ export const apiKey = pgTable(
     label: varchar("label").notNull().default(""),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    // 过期时间（null = 永不过期；系统创建的 meta key 设为 1 小时后）
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
   },
   (t) => [index("idx_api_key_team_id").on(t.teamId), uniqueIndex("idx_api_key_hash").on(t.keyHash)],
 );

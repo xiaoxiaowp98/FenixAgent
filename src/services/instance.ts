@@ -135,6 +135,7 @@ export async function spawnInstanceFromEnvironment(
   userId: string,
   environmentId: string,
   prefetchedEnv?: EnvironmentRecord,
+  extraEnv?: Record<string, string>,
 ): Promise<SpawnedInstance> {
   const env = prefetchedEnv ?? (await _deps.environmentRepo.getById(environmentId));
   if (!env) throw new NotFoundError("Environment not found");
@@ -179,6 +180,7 @@ export async function spawnInstanceFromEnvironment(
     modelRef,
     fullConfig,
     environmentSecret: env.secret,
+    extraEnv,
   });
 
   const instanceId = `inst_${randomBytes(8).toString("hex")}`;

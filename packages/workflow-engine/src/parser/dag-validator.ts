@@ -98,6 +98,29 @@ export function validateDAG(input: WorkflowDef): ValidationResult {
     }
   }
 
+  // 6. inputs 引用校验：shell/python 的 inputs 中引用 nodes.<id> 必须在 depends_on 中
+  for (const node of def.nodes) {
+    if (node.type !== 'shell' && node.type !== 'python') continue;
+    const inputs = (node as import('../types/dag').ShellNodeDef).inputs;
+    if (!inputs) continue;
+
+    const deps = new Set(node.depends_on ?? []);
+    for (const [, expr] of Object.entries(inputs)) {
+      const refs = new Set<string>();
+      extractNodeIdFromExpr(expr, refs);
+      for (const refId of refs) {
+        if (!deps.has(refId)) {
+          issues.push({
+            type: 'error',
+            code: 'INPUTS_MISSING_DEPENDENCY',
+            message: `Node '${node.id}' references 'nodes.${refId}' in inputs but does not declare it in depends_on`,
+            nodeId: node.id,
+          });
+        }
+      }
+    }
+  }
+
   // 2. 环检测（Kahn 算法）
   const inDegree = new Map<string, number>();
   const adjacency = new Map<string, string[]>();

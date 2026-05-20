@@ -277,3 +277,114 @@ nodes:
   const result = validateDAG(def);
   expect(result.valid).toBe(true);
 });
+
+// inputs 引用的节点必须在 depends_on 中（shell）
+test("shell inputs 引用未声明依赖的节点报错", () => {
+  const def = parseWorkflowYaml(`\
+schema_version: '1'
+name: test
+nodes:
+  - id: step1
+    type: shell
+    command: echo hello
+  - id: step2
+    type: shell
+    command: echo hi
+    inputs:
+      DATA: nodes.step1.output
+`);
+  const result = validateDAG(def);
+  expect(result.valid).toBe(false);
+  const inputIssue = result.issues.find(
+    (i) => i.code === "INPUTS_MISSING_DEPENDENCY" && i.nodeId === "step2",
+  );
+  expect(inputIssue).toBeDefined();
+  expect(inputIssue!.message).toContain("step1");
+});
+
+// inputs 引用的节点已声明依赖 → 校验通过（shell）
+test("shell inputs 引用的节点已声明依赖 → 校验通过", () => {
+  const def = parseWorkflowYaml(`\
+schema_version: '1'
+name: test
+nodes:
+  - id: step1
+    type: shell
+    command: echo hello
+  - id: step2
+    type: shell
+    command: echo hi
+    depends_on: [step1]
+    inputs:
+      DATA: nodes.step1.output
+`);
+  const result = validateDAG(def);
+  expect(result.valid).toBe(true);
+});
+
+// inputs 引用未声明依赖的节点报错（python）
+test("python inputs 引用未声明依赖的节点报错", () => {
+  const def = parseWorkflowYaml(`\
+schema_version: '1'
+name: test
+nodes:
+  - id: step1
+    type: shell
+    command: echo hello
+  - id: step2
+    type: python
+    code: print(data)
+    inputs:
+      data: nodes.step1.output
+`);
+  const result = validateDAG(def);
+  expect(result.valid).toBe(false);
+  const inputIssue = result.issues.find(
+    (i) => i.code === "INPUTS_MISSING_DEPENDENCY" && i.nodeId === "step2",
+  );
+  expect(inputIssue).toBeDefined();
+});
+
+// inputs 引用 params 和 secrets 不需要 depends_on
+test("inputs 引用 params/secrets 不需要 depends_on", () => {
+  const def = parseWorkflowYaml(`\
+schema_version: '1'
+name: test
+nodes:
+  - id: step1
+    type: shell
+    command: echo hi
+    inputs:
+      NAME: params.name
+      KEY: secrets.API_KEY
+`);
+  const result = validateDAG(def);
+  expect(result.valid).toBe(true);
+});
+
+// inputs 引用多个节点，部分未声明依赖
+test("inputs 引用多个节点，部分未声明依赖报错", () => {
+  const def = parseWorkflowYaml(`\
+schema_version: '1'
+name: test
+nodes:
+  - id: a
+    type: shell
+    command: echo a
+  - id: b
+    type: shell
+    command: echo b
+  - id: c
+    type: shell
+    command: echo c
+    depends_on: [a]
+    inputs:
+      A_DATA: nodes.a.output
+      B_DATA: nodes.b.output
+`);
+  const result = validateDAG(def);
+  expect(result.valid).toBe(false);
+  const inputIssues = result.issues.filter((i) => i.code === "INPUTS_MISSING_DEPENDENCY");
+  expect(inputIssues).toHaveLength(1);
+  expect(inputIssues[0].message).toContain("b");
+});

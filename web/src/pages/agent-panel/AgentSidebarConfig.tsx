@@ -47,68 +47,46 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 interface AgentSidebarConfigProps {
-  collapsed: boolean;
   onNavigate: (pageId: string) => void;
 }
 
-export function AgentSidebarConfig({ collapsed, onNavigate }: AgentSidebarConfigProps) {
+export function AgentSidebarConfig({ onNavigate }: AgentSidebarConfigProps) {
   const { t } = useTranslation(NS.AGENT_PANEL);
 
   return (
     <nav className="py-2 overflow-y-auto overflow-x-hidden">
-      {collapsed ? (
-        <div className="flex flex-col items-center gap-1">
-          {NAV_GROUPS.flatMap((group) =>
-            group.items.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onNavigate(item.id)}
-                  title={t(item.labelKey)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-hover cursor-pointer transition-colors"
-                >
-                  <Icon className="w-[18px] h-[18px] flex-shrink-0 text-text-secondary" />
-                </button>
-              );
-            }),
-          )}
-        </div>
-      ) : (
-        <div className="px-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="flex items-center gap-2.5 w-full px-3 py-2 rounded-[var(--radius)] text-[13px] font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-all duration-150 cursor-pointer"
-              >
-                <Menu className="w-[18px] h-[18px] flex-shrink-0" />
-                <span>{t("navigation")}</span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="right" align="start" className="w-48">
-              {NAV_GROUPS.map((group, gi) => (
-                <DropdownMenuGroup key={group.labelKey}>
-                  {gi > 0 && <DropdownMenuSeparator />}
-                  <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-dim">
-                    {t(group.labelKey)}
-                  </DropdownMenuLabel>
-                  {group.items.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <DropdownMenuItem key={item.id} onClick={() => onNavigate(item.id)}>
-                        <Icon className="w-4 h-4" />
-                        <span>{t(item.labelKey)}</span>
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuGroup>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
+      <div className="px-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center gap-2.5 w-full px-3 py-2 rounded-[var(--radius)] text-[13px] font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-all duration-150 cursor-pointer"
+            >
+              <Menu className="w-[18px] h-[18px] flex-shrink-0" />
+              <span>{t("navigation")}</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="start" className="w-48">
+            {NAV_GROUPS.map((group, gi) => (
+              <DropdownMenuGroup key={group.labelKey}>
+                {gi > 0 && <DropdownMenuSeparator />}
+                <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-dim">
+                  {t(group.labelKey)}
+                </DropdownMenuLabel>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <DropdownMenuItem key={item.id} onClick={() => onNavigate(item.id)}>
+                      <Icon className="w-4 h-4" />
+                      <span>{t(item.labelKey)}</span>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuGroup>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </nav>
   );
 }

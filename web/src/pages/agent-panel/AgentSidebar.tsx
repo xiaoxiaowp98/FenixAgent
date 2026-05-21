@@ -1,4 +1,4 @@
-import { ChevronsLeft, ChevronsRight, LogOut, Users } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { signOut, useSession } from "../../../src/lib/auth-client";
@@ -7,8 +7,6 @@ import { AgentSidebarConfig } from "./AgentSidebarConfig";
 import { AgentSidebarTree } from "./AgentSidebarTree";
 
 interface AgentSidebarProps {
-  collapsed: boolean;
-  onToggleCollapse: () => void;
   selectedInstanceId: string | null;
   onSelectInstance: (instanceId: string, envId: string, sessionId: string | null) => void;
   onNavigate: (pageId: string) => void;
@@ -16,8 +14,6 @@ interface AgentSidebarProps {
 }
 
 export function AgentSidebar({
-  collapsed,
-  onToggleCollapse,
   selectedInstanceId,
   onSelectInstance,
   onNavigate,
@@ -49,8 +45,8 @@ export function AgentSidebar({
   };
 
   return (
-    <aside className={["agent-sidebar", collapsed ? "collapsed" : ""].join(" ")}>
-      {/* 品牌区 + 团队切换器 */}
+    <aside className="agent-sidebar">
+      {/* 品牌区 */}
       <div
         className={[
           "flex items-center gap-2.5 px-4",
@@ -70,59 +66,26 @@ export function AgentSidebar({
         >
           X
         </div>
-        <span
-          className={[
-            "text-sm font-bold tracking-[0.02em] text-text-bright",
-            "whitespace-nowrap overflow-hidden",
-            "transition-opacity duration-200",
-            collapsed ? "opacity-0" : "opacity-100",
-          ].join(" ")}
-        >
+        <span className="text-sm font-bold tracking-[0.02em] text-text-bright whitespace-nowrap overflow-hidden">
           {t("brand")}
         </span>
-        <button
-          type="button"
-          onClick={onToggleCollapse}
-          className={[
-            "ml-auto w-7 h-7 rounded-md flex-shrink-0",
-            "flex items-center justify-center",
-            "border border-border-subtle bg-transparent",
-            "text-text-dim cursor-pointer",
-            "transition-all duration-150",
-            "hover:bg-surface-hover hover:text-text-primary",
-          ].join(" ")}
-          title={collapsed ? t("expandSidebar") : t("collapseSidebar")}
-        >
-          {collapsed ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
-        </button>
       </div>
 
       {/* 智能体树 */}
       <AgentSidebarTree
-        collapsed={collapsed}
         selectedInstanceId={selectedInstanceId}
         onSelectInstance={onSelectInstance}
         onCreateAgent={onCreateAgent}
       />
 
       {/* 配置导航 */}
-      <AgentSidebarConfig collapsed={collapsed} onNavigate={onNavigate} />
+      <AgentSidebarConfig onNavigate={onNavigate} />
 
       {/* 底部：团队切换 + 用户头像 */}
       <div className="mt-auto border-t border-border-subtle">
         {/* 团队切换 */}
         <div className="px-2 py-1.5 border-b border-border-subtle">
-          {collapsed ? (
-            <button
-              type="button"
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-hover cursor-pointer transition-colors mx-auto"
-              title={tSidebar("organizations")}
-            >
-              <Users className="w-[18px] h-[18px] text-text-secondary" />
-            </button>
-          ) : (
-            <OrgSwitcher />
-          )}
+          <OrgSwitcher />
         </div>
 
         {/* 用户头像 */}
@@ -130,12 +93,7 @@ export function AgentSidebar({
           <button
             type="button"
             onClick={() => setUserMenuOpen((v) => !v)}
-            className={[
-              "flex items-center w-full",
-              "cursor-pointer transition-colors duration-150",
-              collapsed ? "justify-center py-2.5" : "gap-2.5 px-4 py-2.5",
-            ].join(" ")}
-            title={collapsed ? userEmail : undefined}
+            className="flex items-center gap-2.5 w-full px-4 py-2.5 cursor-pointer transition-colors duration-150"
           >
             <div
               className={[
@@ -149,13 +107,7 @@ export function AgentSidebar({
             >
               {avatarLetter}
             </div>
-            <span
-              className={[
-                "text-[12px] text-text-dim truncate",
-                "transition-opacity duration-200",
-                collapsed ? "opacity-0 w-0" : "opacity-100",
-              ].join(" ")}
-            >
+            <span className="text-[12px] text-text-dim truncate">
               {userEmail}
             </span>
           </button>

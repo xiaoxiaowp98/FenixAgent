@@ -7,13 +7,12 @@ import { NS } from "../../i18n";
 import type { Environment, EnvironmentInstance } from "../../types/index";
 
 interface AgentSidebarTreeProps {
-  collapsed: boolean;
   selectedInstanceId: string | null;
   onSelectInstance: (instanceId: string, envId: string, sessionId: string | null) => void;
   onCreateAgent?: () => void;
 }
 
-export function AgentSidebarTree({ collapsed, selectedInstanceId, onSelectInstance, onCreateAgent }: AgentSidebarTreeProps) {
+export function AgentSidebarTree({ selectedInstanceId, onSelectInstance, onCreateAgent }: AgentSidebarTreeProps) {
   const { t } = useTranslation(NS.AGENT_PANEL);
   const [envs, setEnvs] = useState<Environment[]>([]);
   const [instancesMap, setInstancesMap] = useState<Record<string, EnvironmentInstance[]>>({});
@@ -105,38 +104,6 @@ export function AgentSidebarTree({ collapsed, selectedInstanceId, onSelectInstan
     return (
       <div className="flex items-center justify-center py-6">
         <Loader2 className="h-4 w-4 animate-spin text-text-muted" />
-      </div>
-    );
-  }
-
-  if (collapsed) {
-    return (
-      <div className="py-2 flex flex-col items-center gap-1">
-        {tree.flatMap(({ env, instances }) =>
-          instances.length > 0
-            ? instances.map((inst) => (
-                <button
-                  key={inst.id}
-                  type="button"
-                  title={t("instanceN", { number: inst.instance_number })}
-                  onClick={() => handleEnterInstance(env, inst.instance_number)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-hover cursor-pointer transition-colors"
-                >
-                  <span className={`status-dot ${getInstanceStatus(inst)}`} />
-                </button>
-              ))
-            : [
-                <button
-                  key={env.id}
-                  type="button"
-                  title={env.name}
-                  onClick={() => handleEnterInstance(env)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-hover cursor-pointer transition-colors"
-                >
-                  <span className="status-dot stopped" />
-                </button>,
-              ],
-        )}
       </div>
     );
   }

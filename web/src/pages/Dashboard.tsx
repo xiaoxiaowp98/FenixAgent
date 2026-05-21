@@ -13,8 +13,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { client } from "../api/client";
-import { unwrapConfigData } from "../api/config-response";
+import { apiGet, apiPost } from "../api/client";
 import { useConfigChangeListener } from "../lib/config-events";
 import { cn } from "../lib/utils";
 import type { Environment, Session } from "../types";
@@ -48,34 +47,16 @@ function useStats() {
   });
   const load = useCallback(async () => {
     const results = await Promise.allSettled([
-      client.web.environments
-        .get()
-        .then((r: { data: unknown }) => (Array.isArray(r.data) ? (r.data as unknown as Environment[]) : [])),
-      client.web.sessions
-        .get()
-        .then((r: { data: unknown }) => (Array.isArray(r.data) ? (r.data as unknown as Session[]) : [])),
-      client.web.config.agents.post({ action: "list" }).then((r: { data: unknown }) => {
-        const d = unwrapConfigData<{ agents?: AgentInfo[]; data?: { agents?: AgentInfo[] } }>(r.data);
+      apiGet<unknown[]>("/web/environments").then((d) => (Array.isArray(d) ? (d as Environment[]) : [])),
+      apiGet<unknown[]>("/web/sessions").then((d) => (Array.isArray(d) ? (d as Session[]) : [])),
+      apiPost<{ agents?: AgentInfo[]; data?: { agents?: AgentInfo[] } }>("/web/config/agents", { action: "list" }).then((d) => {
         const agents = d?.agents ?? d?.data?.agents;
         return Array.isArray(agents) ? agents : [];
       }),
-      client.web.config.models.post({ action: "get" }).then((r: { data: unknown }) => {
-        const d = unwrapConfigData(r.data);
-        return d ?? r.data ?? null;
-      }),
-      client.web.config.skills.post({ action: "list" }).then((r: { data: unknown }) => {
-        const d = unwrapConfigData(r.data);
-        const skills = d ?? r.data;
-        return Array.isArray(skills) ? skills : [];
-      }),
-      client.web.config.mcp.post({ action: "list" }).then((r: { data: unknown }) => {
-        const d = unwrapConfigData(r.data);
-        const servers = d ?? r.data;
-        return Array.isArray(servers) ? servers : [];
-      }),
-      client.web.tasks
-        .get()
-        .then((r: { data: unknown }) => (Array.isArray(r.data) ? (r.data as unknown as unknown[]) : [])),
+      apiPost<unknown>("/web/config/models", { action: "get" }).then((d) => d ?? null),
+      apiPost<unknown>("/web/config/skills", { action: "list" }).then((d) => (Array.isArray(d) ? d : [])),
+      apiPost<unknown>("/web/config/mcp", { action: "list" }).then((d) => (Array.isArray(d) ? d : [])),
+      apiGet<unknown[]>("/web/tasks").then((d) => (Array.isArray(d) ? d : [])),
     ]);
     setState({
       environments: results[0].status === "fulfilled" ? results[0].value : [],

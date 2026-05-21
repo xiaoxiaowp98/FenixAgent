@@ -7,13 +7,13 @@ import { AgentSidebarConfig, AgentSidebarQuickNav } from "./AgentSidebarConfig";
 import { AgentSidebarTree } from "./AgentSidebarTree";
 
 interface AgentSidebarProps {
-  selectedInstanceId: string | null;
+  activeNav: string | null;
   onSelectInstance: (instanceId: string, envId: string, sessionId: string | null) => void;
   onNavigate: (pageId: string) => void;
   onCreateAgent?: () => void;
 }
 
-export function AgentSidebar({ selectedInstanceId, onSelectInstance, onNavigate, onCreateAgent }: AgentSidebarProps) {
+export function AgentSidebar({ activeNav, onSelectInstance, onNavigate, onCreateAgent }: AgentSidebarProps) {
   const { t } = useTranslation("agentPanel");
   const { t: tSidebar } = useTranslation("sidebar");
   const { data: session } = useSession();
@@ -67,15 +67,11 @@ export function AgentSidebar({ selectedInstanceId, onSelectInstance, onNavigate,
       </div>
 
       {/* 快捷导航：模型、技能、MCP、组织管理 */}
-      <AgentSidebarQuickNav onNavigate={onNavigate} />
+      <AgentSidebarQuickNav onNavigate={onNavigate} activeNav={activeNav} />
 
       {/* 智能体树 */}
-      <div className="border-t border-border-subtle h-full">
-        <AgentSidebarTree
-          selectedInstanceId={selectedInstanceId}
-          onSelectInstance={onSelectInstance}
-          onCreateAgent={onCreateAgent}
-        />
+      <div className="border-t border-border-subtle flex-1 min-h-0 overflow-hidden">
+        <AgentSidebarTree selectedInstanceId={null} onSelectInstance={onSelectInstance} onCreateAgent={onCreateAgent} />
       </div>
 
       {/* 更多导航：下拉菜单 */}

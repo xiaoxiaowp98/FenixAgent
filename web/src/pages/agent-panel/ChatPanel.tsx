@@ -1,8 +1,8 @@
 import { Bot, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ACPMain } from "../../../components/ACPMain";
-import { TooltipProvider } from "../../../components/ui/tooltip";
+import { ACPMain } from "@/components/ACPMain";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { type ACPClient, DisconnectRequestedError } from "../../acp/client";
 import { createRelayClient } from "../../acp/relay-client";
 import type { ConnectionState } from "../../acp/types";

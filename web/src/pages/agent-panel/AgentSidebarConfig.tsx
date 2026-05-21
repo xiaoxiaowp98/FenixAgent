@@ -22,7 +22,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../../../components/ui/dropdown-menu";
+} from "@/components/ui/dropdown-menu";
 import { NS } from "../../i18n";
 
 interface NavEntry {
@@ -51,7 +51,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "dashboard", labelKey: "agentPanel:overview", icon: Monitor },
       { id: "workflow", labelKey: "agentPanel:workflow", icon: Workflow },
-      { id: "session", labelKey: "agentPanel:sessions", icon: MessageSquare },
+      { id: "sessions", labelKey: "agentPanel:sessions", icon: MessageSquare },
     ],
   },
   {
@@ -70,19 +70,27 @@ interface AgentSidebarConfigProps {
 }
 
 /** 智能体树上方的快捷导航 */
-export function AgentSidebarQuickNav({ onNavigate }: AgentSidebarConfigProps) {
+export function AgentSidebarQuickNav({
+  onNavigate,
+  activeNav,
+}: AgentSidebarConfigProps & { activeNav: string | null }) {
   const { t } = useTranslation();
 
   return (
     <div className="px-2 py-1.5">
       {QUICK_NAV.map((item) => {
         const Icon = item.icon;
+        const isActive = activeNav === item.id;
         return (
           <button
             key={item.id}
             type="button"
             onClick={() => onNavigate(item.id)}
-            className="flex items-center gap-2.5 w-full px-3 py-2 rounded-[var(--radius)] text-[13px] font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-all duration-150 cursor-pointer"
+            className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-[var(--radius)] text-[13px] font-medium transition-all duration-150 cursor-pointer ${
+              isActive
+                ? "bg-brand-subtle text-brand-light border-l-2 border-brand"
+                : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+            }`}
           >
             <Icon className="w-[18px] h-[18px] flex-shrink-0" />
             <span>{t(item.labelKey)}</span>

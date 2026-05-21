@@ -1,52 +1,30 @@
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { BatchActionBar } from "@/components/config/BatchActionBar";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
-import { type Column, DataTable } from "@/components/config/DataTable";
 import { FormDialog } from "@/components/config/FormDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { client, fetchUpload } from "../api/client";
-import { unwrapConfigData } from "../api/config-response";
-import { dispatchConfigChange } from "../lib/config-events";
-import { buildSkillUploadFormData, parseSkillUploadFiles, validateUploadBatch } from "../lib/skill-upload";
-import type { SkillUploadConflictResponse, SkillUploadConflictStrategy, UploadSkillSummary } from "../types/config";
+import { client, fetchUpload } from "../../../api/client";
+import { unwrapConfigData } from "../../../api/config-response";
+import { dispatchConfigChange } from "../../../lib/config-events";
+import { buildSkillUploadFormData, parseSkillUploadFiles, validateUploadBatch } from "../../../lib/skill-upload";
+import type {
+  SkillUploadConflictResponse,
+  SkillUploadConflictStrategy,
+  UploadSkillSummary,
+} from "../../../types/config";
+import { AgentCardList } from "../shared/AgentCardList";
+import { AgentPageHeader } from "../shared/AgentPageHeader";
 
-type SkillInfo = {
-  id: string;
-  name: string;
-  description: string;
-};
-
+type SkillInfo = { id: string; name: string; description: string };
 type CreateMode = "text" | "upload";
+type SkillUploadResult = { imported: unknown[]; skipped: unknown[] };
 
-type SkillUploadResult = {
-  imported: unknown[];
-  skipped: unknown[];
-};
-
-export function validateSkillForm(name: string, content: string, t: (key: string) => string): string | null {
-  if (!name.trim()) return t("form.nameRequired");
-  if (!content.trim()) return t("form.contentRequired");
-  return null;
-}
-
-export function getUploadResultMessage(
-  imported: number,
-  skipped: number,
-  t: (key: string, opts?: Record<string, unknown>) => string,
-): string {
-  if (skipped > 0) {
-    return t("toast.importResultWithSkipped", { imported, skipped });
-  }
-  return t("toast.importResult", { imported });
-}
-
-export function normalizeSkillUploadResult(response: unknown): SkillUploadResult {
+function normalizeSkillUploadResult(response: unknown): SkillUploadResult {
   const data =
     unwrapConfigData<Partial<SkillUploadResult>>(response) ?? (response as Partial<SkillUploadResult> | null);
   return {
@@ -55,52 +33,24 @@ export function normalizeSkillUploadResult(response: unknown): SkillUploadResult
   };
 }
 
-export function getUploadConflictData(error: unknown): SkillUploadConflictResponse | null {
+function getUploadConflictData(error: unknown): SkillUploadConflictResponse | null {
   if (
     !error ||
     typeof error !== "object" ||
     !("code" in error) ||
     (error as { code?: string }).code !== "SKILL_CONFLICT"
-  ) {
+  )
     return null;
-  }
   const data = (error as { data?: SkillUploadConflictResponse }).data;
-  if (!data || !Array.isArray(data.conflicts) || !Array.isArray(data.allowedStrategies)) {
-    return null;
-  }
+  if (!data || !Array.isArray(data.conflicts) || !Array.isArray(data.allowedStrategies)) return null;
   return data;
-}
-
-export function getUploadItemSummaries(
-  items: UploadSkillSummary[],
-  t: (key: string, opts?: Record<string, unknown>) => string,
-): string[] {
-  return items.map((item) =>
-    item.hasSkillMd
-      ? t("upload.itemSummary", {
-          name: item.skillName,
-          count: item.fileCount,
-        })
-      : t("upload.itemSummaryMissing", {
-          name: item.skillName,
-          count: item.fileCount,
-        }),
-  );
-}
-
-export function getInvalidUploadSkillNames(items: UploadSkillSummary[]): string[] {
-  return items.filter((item) => !item.hasSkillMd).map((item) => item.skillName);
 }
 
 function UploadItemCard({ item }: { item: UploadSkillSummary }) {
   const { t } = useTranslation("skills");
   return (
     <div
-      className={`flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors ${
-        item.hasSkillMd
-          ? "border-border-light bg-surface-1 hover:border-border"
-          : "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20"
-      }`}
+      className={`flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors ${item.hasSkillMd ? "border-border-light bg-surface-1" : "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20"}`}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -122,13 +72,10 @@ function UploadItemCard({ item }: { item: UploadSkillSummary }) {
 
 const directoryInputProps = { webkitdirectory: "", directory: "" } as Record<string, string>;
 
-// --- Main Page ---
-
-export function SkillsPage() {
+export function AgentSkillsPage() {
   const { t } = useTranslation("skills");
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<SkillInfo | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -166,11 +113,7 @@ export function SkillsPage() {
       setSkills(Array.isArray(d?.skills) ? d.skills : []);
     } catch (e) {
       console.error(t("toast.loadListFailed"), e);
-      toast.error(
-        t("toast.loadListFailedWith", {
-          message: e instanceof Error ? e.message : t("toast.saveFailed"),
-        }),
-      );
+      toast.error(t("toast.loadListFailedWith", { message: e instanceof Error ? e.message : t("toast.saveFailed") }));
     } finally {
       setLoading(false);
     }
@@ -180,6 +123,7 @@ export function SkillsPage() {
     loadSkills();
   }, [loadSkills]);
 
+  const [searchQuery, _setSearchQuery] = useState("");
   const filteredSkills = useMemo(() => {
     if (!searchQuery.trim()) return skills;
     const q = searchQuery.toLowerCase();
@@ -201,10 +145,7 @@ export function SkillsPage() {
     setCreateMode("text");
     resetUploadState();
     try {
-      const { data: res, error: resErr } = await client.web.config.skills.post({
-        action: "get",
-        name: skill.name,
-      });
+      const { data: res, error: resErr } = await client.web.config.skills.post({ action: "get", name: skill.name });
       if (resErr) {
         toast.error(t("toast.loadDetailFailed"));
         return;
@@ -220,29 +161,24 @@ export function SkillsPage() {
   };
 
   const handleTextSave = async () => {
-    const err = validateSkillForm(formName, formContent, t);
-    if (err) {
-      toast.error(err);
+    if (!formName.trim() || !formContent.trim()) {
+      toast.error(t("form.nameRequired"));
       return;
     }
     setFormSaving(true);
     try {
-      const { error: setErr } = await client.web.config.skills.post({
+      const { error } = await client.web.config.skills.post({
         action: "set",
         name: formName,
         data: { description: formDescription, content: formContent },
       });
-      if (setErr) throw new Error(setErr.message ?? t("toast.saveFailed"));
+      if (error) throw new Error(error.message ?? "Failed");
       toast.success(editingSkill ? t("toast.skillUpdated") : t("toast.skillCreated"));
       setDialogOpen(false);
       loadSkills();
       dispatchConfigChange("skills");
     } catch (e) {
-      toast.error(
-        t("toast.saveFailedWith", {
-          message: e instanceof Error ? e.message : t("toast.saveFailed"),
-        }),
-      );
+      toast.error(t("toast.saveFailedWith", { message: e instanceof Error ? e.message : t("toast.saveFailed") }));
     } finally {
       setFormSaving(false);
     }
@@ -250,10 +186,8 @@ export function SkillsPage() {
 
   const handleUploadSelection = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
-    const items = parseSkillUploadFiles(files);
-    const error = validateUploadBatch(items);
-    setUploadItems(items);
-    setUploadError(error);
+    setUploadItems(parseSkillUploadFiles(files));
+    setUploadError(validateUploadBatch(parseSkillUploadFiles(files)));
     setConflicts([]);
     setConflictStrategy(null);
   };
@@ -269,7 +203,11 @@ export function SkillsPage() {
     try {
       const formData = buildSkillUploadFormData(uploadItems, strategy);
       const result = normalizeSkillUploadResult(await fetchUpload<unknown>("/web/config/skills/upload", formData));
-      toast.success(getUploadResultMessage(result.imported.length, result.skipped.length, t));
+      toast.success(
+        result.skipped.length > 0
+          ? t("toast.importResultWithSkipped", { imported: result.imported.length, skipped: result.skipped.length })
+          : t("toast.importResult", { imported: result.imported.length }),
+      );
       setDialogOpen(false);
       resetUploadState();
       loadSkills();
@@ -277,16 +215,12 @@ export function SkillsPage() {
     } catch (error) {
       const conflictData = getUploadConflictData(error);
       if (conflictData) {
-        console.error(t("toast.importFailed"), error);
         setConflicts(conflictData.conflicts);
         setConflictStrategy(strategy ?? null);
         toast.error(t("conflict.detected"));
       } else {
-        console.error(t("toast.importFailed"), error);
         toast.error(
-          t("toast.importFailedWith", {
-            message: error instanceof Error ? error.message : t("toast.saveFailed"),
-          }),
+          t("toast.importFailedWith", { message: error instanceof Error ? error.message : t("toast.saveFailed") }),
         );
       }
     } finally {
@@ -311,22 +245,15 @@ export function SkillsPage() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const { error: delErr } = await client.web.config.skills.post({
-        action: "delete",
-        name: deleteTarget,
-      });
-      if (delErr) throw new Error(delErr.message ?? t("toast.deleteFailed"));
+      const { error } = await client.web.config.skills.post({ action: "delete", name: deleteTarget });
+      if (error) throw new Error(error.message ?? "Failed");
       toast.success(t("toast.skillDeleted"));
       setConfirmOpen(false);
       loadSkills();
       dispatchConfigChange("skills");
     } catch (e) {
       console.error(t("toast.deleteFailed"), e);
-      toast.error(
-        t("toast.deleteFailedWith", {
-          message: e instanceof Error ? e.message : t("toast.saveFailed"),
-        }),
-      );
+      toast.error(t("toast.deleteFailedWith", { message: e instanceof Error ? e.message : t("toast.saveFailed") }));
     }
   };
 
@@ -337,7 +264,7 @@ export function SkillsPage() {
           client.web.config.skills
             .post({ action: "delete", name: s.name })
             .then((r: { error?: { message?: string } }) => {
-              if (r.error) throw new Error(r.error.message ?? t("toast.deleteFailed"));
+              if (r.error) throw new Error(r.error.message);
             }),
         ),
       );
@@ -349,40 +276,19 @@ export function SkillsPage() {
     } catch (e) {
       console.error(t("toast.batchDeleteFailed"), e);
       toast.error(
-        t("toast.batchDeleteFailedWith", {
-          message: e instanceof Error ? e.message : t("toast.saveFailed"),
-        }),
+        t("toast.batchDeleteFailedWith", { message: e instanceof Error ? e.message : t("toast.saveFailed") }),
       );
     }
   };
 
-  const columns: Column<SkillInfo>[] = [
-    {
-      key: "name",
-      header: t("column.name"),
-      sortable: true,
-      filterable: true,
-      render: (row) => <span className="font-mono text-sm font-medium text-text-bright">{row.name}</span>,
-    },
-    {
-      key: "description",
-      header: t("column.description"),
-      render: (row) => <span className="text-sm text-text-secondary line-clamp-1">{row.description || "—"}</span>,
-    },
-  ];
-
   if (loading) {
     return (
-      <div className="p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-7 w-32" />
-          <Skeleton className="h-9 w-24" />
-        </div>
-        <div className="rounded-md border">
-          <Skeleton className="h-10 w-full rounded-t-md" />
+      <div className="flex flex-col flex-1 min-h-0">
+        <AgentPageHeader title={t("title")} subtitle={t("subtitle")} />
+        <div className="flex-1 overflow-y-auto p-6 space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholders
-            <Skeleton key={i} className="h-12 w-full rounded-none border-t" />
+            <Skeleton key={i} className="h-16 w-full rounded-lg" />
           ))}
         </div>
       </div>
@@ -390,73 +296,54 @@ export function SkillsPage() {
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-text-bright">{t("title")}</h2>
-          <p className="text-sm text-text-muted mt-0.5">{t("subtitle")}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => handleOpenCreate("upload")}>
-            {t("btn.uploadSkill")}
-          </Button>
-          <Button onClick={() => handleOpenCreate("text")}>{t("btn.createSkill")}</Button>
-        </div>
-      </div>
-      <div className="relative">
-        <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-          />
-        </svg>
-        <Input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={t("search")}
-          className="pl-9"
-        />
-      </div>
-      <DataTable<SkillInfo>
-        columns={columns}
-        data={filteredSkills}
-        rowKey={(row) => row.id}
+    <div className="flex flex-col flex-1 min-h-0">
+      <AgentPageHeader
+        title={t("title")}
+        subtitle={t("subtitle")}
+        actions={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => handleOpenCreate("upload")}>
+              {t("btn.uploadSkill")}
+            </Button>
+            <Button onClick={() => handleOpenCreate("text")}>{t("btn.createSkill")}</Button>
+          </div>
+        }
+      />
+      <AgentCardList
+        items={filteredSkills}
+        cardKey={(s) => s.id}
+        searchPlaceholder={t("search")}
+        searchFn={(s, q) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q)}
         selectable
+        selectedItems={selected}
         onSelectionChange={setSelected}
         emptyMessage={t("empty")}
-        actions={(row) => (
-          <div className="flex gap-1.5">
-            <Button size="xs" variant="outline" onClick={() => handleOpenEdit(row)}>
-              {t("btn.edit")}
-            </Button>
-            <Button size="xs" variant="destructive" onClick={() => handleDeleteClick(row)}>
-              {t("btn.delete")}
-            </Button>
+        batchActions={
+          <Button size="xs" variant="destructive" onClick={() => setBatchConfirmOpen(true)}>
+            {t("btn.batchDelete")}
+          </Button>
+        }
+        renderCard={(skill, isSelected, toggleSelect) => (
+          <div className="group rounded-lg border border-border-light bg-surface-1 px-4 py-3 transition-colors hover:border-border-active hover:shadow-sm">
+            <div className="flex items-center gap-3">
+              <input type="checkbox" checked={isSelected} onChange={toggleSelect} className="rounded border-border" />
+              <div className="flex-1 min-w-0">
+                <span className="font-mono text-sm font-medium text-text-bright">{skill.name}</span>
+                <p className="text-sm text-text-secondary line-clamp-1 mt-0.5">{skill.description || "—"}</p>
+              </div>
+              <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button size="xs" variant="outline" onClick={() => handleOpenEdit(skill)}>
+                  {t("btn.edit")}
+                </Button>
+                <Button size="xs" variant="destructive" onClick={() => handleDeleteClick(skill)}>
+                  {t("btn.delete")}
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       />
-      {selected.length > 0 && (
-        <BatchActionBar
-          selectedCount={selected.length}
-          onClear={() => setSelected([])}
-          actions={[
-            {
-              label: t("btn.batchDelete"),
-              variant: "destructive",
-              onClick: () => setBatchConfirmOpen(true),
-            },
-          ]}
-        />
-      )}
 
-      {/* FormDialog */}
       <FormDialog
         open={dialogOpen}
         onOpenChange={(open) => {
@@ -490,21 +377,6 @@ export function SkillsPage() {
                   className="rounded-xl border-2 border-dashed border-border-light bg-surface-2/30 p-8 text-center cursor-pointer transition-colors hover:border-brand/40 hover:bg-brand-subtle/30"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-surface-2">
-                    <svg
-                      className="h-6 w-6 text-text-muted"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-                      />
-                    </svg>
-                  </div>
                   <p className="text-sm font-medium text-text-primary">{t("upload.selectFolder")}</p>
                   <p className="mt-1 text-xs text-text-muted">{t("upload.selectFolderHint")}</p>
                 </div>
@@ -512,9 +384,7 @@ export function SkillsPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-text-primary">
-                      {t("upload.selectedDirs", {
-                        count: uploadItems.length,
-                      })}
+                      {t("upload.selectedDirs", { count: uploadItems.length })}
                     </span>
                     <Button
                       type="button"
@@ -546,9 +416,9 @@ export function SkillsPage() {
                 <div className="space-y-3 rounded-lg border border-warning-border bg-warning-bg px-4 py-3 text-sm">
                   <div className="font-medium text-warning-text">{t("conflict.title")}</div>
                   <div className="space-y-1">
-                    {conflicts.map((conflict) => (
-                      <div key={conflict.name} className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-text-primary">{conflict.name}</span>
+                    {conflicts.map((c) => (
+                      <div key={c.name} className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-text-primary">{c.name}</span>
                       </div>
                     ))}
                   </div>
@@ -640,32 +510,22 @@ export function SkillsPage() {
         )}
       </FormDialog>
 
-      {/* Delete confirm */}
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title={t("confirm.deleteTitle")}
-        description={t("confirm.deleteDescription", {
-          name: deleteTarget ?? "",
-        })}
+        description={t("confirm.deleteDescription", { name: deleteTarget ?? "" })}
         variant="destructive"
         onConfirm={confirmDelete}
       />
-
-      {/* Batch delete confirm */}
       <ConfirmDialog
         open={batchConfirmOpen}
         onOpenChange={setBatchConfirmOpen}
         title={t("confirm.batchDeleteTitle")}
-        description={t("confirm.batchDeleteDescription", {
-          count: selected.length,
-          workspaceHint: t("confirm.batchDeleteHint"),
-        })}
+        description={t("confirm.batchDeleteDescription", { count: selected.length })}
         variant="destructive"
         onConfirm={confirmBatchDelete}
       />
-
-      {/* Overwrite confirm */}
       <ConfirmDialog
         open={overwriteConfirmOpen}
         onOpenChange={setOverwriteConfirmOpen}

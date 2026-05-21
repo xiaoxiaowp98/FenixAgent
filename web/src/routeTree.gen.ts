@@ -11,8 +11,8 @@
 import { Route as rootRouteImport } from "./routes/__root"
 import { Route as LoginRouteImport } from "./routes/login"
 import { Route as AppRouteImport } from "./routes/_app"
-import { Route as AgentIndexRouteImport } from "./routes/agent/index"
 import { Route as AppIndexRouteImport } from "./routes/_app/index"
+import { Route as AgentPanelRouteImport } from "./routes/agent/_panel"
 import { Route as AgentAgentIdRouteImport } from "./routes/agent/$agentId"
 import { Route as AppWorkflowRouteImport } from "./routes/_app/workflow"
 import { Route as AppTasksRouteImport } from "./routes/_app/tasks"
@@ -26,8 +26,22 @@ import { Route as AppChannelsRouteImport } from "./routes/_app/channels"
 import { Route as AppApikeysRouteImport } from "./routes/_app/apikeys"
 import { Route as AppAgentsRouteImport } from "./routes/_app/agents"
 import { Route as AppSessionIdRouteImport } from "./routes/_app/$sessionId"
+import { Route as AgentPanelIndexRouteImport } from "./routes/agent/_panel/index"
+import { Route as AgentPanelWorkflowRouteImport } from "./routes/agent/_panel/workflow"
+import { Route as AgentPanelTasksRouteImport } from "./routes/agent/_panel/tasks"
+import { Route as AgentPanelSkillsRouteImport } from "./routes/agent/_panel/skills"
+import { Route as AgentPanelSessionsRouteImport } from "./routes/agent/_panel/sessions"
+import { Route as AgentPanelOrganizationsRouteImport } from "./routes/agent/_panel/organizations"
+import { Route as AgentPanelModelsRouteImport } from "./routes/agent/_panel/models"
+import { Route as AgentPanelMcpRouteImport } from "./routes/agent/_panel/mcp"
+import { Route as AgentPanelKnowledgeBasesRouteImport } from "./routes/agent/_panel/knowledge-bases"
+import { Route as AgentPanelDashboardRouteImport } from "./routes/agent/_panel/dashboard"
+import { Route as AgentPanelChannelsRouteImport } from "./routes/agent/_panel/channels"
+import { Route as AgentPanelApikeysRouteImport } from "./routes/agent/_panel/apikeys"
 import { Route as AgentAgentIdSessionIdRouteImport } from "./routes/agent/$agentId_.$sessionId"
 import { Route as AppWorkflowSplatRouteImport } from "./routes/_app/workflow_.$"
+import { Route as AgentPanelChatAgentIdRouteImport } from "./routes/agent/_panel/chat.$agentId"
+import { Route as AgentPanelChatAgentIdSessionIdRouteImport } from "./routes/agent/_panel/chat.$agentId_.$sessionId"
 
 const LoginRoute = LoginRouteImport.update({
   id: "/login",
@@ -38,15 +52,15 @@ const AppRoute = AppRouteImport.update({
   id: "/_app",
   getParentRoute: () => rootRouteImport,
 } as any)
-const AgentIndexRoute = AgentIndexRouteImport.update({
-  id: "/agent/",
-  path: "/agent/",
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: "/",
   path: "/",
   getParentRoute: () => AppRoute,
+} as any)
+const AgentPanelRoute = AgentPanelRouteImport.update({
+  id: "/agent/_panel",
+  path: "/agent",
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AgentAgentIdRoute = AgentAgentIdRouteImport.update({
   id: "/agent/$agentId",
@@ -113,6 +127,67 @@ const AppSessionIdRoute = AppSessionIdRouteImport.update({
   path: "/$sessionId",
   getParentRoute: () => AppRoute,
 } as any)
+const AgentPanelIndexRoute = AgentPanelIndexRouteImport.update({
+  id: "/",
+  path: "/",
+  getParentRoute: () => AgentPanelRoute,
+} as any)
+const AgentPanelWorkflowRoute = AgentPanelWorkflowRouteImport.update({
+  id: "/workflow",
+  path: "/workflow",
+  getParentRoute: () => AgentPanelRoute,
+} as any)
+const AgentPanelTasksRoute = AgentPanelTasksRouteImport.update({
+  id: "/tasks",
+  path: "/tasks",
+  getParentRoute: () => AgentPanelRoute,
+} as any)
+const AgentPanelSkillsRoute = AgentPanelSkillsRouteImport.update({
+  id: "/skills",
+  path: "/skills",
+  getParentRoute: () => AgentPanelRoute,
+} as any)
+const AgentPanelSessionsRoute = AgentPanelSessionsRouteImport.update({
+  id: "/sessions",
+  path: "/sessions",
+  getParentRoute: () => AgentPanelRoute,
+} as any)
+const AgentPanelOrganizationsRoute = AgentPanelOrganizationsRouteImport.update({
+  id: "/organizations",
+  path: "/organizations",
+  getParentRoute: () => AgentPanelRoute,
+} as any)
+const AgentPanelModelsRoute = AgentPanelModelsRouteImport.update({
+  id: "/models",
+  path: "/models",
+  getParentRoute: () => AgentPanelRoute,
+} as any)
+const AgentPanelMcpRoute = AgentPanelMcpRouteImport.update({
+  id: "/mcp",
+  path: "/mcp",
+  getParentRoute: () => AgentPanelRoute,
+} as any)
+const AgentPanelKnowledgeBasesRoute =
+  AgentPanelKnowledgeBasesRouteImport.update({
+    id: "/knowledge-bases",
+    path: "/knowledge-bases",
+    getParentRoute: () => AgentPanelRoute,
+  } as any)
+const AgentPanelDashboardRoute = AgentPanelDashboardRouteImport.update({
+  id: "/dashboard",
+  path: "/dashboard",
+  getParentRoute: () => AgentPanelRoute,
+} as any)
+const AgentPanelChannelsRoute = AgentPanelChannelsRouteImport.update({
+  id: "/channels",
+  path: "/channels",
+  getParentRoute: () => AgentPanelRoute,
+} as any)
+const AgentPanelApikeysRoute = AgentPanelApikeysRouteImport.update({
+  id: "/apikeys",
+  path: "/apikeys",
+  getParentRoute: () => AgentPanelRoute,
+} as any)
 const AgentAgentIdSessionIdRoute = AgentAgentIdSessionIdRouteImport.update({
   id: "/agent/$agentId_/$sessionId",
   path: "/agent/$agentId/$sessionId",
@@ -123,6 +198,17 @@ const AppWorkflowSplatRoute = AppWorkflowSplatRouteImport.update({
   path: "/workflow/$",
   getParentRoute: () => AppRoute,
 } as any)
+const AgentPanelChatAgentIdRoute = AgentPanelChatAgentIdRouteImport.update({
+  id: "/chat/$agentId",
+  path: "/chat/$agentId",
+  getParentRoute: () => AgentPanelRoute,
+} as any)
+const AgentPanelChatAgentIdSessionIdRoute =
+  AgentPanelChatAgentIdSessionIdRouteImport.update({
+    id: "/chat/$agentId_/$sessionId",
+    path: "/chat/$agentId/$sessionId",
+    getParentRoute: () => AgentPanelRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   "/": typeof AppIndexRoute
@@ -140,9 +226,23 @@ export interface FileRoutesByFullPath {
   "/tasks": typeof AppTasksRoute
   "/workflow": typeof AppWorkflowRoute
   "/agent/$agentId": typeof AgentAgentIdRoute
-  "/agent/": typeof AgentIndexRoute
+  "/agent": typeof AgentPanelRouteWithChildren
   "/workflow/$": typeof AppWorkflowSplatRoute
   "/agent/$agentId/$sessionId": typeof AgentAgentIdSessionIdRoute
+  "/agent/apikeys": typeof AgentPanelApikeysRoute
+  "/agent/channels": typeof AgentPanelChannelsRoute
+  "/agent/dashboard": typeof AgentPanelDashboardRoute
+  "/agent/knowledge-bases": typeof AgentPanelKnowledgeBasesRoute
+  "/agent/mcp": typeof AgentPanelMcpRoute
+  "/agent/models": typeof AgentPanelModelsRoute
+  "/agent/organizations": typeof AgentPanelOrganizationsRoute
+  "/agent/sessions": typeof AgentPanelSessionsRoute
+  "/agent/skills": typeof AgentPanelSkillsRoute
+  "/agent/tasks": typeof AgentPanelTasksRoute
+  "/agent/workflow": typeof AgentPanelWorkflowRoute
+  "/agent/": typeof AgentPanelIndexRoute
+  "/agent/chat/$agentId": typeof AgentPanelChatAgentIdRoute
+  "/agent/chat/$agentId/$sessionId": typeof AgentPanelChatAgentIdSessionIdRoute
 }
 export interface FileRoutesByTo {
   "/login": typeof LoginRoute
@@ -160,9 +260,22 @@ export interface FileRoutesByTo {
   "/workflow": typeof AppWorkflowRoute
   "/agent/$agentId": typeof AgentAgentIdRoute
   "/": typeof AppIndexRoute
-  "/agent": typeof AgentIndexRoute
   "/workflow/$": typeof AppWorkflowSplatRoute
   "/agent/$agentId/$sessionId": typeof AgentAgentIdSessionIdRoute
+  "/agent/apikeys": typeof AgentPanelApikeysRoute
+  "/agent/channels": typeof AgentPanelChannelsRoute
+  "/agent/dashboard": typeof AgentPanelDashboardRoute
+  "/agent/knowledge-bases": typeof AgentPanelKnowledgeBasesRoute
+  "/agent/mcp": typeof AgentPanelMcpRoute
+  "/agent/models": typeof AgentPanelModelsRoute
+  "/agent/organizations": typeof AgentPanelOrganizationsRoute
+  "/agent/sessions": typeof AgentPanelSessionsRoute
+  "/agent/skills": typeof AgentPanelSkillsRoute
+  "/agent/tasks": typeof AgentPanelTasksRoute
+  "/agent/workflow": typeof AgentPanelWorkflowRoute
+  "/agent": typeof AgentPanelIndexRoute
+  "/agent/chat/$agentId": typeof AgentPanelChatAgentIdRoute
+  "/agent/chat/$agentId/$sessionId": typeof AgentPanelChatAgentIdSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -181,10 +294,24 @@ export interface FileRoutesById {
   "/_app/tasks": typeof AppTasksRoute
   "/_app/workflow": typeof AppWorkflowRoute
   "/agent/$agentId": typeof AgentAgentIdRoute
+  "/agent/_panel": typeof AgentPanelRouteWithChildren
   "/_app/": typeof AppIndexRoute
-  "/agent/": typeof AgentIndexRoute
   "/_app/workflow_/$": typeof AppWorkflowSplatRoute
   "/agent/$agentId_/$sessionId": typeof AgentAgentIdSessionIdRoute
+  "/agent/_panel/apikeys": typeof AgentPanelApikeysRoute
+  "/agent/_panel/channels": typeof AgentPanelChannelsRoute
+  "/agent/_panel/dashboard": typeof AgentPanelDashboardRoute
+  "/agent/_panel/knowledge-bases": typeof AgentPanelKnowledgeBasesRoute
+  "/agent/_panel/mcp": typeof AgentPanelMcpRoute
+  "/agent/_panel/models": typeof AgentPanelModelsRoute
+  "/agent/_panel/organizations": typeof AgentPanelOrganizationsRoute
+  "/agent/_panel/sessions": typeof AgentPanelSessionsRoute
+  "/agent/_panel/skills": typeof AgentPanelSkillsRoute
+  "/agent/_panel/tasks": typeof AgentPanelTasksRoute
+  "/agent/_panel/workflow": typeof AgentPanelWorkflowRoute
+  "/agent/_panel/": typeof AgentPanelIndexRoute
+  "/agent/_panel/chat/$agentId": typeof AgentPanelChatAgentIdRoute
+  "/agent/_panel/chat/$agentId_/$sessionId": typeof AgentPanelChatAgentIdSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -204,9 +331,23 @@ export interface FileRouteTypes {
     | "/tasks"
     | "/workflow"
     | "/agent/$agentId"
-    | "/agent/"
+    | "/agent"
     | "/workflow/$"
     | "/agent/$agentId/$sessionId"
+    | "/agent/apikeys"
+    | "/agent/channels"
+    | "/agent/dashboard"
+    | "/agent/knowledge-bases"
+    | "/agent/mcp"
+    | "/agent/models"
+    | "/agent/organizations"
+    | "/agent/sessions"
+    | "/agent/skills"
+    | "/agent/tasks"
+    | "/agent/workflow"
+    | "/agent/"
+    | "/agent/chat/$agentId"
+    | "/agent/chat/$agentId/$sessionId"
   fileRoutesByTo: FileRoutesByTo
   to:
     | "/login"
@@ -224,9 +365,22 @@ export interface FileRouteTypes {
     | "/workflow"
     | "/agent/$agentId"
     | "/"
-    | "/agent"
     | "/workflow/$"
     | "/agent/$agentId/$sessionId"
+    | "/agent/apikeys"
+    | "/agent/channels"
+    | "/agent/dashboard"
+    | "/agent/knowledge-bases"
+    | "/agent/mcp"
+    | "/agent/models"
+    | "/agent/organizations"
+    | "/agent/sessions"
+    | "/agent/skills"
+    | "/agent/tasks"
+    | "/agent/workflow"
+    | "/agent"
+    | "/agent/chat/$agentId"
+    | "/agent/chat/$agentId/$sessionId"
   id:
     | "__root__"
     | "/_app"
@@ -244,17 +398,31 @@ export interface FileRouteTypes {
     | "/_app/tasks"
     | "/_app/workflow"
     | "/agent/$agentId"
+    | "/agent/_panel"
     | "/_app/"
-    | "/agent/"
     | "/_app/workflow_/$"
     | "/agent/$agentId_/$sessionId"
+    | "/agent/_panel/apikeys"
+    | "/agent/_panel/channels"
+    | "/agent/_panel/dashboard"
+    | "/agent/_panel/knowledge-bases"
+    | "/agent/_panel/mcp"
+    | "/agent/_panel/models"
+    | "/agent/_panel/organizations"
+    | "/agent/_panel/sessions"
+    | "/agent/_panel/skills"
+    | "/agent/_panel/tasks"
+    | "/agent/_panel/workflow"
+    | "/agent/_panel/"
+    | "/agent/_panel/chat/$agentId"
+    | "/agent/_panel/chat/$agentId_/$sessionId"
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
   AgentAgentIdRoute: typeof AgentAgentIdRoute
-  AgentIndexRoute: typeof AgentIndexRoute
+  AgentPanelRoute: typeof AgentPanelRouteWithChildren
   AgentAgentIdSessionIdRoute: typeof AgentAgentIdSessionIdRoute
 }
 
@@ -274,19 +442,19 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/agent/": {
-      id: "/agent/"
-      path: "/agent"
-      fullPath: "/agent/"
-      preLoaderRoute: typeof AgentIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     "/_app/": {
       id: "/_app/"
       path: "/"
       fullPath: "/"
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    "/agent/_panel": {
+      id: "/agent/_panel"
+      path: "/agent"
+      fullPath: "/agent"
+      preLoaderRoute: typeof AgentPanelRouteImport
+      parentRoute: typeof rootRouteImport
     }
     "/agent/$agentId": {
       id: "/agent/$agentId"
@@ -379,6 +547,90 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppSessionIdRouteImport
       parentRoute: typeof AppRoute
     }
+    "/agent/_panel/": {
+      id: "/agent/_panel/"
+      path: "/"
+      fullPath: "/agent/"
+      preLoaderRoute: typeof AgentPanelIndexRouteImport
+      parentRoute: typeof AgentPanelRoute
+    }
+    "/agent/_panel/workflow": {
+      id: "/agent/_panel/workflow"
+      path: "/workflow"
+      fullPath: "/agent/workflow"
+      preLoaderRoute: typeof AgentPanelWorkflowRouteImport
+      parentRoute: typeof AgentPanelRoute
+    }
+    "/agent/_panel/tasks": {
+      id: "/agent/_panel/tasks"
+      path: "/tasks"
+      fullPath: "/agent/tasks"
+      preLoaderRoute: typeof AgentPanelTasksRouteImport
+      parentRoute: typeof AgentPanelRoute
+    }
+    "/agent/_panel/skills": {
+      id: "/agent/_panel/skills"
+      path: "/skills"
+      fullPath: "/agent/skills"
+      preLoaderRoute: typeof AgentPanelSkillsRouteImport
+      parentRoute: typeof AgentPanelRoute
+    }
+    "/agent/_panel/sessions": {
+      id: "/agent/_panel/sessions"
+      path: "/sessions"
+      fullPath: "/agent/sessions"
+      preLoaderRoute: typeof AgentPanelSessionsRouteImport
+      parentRoute: typeof AgentPanelRoute
+    }
+    "/agent/_panel/organizations": {
+      id: "/agent/_panel/organizations"
+      path: "/organizations"
+      fullPath: "/agent/organizations"
+      preLoaderRoute: typeof AgentPanelOrganizationsRouteImport
+      parentRoute: typeof AgentPanelRoute
+    }
+    "/agent/_panel/models": {
+      id: "/agent/_panel/models"
+      path: "/models"
+      fullPath: "/agent/models"
+      preLoaderRoute: typeof AgentPanelModelsRouteImport
+      parentRoute: typeof AgentPanelRoute
+    }
+    "/agent/_panel/mcp": {
+      id: "/agent/_panel/mcp"
+      path: "/mcp"
+      fullPath: "/agent/mcp"
+      preLoaderRoute: typeof AgentPanelMcpRouteImport
+      parentRoute: typeof AgentPanelRoute
+    }
+    "/agent/_panel/knowledge-bases": {
+      id: "/agent/_panel/knowledge-bases"
+      path: "/knowledge-bases"
+      fullPath: "/agent/knowledge-bases"
+      preLoaderRoute: typeof AgentPanelKnowledgeBasesRouteImport
+      parentRoute: typeof AgentPanelRoute
+    }
+    "/agent/_panel/dashboard": {
+      id: "/agent/_panel/dashboard"
+      path: "/dashboard"
+      fullPath: "/agent/dashboard"
+      preLoaderRoute: typeof AgentPanelDashboardRouteImport
+      parentRoute: typeof AgentPanelRoute
+    }
+    "/agent/_panel/channels": {
+      id: "/agent/_panel/channels"
+      path: "/channels"
+      fullPath: "/agent/channels"
+      preLoaderRoute: typeof AgentPanelChannelsRouteImport
+      parentRoute: typeof AgentPanelRoute
+    }
+    "/agent/_panel/apikeys": {
+      id: "/agent/_panel/apikeys"
+      path: "/apikeys"
+      fullPath: "/agent/apikeys"
+      preLoaderRoute: typeof AgentPanelApikeysRouteImport
+      parentRoute: typeof AgentPanelRoute
+    }
     "/agent/$agentId_/$sessionId": {
       id: "/agent/$agentId_/$sessionId"
       path: "/agent/$agentId/$sessionId"
@@ -392,6 +644,20 @@ declare module "@tanstack/react-router" {
       fullPath: "/workflow/$"
       preLoaderRoute: typeof AppWorkflowSplatRouteImport
       parentRoute: typeof AppRoute
+    }
+    "/agent/_panel/chat/$agentId": {
+      id: "/agent/_panel/chat/$agentId"
+      path: "/chat/$agentId"
+      fullPath: "/agent/chat/$agentId"
+      preLoaderRoute: typeof AgentPanelChatAgentIdRouteImport
+      parentRoute: typeof AgentPanelRoute
+    }
+    "/agent/_panel/chat/$agentId_/$sessionId": {
+      id: "/agent/_panel/chat/$agentId_/$sessionId"
+      path: "/chat/$agentId/$sessionId"
+      fullPath: "/agent/chat/$agentId/$sessionId"
+      preLoaderRoute: typeof AgentPanelChatAgentIdSessionIdRouteImport
+      parentRoute: typeof AgentPanelRoute
     }
   }
 }
@@ -432,11 +698,49 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface AgentPanelRouteChildren {
+  AgentPanelApikeysRoute: typeof AgentPanelApikeysRoute
+  AgentPanelChannelsRoute: typeof AgentPanelChannelsRoute
+  AgentPanelDashboardRoute: typeof AgentPanelDashboardRoute
+  AgentPanelKnowledgeBasesRoute: typeof AgentPanelKnowledgeBasesRoute
+  AgentPanelMcpRoute: typeof AgentPanelMcpRoute
+  AgentPanelModelsRoute: typeof AgentPanelModelsRoute
+  AgentPanelOrganizationsRoute: typeof AgentPanelOrganizationsRoute
+  AgentPanelSessionsRoute: typeof AgentPanelSessionsRoute
+  AgentPanelSkillsRoute: typeof AgentPanelSkillsRoute
+  AgentPanelTasksRoute: typeof AgentPanelTasksRoute
+  AgentPanelWorkflowRoute: typeof AgentPanelWorkflowRoute
+  AgentPanelIndexRoute: typeof AgentPanelIndexRoute
+  AgentPanelChatAgentIdRoute: typeof AgentPanelChatAgentIdRoute
+  AgentPanelChatAgentIdSessionIdRoute: typeof AgentPanelChatAgentIdSessionIdRoute
+}
+
+const AgentPanelRouteChildren: AgentPanelRouteChildren = {
+  AgentPanelApikeysRoute: AgentPanelApikeysRoute,
+  AgentPanelChannelsRoute: AgentPanelChannelsRoute,
+  AgentPanelDashboardRoute: AgentPanelDashboardRoute,
+  AgentPanelKnowledgeBasesRoute: AgentPanelKnowledgeBasesRoute,
+  AgentPanelMcpRoute: AgentPanelMcpRoute,
+  AgentPanelModelsRoute: AgentPanelModelsRoute,
+  AgentPanelOrganizationsRoute: AgentPanelOrganizationsRoute,
+  AgentPanelSessionsRoute: AgentPanelSessionsRoute,
+  AgentPanelSkillsRoute: AgentPanelSkillsRoute,
+  AgentPanelTasksRoute: AgentPanelTasksRoute,
+  AgentPanelWorkflowRoute: AgentPanelWorkflowRoute,
+  AgentPanelIndexRoute: AgentPanelIndexRoute,
+  AgentPanelChatAgentIdRoute: AgentPanelChatAgentIdRoute,
+  AgentPanelChatAgentIdSessionIdRoute: AgentPanelChatAgentIdSessionIdRoute,
+}
+
+const AgentPanelRouteWithChildren = AgentPanelRoute._addFileChildren(
+  AgentPanelRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
   AgentAgentIdRoute: AgentAgentIdRoute,
-  AgentIndexRoute: AgentIndexRoute,
+  AgentPanelRoute: AgentPanelRouteWithChildren,
   AgentAgentIdSessionIdRoute: AgentAgentIdSessionIdRoute,
 }
 export const routeTree = rootRouteImport

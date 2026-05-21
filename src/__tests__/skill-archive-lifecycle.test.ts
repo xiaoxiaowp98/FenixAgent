@@ -4,13 +4,12 @@ import {
   _deps,
   _resetDeps,
   deleteSkill,
-  enableSkill,
   importSkillDirectories,
   setSkill,
 } from "../services/skill";
 import type { UploadSkillFile } from "../services/skill-fs";
 
-const ctx = { teamId: "team-1", userId: "user-1", role: "owner" } as const;
+const ctx = { organizationId: "org-1", userId: "user-1", role: "owner" } as const;
 const root = "/tmp/rcs-skills";
 
 function makeFile(name: string): UploadSkillFile {
@@ -24,11 +23,6 @@ function installMocks() {
     upsertSkill: mock(async () => "skill-id"),
     deleteSkill: mock(async () => true),
     listSkills: mock(async () => []),
-    enableSkill: mock(async () => {
-      calls.push("enable");
-      return true;
-    }),
-    disableSkill: mock(async () => true),
   };
   const skillFs = {
     assertValidSkillName: (name: string) => name.trim(),
@@ -139,19 +133,6 @@ describe("skill archive lifecycle", () => {
 
     expect(skillFs.deleteSkillDir).toHaveBeenCalledWith(`${root}/demo`);
     expect(skillFs.deleteSkillArchive).toHaveBeenCalledWith(root, "demo");
-  });
-
-  // 启用已有 skill 前会先补生成 archive。
-  test("enableSkill builds archive before enabling metadata", async () => {
-    const { calls, configPg, skillFs } = installMocks();
-    configPg.getSkill.mockImplementationOnce(
-      async () => ({ id: "skill-1", name: "demo", enabled: false }) as unknown as null,
-    );
-
-    await expect(enableSkill(ctx, "demo")).resolves.toBe(true);
-
-    expect(skillFs.buildSkillArchive).toHaveBeenCalledWith(`${root}/demo`, `${root}/demo.zip`);
-    expect(calls).toEqual(["build", "enable"]);
   });
 
   // 全局导入成功后，每个 imported skill 都会生成 archive。

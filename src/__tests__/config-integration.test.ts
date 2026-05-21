@@ -29,8 +29,8 @@ mock.module("../services/config-pg", () => ({
   getSkill: async () => null,
   upsertSkill: async () => "skill-id",
   deleteSkill: async () => true,
-  enableSkill: async () => true,
-  disableSkill: async () => true,
+  listAgentSkillIds: async () => [],
+  syncAgentSkills: async () => {},
 }));
 
 const configRoute = (await import("../routes/web/config/index")).default;

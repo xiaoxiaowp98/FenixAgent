@@ -66,7 +66,7 @@ bun run db:migrate
 ```
 
 **重要**：
-- **`bun run precheck` 是代码质量的第一标准**，提交前必须通过。该命令同时运行 TypeScript 类型检查（后端 + 前端）和 Biome lint 检查，任何 error 都会阻断。0 error / 0 warning 是目标
+- **`bun run precheck` 是代码质量的第一标准**，提交前必须通过。新流程：先 `biome format --write`（自动修格式）→ `biome check --write --linter-enabled=false`（自动修 import 排序，不动 linter）→ `tsc` 类型检查 → `biome check`（最终严格检查）。格式和 import 排序问题会自动修复，无需手动干预
 - 后端通过 `serveStatic` 挂载 `web/dist/` 目录（见 `src/index.ts`）。修改任何前端代码后，**必须**执行 `bun run build:web` 重新构建，否则更改不会生效。
 - `initDb()` 不再包含手写 SQL，只验证数据库连接。所有 schema 变更通过 `bun run db:push`（开发）或 `bun run db:migrate`（生产）同步。**严禁在 `src/db/index.ts` 中添加手写建表 SQL。**
 - **环境变量校验**：`src/env.ts` 使用 Zod（`zod/v4`）在启动时校验所有环境变量。`src/config.ts` 的 `buildConfig(env)` 函数接收校验后的 env 对象。新增环境变量必须先在 `src/env.ts` 的 `envSchema` 中声明
@@ -826,6 +826,13 @@ Permission 选项（`web/src/components/PermissionTab.tsx`）：
 - **命令**：`bun run lint`（检查）、`bun run format`（自动格式化）
 - **VS Code 集成**：推荐安装 Biome 扩展，保存时自动格式化
 
+#### biome-ignore 使用规范
+
+- **禁止对 biome-ignore 行做 `--write` 自动修复**。`biome check --write` 会自动移除它认为"无效"的 suppression 注释（`suppressions/unused`），这可能连带破坏与注释同行的类型断言。例如 `client.ts` 的 `export const client = _client as typeof _client & { web: any }` 中，`as ... & { web: any }` 依赖 `biome-ignore` 注释保护，一旦注释被移除，类型断言也会被 `--write` 删掉，导致全项目 `client.web` TS2339 爆炸
+- **precheck 的 `--write` 只用于格式化和 import 排序**，不触碰 linter（通过 `--linter-enabled=false` 控制）。这确保 suppression 注释不会被误删
+- **手动 `bunx biome check --write` 仅用于修复真正的 lint error**（如未使用的变量、导入），用完后必须检查 diff 确认没有误删 suppression
+- 如果 biome 报 `suppressions/unused` warning，说明注释覆盖的规则在该行不再触发。正确的做法是确认代码仍然需要该 suppression（通常是因为 `as any` 等类型断言仍需保护），保留注释即可，不要删除
+
 ### 注释约定
 
 - 对外暴露的接口、类型、类和公共方法应补充简洁注释，优先回答“这是什么”和“拿来做什么”
@@ -842,6 +849,8 @@ Permission 选项（`web/src/components/PermissionTab.tsx`）：
 ### TypeScript 类型规范
 
 - **禁止 `as any`**：业务代码中不得使用 `as any` 绕过类型检查。新增代码如果需要类型断言，必须使用具体类型（`as { field: string }`）或 `as unknown as TargetType` 双重断言
+- **Eden Treaty 类型降级**：当 Elysia app 组合的插件过多时，Eden Treaty 无法推断具体的路由键，`client.web` 会报 TS2339。解决方式是交叉类型补丁：`const client = _client as typeof _client & { web: any }`。这行必须配合 `// biome-ignore lint/suspicious/noExplicitAny` 注释保护，防止 `biome check --write` 误删（详见 Biome 章节）
+- **后端 API 包装 helper 模式**：当多个前端页面重复调用同一个后端路由时（如 `client.web.organizations.post({ action: "list" })` + `unwrapEden()`），应抽取泛型 helper 函数（如 `orgAction<T>(action, params): Promise<T>`），收敛到 `web/src/api/client.ts`。helper 内部处理 Eden 调用 + unwrap，调用方只写 `await orgAction<OrgDetail>("get", { organizationId })` 即可
 - **Config 响应解包**：config 路由返回 `{ success: true, data: T }` 结构，前端使用 `unwrapConfigData<T>()`（`web/src/api/config-response.ts`）解包，禁止用 `(data as any)?.data ?? data`
 - **Config body 类型**：config 路由的 body 字段必须注册在 `src/schemas/config.schema.ts` 的 `ConfigBodySchema` 中，Eden Treaty 才能推断正确类型。新增 config 字段时先扩展 schema，不要用 `as any` 绕过
 - **Eden Treaty 路径命名**：Eden Treaty 将连字符路由路径转为 camelCase（`/web/knowledge-bases` → `client.web.knowledgeBases`），前端调用时使用 camelCase
@@ -851,6 +860,7 @@ Permission 选项（`web/src/components/PermissionTab.tsx`）：
   - 测试文件（`__tests__/`）中的 `as any` 可接受
   - `zodResolver(formConfig.schema as any)` — shadcn/react-hook-form 集成的已知限制
   - 后端路由处理器中的 `(body as any) ?? {}` — Elysia 未注册 body schema 时的临时方案，优先注册 schema 消除
+  - Eden Treaty 类型降级中的 `{ web: any }` — 必须配合 `biome-ignore` 注释保护
 
 ### 前端约束
 

@@ -72,7 +72,7 @@ app.post(
           api.listMembers({ query: { organizationId: b.organizationId }, headers: request.headers }),
         ]);
         const memberList = extractMembers(members);
-        return { success: true, data: { ...org, members: memberList } };
+        return { success: true, data: { ...(org as Record<string, unknown>), members: memberList } };
       }
       case "get-full": {
         const authCtx = store.authContext;
@@ -83,7 +83,7 @@ app.post(
           api.listMembers({ query: { organizationId: orgId }, headers: request.headers }),
         ]);
         const memberList = extractMembers(members);
-        return { success: true, data: { ...org, members: memberList } };
+        return { success: true, data: { ...(org as Record<string, unknown>), members: memberList } };
       }
       case "create": {
         if (!b.name || !b.slug)

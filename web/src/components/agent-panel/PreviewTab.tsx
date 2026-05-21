@@ -27,7 +27,10 @@ export function PreviewTab({ envId, filePath }: PreviewTabProps) {
     setError(null);
     try {
       const normalized = filePath.endsWith("/") ? filePath.slice(0, -1) : filePath;
-      const result = await api<{ content?: string; name?: string }>("GET", `/web/environments/${envId}/user/${normalized}`);
+      const result = await api<{ content?: string; name?: string }>(
+        "GET",
+        `/web/environments/${envId}/user/${normalized}`,
+      );
       if (result && typeof result.content === "string") {
         setContent(result.content);
         setFileName(result.name || normalized.split("/").pop() || normalized);

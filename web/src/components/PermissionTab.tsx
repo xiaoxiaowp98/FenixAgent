@@ -5,7 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { client } from "../api/client";
+import { apiPost } from "../api/client";
 import type { PermissionAction } from "../types/config";
 
 // ── 常量定义 ──
@@ -133,19 +133,10 @@ export function PermissionTab({ agentName: _agentName, permission, onPermissionC
   useEffect(() => {
     let cancelled = false;
     setSkillLoading(true);
-    client.web.config.skills
-      .post({ action: "list" } as Record<string, unknown>)
-      .then(({ data, error }: { data: unknown; error: unknown }) => {
+    apiPost<Record<string, unknown>[]>("/web/config/skills", { action: "list" } as Record<string, unknown>)
+      .then((data) => {
         if (!cancelled) {
-          if (error) {
-            setSkillNames([]);
-            return;
-          }
-          const raw = data as Record<string, unknown> | undefined;
-          const skills = ((raw?.data as Record<string, unknown>[]) ?? (Array.isArray(raw) ? raw : [])) as Record<
-            string,
-            unknown
-          >[];
+          const skills = Array.isArray(data) ? data : [];
           const names = skills.map((s) => String(s.name ?? ""));
           setSkillNames(names);
           setSkillValues((prev) => {

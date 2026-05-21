@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { client } from "../../../api/client";
+import { api, apiGet, apiPost } from "../../../api/client";
 import { AgentCardList } from "../shared/AgentCardList";
 import { AgentPageHeader } from "../shared/AgentPageHeader";
 
@@ -40,12 +40,12 @@ export function AgentChannelsPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [bindingsRes, envsRes] = await Promise.all([
-        client.web.channels.bindings.get(),
-        client.web.environments.get(),
+      const [bindingsData, envsData] = await Promise.all([
+        apiGet<ChannelBinding[]>("/web/channels/bindings"),
+        apiGet<EnvironmentSummary[]>("/web/environments"),
       ]);
-      if (bindingsRes.data) setBindings(bindingsRes.data as unknown as ChannelBinding[]);
-      if (envsRes.data) setEnvironments((envsRes.data as unknown as EnvironmentSummary[]) ?? []);
+      if (bindingsData) setBindings(bindingsData as ChannelBinding[]);
+      if (envsData) setEnvironments((envsData as EnvironmentSummary[]) ?? []);
     } catch (e) {
       console.error("Failed to load channels", e);
       toast.error(t("loadBindingsFailed"));
@@ -72,12 +72,11 @@ export function AgentChannelsPage() {
     }
     setFormSaving(true);
     try {
-      const { error } = await client.web.channels.bindings.post({
+      await apiPost("/web/channels/bindings", {
         platform: formPlatform.trim(),
         chatId: formChatId.trim() || null,
         agentId: formAgentId,
       });
-      if (error) throw new Error(error.message ?? "Failed");
       toast.success(t("toast.created"));
       setDialogOpen(false);
       loadData();
@@ -92,8 +91,7 @@ export function AgentChannelsPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const { error } = await client.web.channels.bindings[deleteTarget].delete();
-      if (error) throw new Error(error.message ?? "Failed");
+      await api("DELETE", `/web/channels/bindings/${deleteTarget}`);
       toast.success(t("toast.deleted"));
       setConfirmOpen(false);
       setDeleteTarget(null);

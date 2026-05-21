@@ -1,6 +1,6 @@
 import type { SetStateAction } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { client, getUuid } from "../api/client";
+import { api, apiGet, getUuid } from "../api/client";
 import type { EventPayload, SessionEvent } from "../types";
 import type {
   AssistantMessageEntry,
@@ -189,8 +189,8 @@ export class RCSChatAdapter {
 
   /** 加载历史事件并转为 ThreadEntry */
   async loadHistory(): Promise<void> {
-    const { data: historyData } = await client.web.sessions({ id: this.sessionId }).history.get();
-    const events = (historyData as Record<string, unknown>)?.events as SessionEvent[] | undefined;
+    const historyData = await apiGet<{ events?: SessionEvent[] }>(`/web/sessions/${this.sessionId}/history`);
+    const events = historyData?.events;
     if (!events || events.length === 0) return;
 
     this.toolCallAliases.clear();
@@ -554,22 +554,22 @@ export class RCSChatAdapter {
     this.setEntries((prev) => [...prev, userEntry]);
 
     // Send to backend
-    await client.web.sessions({ id: this.sessionId }).events.post({
+    await api(`/web/sessions/${this.sessionId}/events`, "POST", {
       type: "user",
       uuid: uuidv4(),
       content: text,
       message: { content: text },
-    } as Record<string, unknown>);
+    });
   }
 
   /** 响应权限请求 */
   async respondPermission(requestId: string, approved: boolean, extra?: Record<string, unknown>): Promise<void> {
-    await client.web.sessions({ id: this.sessionId }).control.post({
+    await api(`/web/sessions/${this.sessionId}/control`, "POST", {
       type: "permission_response",
       approved,
       request_id: requestId,
       ...extra,
-    } as Record<string, unknown>);
+    });
 
     // Update tool call status
     this.setEntries((prev) =>
@@ -602,8 +602,8 @@ export class RCSChatAdapter {
       }),
     );
 
-    await client.web.sessions({ id: this.sessionId }).control.post({
+    await api(`/web/sessions/${this.sessionId}/control`, "POST", {
       type: "interrupt",
-    } as Record<string, unknown>);
+    });
   }
 }

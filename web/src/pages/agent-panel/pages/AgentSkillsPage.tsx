@@ -8,8 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { client, fetchUpload } from "../../../api/client";
-import { unwrapConfigData } from "../../../api/config-response";
+import { apiPost, fetchUpload } from "../../../api/client";
 import { dispatchConfigChange } from "../../../lib/config-events";
 import { buildSkillUploadFormData, parseSkillUploadFiles, validateUploadBatch } from "../../../lib/skill-upload";
 import type {
@@ -25,8 +24,7 @@ type CreateMode = "text" | "upload";
 type SkillUploadResult = { imported: unknown[]; skipped: unknown[] };
 
 function normalizeSkillUploadResult(response: unknown): SkillUploadResult {
-  const data =
-    unwrapConfigData<Partial<SkillUploadResult>>(response) ?? (response as Partial<SkillUploadResult> | null);
+  const data = response as Partial<SkillUploadResult> | null;
   return {
     imported: Array.isArray(data?.imported) ? data.imported : [],
     skipped: Array.isArray(data?.skipped) ? data.skipped : [],
@@ -105,9 +103,8 @@ export function AgentSkillsPage() {
   const loadSkills = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: res, error: resErr } = await client.web.config.skills.post({ action: "list" });
-      if (resErr) throw new Error(resErr.message ?? t("toast.loadListFailed"));
-      const d = unwrapConfigData(res) ?? res;
+      const data = await apiPost<{ skills?: SkillInfo[] }>("/web/config/skills", { action: "list" });
+      const d = (data ?? {}) as { skills?: SkillInfo[] };
       setSkills(Array.isArray(d?.skills) ? d.skills : []);
     } catch (e) {
       console.error(t("toast.loadListFailed"), e);
@@ -143,12 +140,10 @@ export function AgentSkillsPage() {
     setCreateMode("text");
     resetUploadState();
     try {
-      const { data: res, error: resErr } = await client.web.config.skills.post({ action: "get", name: skill.name });
-      if (resErr) {
-        toast.error(t("toast.loadDetailFailed"));
-        return;
-      }
-      const detail = unwrapConfigData(res) ?? res;
+      const detail = await apiPost<{ name: string; description: string; content: string }>("/web/config/skills", {
+        action: "get",
+        name: skill.name,
+      });
       setFormName(detail.name);
       setFormDescription(detail.description);
       setFormContent(detail.content);
@@ -165,12 +160,11 @@ export function AgentSkillsPage() {
     }
     setFormSaving(true);
     try {
-      const { error } = await client.web.config.skills.post({
+      await apiPost("/web/config/skills", {
         action: "set",
         name: formName,
         data: { description: formDescription, content: formContent },
       });
-      if (error) throw new Error(error.message ?? "Failed");
       toast.success(editingSkill ? t("toast.skillUpdated") : t("toast.skillCreated"));
       setDialogOpen(false);
       loadSkills();
@@ -243,8 +237,7 @@ export function AgentSkillsPage() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const { error } = await client.web.config.skills.post({ action: "delete", name: deleteTarget });
-      if (error) throw new Error(error.message ?? "Failed");
+      await apiPost("/web/config/skills", { action: "delete", name: deleteTarget });
       toast.success(t("toast.skillDeleted"));
       setConfirmOpen(false);
       loadSkills();

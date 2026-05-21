@@ -49,7 +49,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { client } from "../../api/client";
+import { apiPost } from "../../api/client";
 import { ensureMetaAgent } from "../../api/meta-agent";
 import { workflowDefApi } from "../../api/workflow-defs";
 import {
@@ -157,18 +157,11 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
   const [agentOverrideOpen, setAgentOverrideOpen] = useState(false);
 
   useEffect(() => {
-    client.web.config.agents
-      .post({ action: "list" })
-      .then((res: unknown) => {
-        const data = (
-          res as {
-            data?: {
-              success?: boolean;
-              data?: { agents?: Array<{ name: string; model?: string; description?: string }> };
-            };
-          }
-        )?.data;
-        const agents = data?.data?.agents;
+    apiPost<{ agents?: Array<{ name: string; model?: string; description?: string }> }>("/web/config/agents", {
+      action: "list",
+    })
+      .then((data) => {
+        const agents = data?.agents;
         if (Array.isArray(agents)) {
           setAgentList(
             agents.map((a) => ({

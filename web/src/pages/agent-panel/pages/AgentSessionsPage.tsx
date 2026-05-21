@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { client } from "../../../api/client";
+import { apiGet } from "../../../api/client";
 import { AgentCardList } from "../shared/AgentCardList";
 import { AgentPageHeader } from "../shared/AgentPageHeader";
 
@@ -26,10 +26,8 @@ export function AgentSessionsPage() {
   const loadSessions = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await client.web.sessions.get();
-      if (error) throw new Error(error.message ?? "Failed to load sessions");
-      const list = Array.isArray(data) ? data : [];
-      setSessions(list as SessionInfo[]);
+      const list = await apiGet<SessionInfo[]>("/web/sessions");
+      setSessions(Array.isArray(list) ? list : []);
     } catch (e) {
       console.error("Failed to load sessions", e);
       toast.error(t("loadError", { message: e instanceof Error ? e.message : "Unknown error" }));

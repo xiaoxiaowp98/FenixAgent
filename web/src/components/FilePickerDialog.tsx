@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Input } from "../../components/ui/input";
-import { client, fetchUpload } from "../api/client";
+import { apiGet, fetchUpload } from "../api/client";
 import type { FileInfo } from "../types";
 
 interface FilePickerDialogProps {
@@ -35,9 +35,9 @@ export function FilePickerDialog({ open, envId, onClose, onSelect }: FilePickerD
       setLoading(true);
       setError(null);
       try {
-        const queryParams = dirPath ? { path: dirPath } : {};
-        const { data: result } = await client.web.environments({ id: envId }).user.get(queryParams);
-        setEntries(((result as Record<string, unknown>)?.entries as FileInfo[]) ?? []);
+        const query = dirPath ? `?path=${encodeURIComponent(dirPath)}` : "";
+        const result = await apiGet<{ entries?: FileInfo[] }>(`/web/environments/${envId}/user${query}`);
+        setEntries(result?.entries ?? []);
         setCurrentDir(dirPath);
       } catch (err) {
         setError(err instanceof Error ? err.message : t("filePicker.loadFailed"));

@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { client } from "../../api/client";
-import { unwrapConfigData } from "../../api/config-response";
+import { apiGet, apiPost } from "../../api/client";
 import { PermissionTab } from "../../components/PermissionTab";
 import { dispatchConfigChange } from "../../lib/config-events";
 import type { KnowledgeBaseInfo } from "../../types/knowledge";
@@ -71,34 +70,27 @@ export function AgentCreateDialog({ open, onOpenChange, defaultName, onSuccess }
     setFormSkillIds([]);
     setActiveTab("basic");
 
-    client.web.config.models
-      .post({ action: "get" })
-      .then(({ data: modelsData }: { data: unknown }) => {
-        const data = unwrapConfigData(modelsData) ?? modelsData;
-        const models = Array.isArray((data as Record<string, unknown>)?.available)
-          ? ((data as Record<string, unknown>).available as Array<{ fullId: string }>).map((m) => m.fullId)
+    apiPost<Record<string, unknown>>("/web/config/models", { action: "get" })
+      .then((modelsData) => {
+        const models = Array.isArray(modelsData?.available)
+          ? (modelsData.available as Array<{ fullId: string }>).map((m) => m.fullId)
           : [];
         setModelOptions(models);
         setFormModel(models[0] || "");
       })
       .catch(() => {});
 
-    client.web.knowledgeBases
-      .get()
-      .then(({ data: kbData }: { data: unknown }) => {
-        setKnowledgeOptions(kbData as unknown as KnowledgeBaseInfo[]);
+    apiGet<KnowledgeBaseInfo[]>("/web/knowledgeBases")
+      .then((kbData) => {
+        setKnowledgeOptions(Array.isArray(kbData) ? kbData : []);
       })
       .catch(() => {});
 
-    client.web.config.skills
-      .post({ action: "list" })
-      .then(({ data: skillsData }: { data: unknown }) => {
-        const data = unwrapConfigData(skillsData) ?? skillsData;
+    apiPost<Record<string, unknown>>("/web/config/skills", { action: "list" })
+      .then((skillsData) => {
         setSkillOptions(
-          Array.isArray((data as Record<string, unknown>)?.skills)
-            ? (
-                (data as Record<string, unknown>).skills as Array<{ id: string; name: string; description?: string }>
-              ).map((s) => ({
+          Array.isArray(skillsData?.skills)
+            ? (skillsData.skills as Array<{ id: string; name: string; description?: string }>).map((s) => ({
                 id: s.id,
                 name: s.name,
                 description: s.description ?? "",
@@ -140,7 +132,7 @@ export function AgentCreateDialog({ open, onOpenChange, defaultName, onSuccess }
     }
     setFormSaving(true);
     try {
-      const { error } = await client.web.config.agents.post({
+      await apiPost("/web/config/agents", {
         action: "create",
         name,
         data: {
@@ -163,7 +155,6 @@ export function AgentCreateDialog({ open, onOpenChange, defaultName, onSuccess }
           skillIds: formSkillIds,
         },
       });
-      if (error) throw new Error(error.message ?? t("save.errorCreate", { message: "" }));
       toast.success(t("save.successCreate"));
       onOpenChange(false);
       onSuccess?.();

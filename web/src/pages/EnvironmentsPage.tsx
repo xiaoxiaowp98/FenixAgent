@@ -29,7 +29,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { client } from "../api/client";
+import { api, apiGet, apiPost } from "../api/client";
 import type { Environment, EnvironmentInstance } from "../types";
 import { AgentsPage } from "./AgentsPage";
 
@@ -75,10 +75,9 @@ export function EnvironmentsPage() {
 
   const loadAgentOptions = useCallback(async () => {
     try {
-      const { data, error: err } = await client.web.config.agents.post({ action: "list" });
-      if (err || !data) return;
-      const result = data as { data?: { agents?: Array<{ id: string; name: string }> } } | null;
-      setAgentOptions((result?.data?.agents ?? []).map((a) => ({ id: a.id, name: a.name })));
+      const data = await apiPost<Record<string, unknown>>("/web/config/agents", { action: "list" });
+      const agents = (data?.data as { agents?: Array<{ id: string; name: string }> } | undefined)?.agents;
+      setAgentOptions(Array.isArray(agents) ? agents.map((a) => ({ id: a.id, name: a.name })) : []);
     } catch {
       /* silent */
     }
@@ -86,24 +85,20 @@ export function EnvironmentsPage() {
 
   const loadEnvs = useCallback(async () => {
     try {
-      const { data, error: err } = await client.web.environments.get();
-      if (err) {
-        console.error("Failed to load environments:", err);
-        return;
-      }
+      const data = await apiGet<unknown>("/web/environments");
       const list = Array.isArray(data) ? (data as unknown as Environment[]) : [];
       setEnvs(list);
       // Load instances for environments that have active instances
       const activeEnvs = list.filter((e) => e.instances_count !== undefined && e.instances_count > 0);
       if (activeEnvs.length > 0) {
         const instanceEntries = await Promise.allSettled(
-          activeEnvs.map((env) => client.web.environments({ id: env.id }).instances.get()),
+          activeEnvs.map((env) => apiGet(`/web/environments/${env.id}/instances`)),
         );
         const newMap: Record<string, EnvironmentInstance[]> = {};
         activeEnvs.forEach((env, i) => {
           const result = instanceEntries[i];
           if (result.status === "fulfilled") {
-            const instData = result.value.data as { instances?: EnvironmentInstance[] } | null;
+            const instData = result.value as { instances?: EnvironmentInstance[] } | null;
             newMap[env.id] = instData?.instances ?? [];
           }
         });
@@ -156,22 +151,19 @@ export function EnvironmentsPage() {
     setFormSaving(true);
     try {
       if (editingEnv) {
-        const { error: err } = await client.web.environments({ id: editingEnv.id }).put({
+        await api("PUT", `/web/environments/${editingEnv.id}`, {
           name: formName,
           description: formDescription || undefined,
           agentConfigId: formAgentConfigId || null,
           autoStart: formAutoStart,
         });
-        if (err) throw new Error(err.message ?? t("toast.updateFailed"));
       } else {
-        const { data, error: err } = await client.web.environments.post({
+        const result = await apiPost<{ secret?: string }>("/web/environments", {
           name: formName,
           description: formDescription || undefined,
           agentConfigId: formAgentConfigId || undefined,
           autoStart: formAutoStart,
         });
-        if (err) throw new Error(err.message ?? t("toast.createFailed"));
-        const result = data as { secret?: string } | null;
         setCurrentSecret(result?.secret ?? null);
         setSecretDialogOpen(true);
       }
@@ -189,9 +181,10 @@ export function EnvironmentsPage() {
     async (env: Environment) => {
       setEnteringEnvId(env.id);
       try {
-        const { data, error: err } = await client.web.environments({ id: env.id }).enter.post({});
-        if (err) throw new Error(err.message ?? t("toast.enterAgentFailed"));
-        const result = data as { session_id: string; environment_id: string } | null;
+        const result = await apiPost<{ session_id: string; environment_id: string }>(
+          `/web/environments/${env.id}/enter`,
+          {},
+        );
         await new Promise((r) => setTimeout(r, 500));
         navigateToSession(result?.session_id ?? "", {
           agentId: result?.environment_id ?? env.id,
@@ -210,11 +203,12 @@ export function EnvironmentsPage() {
     async (env: Environment, instanceNumber: number) => {
       setEnteringEnvId(env.id);
       try {
-        const { data, error: err } = await client.web.environments({ id: env.id }).enter.post({
-          instance_number: instanceNumber,
-        });
-        if (err) throw new Error(err.message ?? t("toast.enterAgentFailed"));
-        const result = data as { session_id: string; environment_id: string } | null;
+        const result = await apiPost<{ session_id: string; environment_id: string }>(
+          `/web/environments/${env.id}/enter`,
+          {
+            instance_number: instanceNumber,
+          },
+        );
         await new Promise((r) => setTimeout(r, 500));
         navigateToSession(result?.session_id ?? "", {
           agentId: result?.environment_id ?? env.id,
@@ -233,9 +227,9 @@ export function EnvironmentsPage() {
     async (env: Environment) => {
       setEnteringEnvId(env.id);
       try {
-        const { data, error: err } = await client.web.instances.post({ environmentId: env.id });
-        if (err) throw new Error(err.message ?? t("toast.createFailed"));
-        const spawnResult = data as { session_id?: string; environment_id?: string } | null;
+        const spawnResult = await apiPost<{ session_id?: string; environment_id?: string }>("/web/instances", {
+          environmentId: env.id,
+        });
         await new Promise((r) => setTimeout(r, 500));
         navigateToSession(spawnResult?.session_id ?? "", {
           agentId: spawnResult?.environment_id ?? env.id,
@@ -254,8 +248,7 @@ export function EnvironmentsPage() {
   const confirmStopInstance = useCallback(async () => {
     if (!stopTarget) return;
     try {
-      const { error: err } = await client.web.instances({ id: stopTarget.instanceId }).delete();
-      if (err) throw new Error(err.message ?? t("toast.stopFailed"));
+      await api("DELETE", `/web/instances/${stopTarget.instanceId}`);
       await new Promise((r) => setTimeout(r, 500));
       await loadEnvs();
     } catch (err) {
@@ -275,7 +268,7 @@ export function EnvironmentsPage() {
       if (!instanceId) return;
       setRefreshingEnvId(env.id);
       try {
-        await client.web.instances({ id: instanceId }).delete();
+        await api("DELETE", `/web/instances/${instanceId}`);
         await new Promise((r) => setTimeout(r, 500));
         await handleEnterAgent(env);
       } catch (err) {
@@ -290,12 +283,7 @@ export function EnvironmentsPage() {
 
   const handleViewSecret = useCallback(async (id: string) => {
     try {
-      const { data, error: err } = await client.web.environments({ id }).get();
-      if (err) {
-        console.error("Failed to get secret:", err);
-        return;
-      }
-      const detail = data as { secret?: string } | null;
+      const detail = await apiGet<{ secret?: string }>(`/web/environments/${id}`);
       setCurrentSecret(detail?.secret ?? null);
       setSecretDialogOpen(true);
     } catch (err) {
@@ -306,11 +294,7 @@ export function EnvironmentsPage() {
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
     try {
-      const { error: err } = await client.web.environments({ id: deleteTarget }).delete();
-      if (err) {
-        console.error("Failed to delete:", err);
-        return;
-      }
+      await api("DELETE", `/web/environments/${deleteTarget}`);
       setDeleteTarget(null);
       setConfirmOpen(false);
       await loadEnvs();

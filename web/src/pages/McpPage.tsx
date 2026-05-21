@@ -11,8 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { client } from "../api/client";
-import { unwrapConfigData } from "../api/config-response";
+import { apiPost } from "../api/client";
 import type {
   McpInspectResult,
   McpLocalConfig,
@@ -174,10 +173,10 @@ export function McpPage() {
   const loadServers = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: listData, error: listErr } = await client.web.config.mcp.post({ action: "list" });
-      if (listErr) throw new Error(listErr.message ?? t("toast.loadListFailed"));
-      const unwrapped = unwrapConfigData(listData) ?? listData;
-      const data = Array.isArray(unwrapped) ? unwrapped : ((unwrapped as { servers?: McpServerInfo[] }).servers ?? []);
+      const listData = await apiPost<{ servers?: McpServerInfo[] } | McpServerInfo[]>("/web/config/mcp", {
+        action: "list",
+      });
+      const data = Array.isArray(listData) ? listData : (listData.servers ?? []);
       setServers(data);
       // 预加载有 tools 的服务器缓存
       const serversWithTools = data.filter((s: McpServerInfo) => (s.toolsCount ?? 0) > 0);
@@ -186,13 +185,11 @@ export function McpPage() {
           serversWithTools.map(async (s: McpServerInfo) => {
             if (toolsCache[s.name]) return;
             try {
-              const { data: toolsData, error: toolsErr } = await client.web.config.mcp.post({
+              const toolsData = await apiPost<{ tools?: McpToolInfo[] }>("/web/config/mcp", {
                 action: "list_tools",
                 name: s.name,
               });
-              if (toolsErr) return;
-              const result = unwrapConfigData(toolsData) ?? toolsData;
-              setToolsCache((prev) => ({ ...prev, [s.name]: Array.isArray(result?.tools) ? result.tools : [] }));
+              setToolsCache((prev) => ({ ...prev, [s.name]: Array.isArray(toolsData?.tools) ? toolsData.tools : [] }));
             } catch {
               // 静默失败
             }
@@ -295,13 +292,11 @@ export function McpPage() {
     setEditingServer(server);
     setFormName(server.name);
     try {
-      const { data: detailData, error: detailErr } = await client.web.config.mcp.post({
+      const detail = await apiPost<{ config?: McpServerConfig }>("/web/config/mcp", {
         action: "get",
         name: server.name,
       });
-      if (detailErr) throw new Error(detailErr.message ?? t("toast.loadDetailFailed"));
-      const detail = unwrapConfigData(detailData) ?? detailData;
-      const config = detail.config as McpServerConfig;
+      const config = (detail.config ?? detail) as McpServerConfig;
       if ("type" in config && config.type === "local") {
         setFormType("local");
         setFormCommand(commandToString(config.command));
@@ -372,12 +367,10 @@ export function McpPage() {
         formTimeout,
       );
       if (editingServer) {
-        const { error: updErr } = await client.web.config.mcp.post({ action: "set", name: formName, data: payload });
-        if (updErr) throw new Error(updErr.message ?? t("toast.saveFailed"));
+        await apiPost("/web/config/mcp", { action: "set", name: formName, data: payload });
         toast.success(t("toast.serverUpdated"));
       } else {
-        const { error: crtErr } = await client.web.config.mcp.post({ action: "create", name: formName, data: payload });
-        if (crtErr) throw new Error(crtErr.message ?? t("toast.saveFailed"));
+        await apiPost("/web/config/mcp", { action: "create", name: formName, data: payload });
         toast.success(t("toast.serverCreated"));
       }
       setDialogOpen(false);
@@ -393,12 +386,10 @@ export function McpPage() {
   const handleToggle = async (server: McpServerInfo) => {
     try {
       if (server.enabled) {
-        const { error: disErr } = await client.web.config.mcp.post({ action: "disable", name: server.name });
-        if (disErr) throw new Error(disErr.message ?? t("toast.disableFailed"));
+        await apiPost("/web/config/mcp", { action: "disable", name: server.name });
         toast.success(t("toast.disabled", { name: server.name }));
       } else {
-        const { error: enbErr } = await client.web.config.mcp.post({ action: "enable", name: server.name });
-        if (enbErr) throw new Error(enbErr.message ?? t("toast.enableFailed"));
+        await apiPost("/web/config/mcp", { action: "enable", name: server.name });
         toast.success(t("toast.enabled", { name: server.name }));
       }
       loadServers();
@@ -411,8 +402,7 @@ export function McpPage() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const { error: delErr } = await client.web.config.mcp.post({ action: "delete", name: deleteTarget });
-      if (delErr) throw new Error(delErr.message ?? t("toast.deleteFailed"));
+      await apiPost("/web/config/mcp", { action: "delete", name: deleteTarget });
       toast.success(t("toast.serverDeleted"));
       setConfirmOpen(false);
       loadServers();
@@ -430,40 +420,16 @@ export function McpPage() {
   const confirmBatchAction = async () => {
     try {
       if (batchAction === "delete") {
-        await Promise.all(
-          selected.map((s) =>
-            client.web.config.mcp
-              .post({ action: "delete", name: s.name })
-              .then((r: { error?: { message?: string } }) => {
-                if (r.error) throw new Error(r.error.message ?? t("toast.deleteFailed"));
-              }),
-          ),
-        );
+        await Promise.all(selected.map((s) => apiPost("/web/config/mcp", { action: "delete", name: s.name })));
         toast.success(t("toast.batchDeleted", { count: selected.length }));
       } else if (batchAction === "enable") {
         await Promise.all(
-          selected
-            .filter((s) => !s.enabled)
-            .map((s) =>
-              client.web.config.mcp
-                .post({ action: "enable", name: s.name })
-                .then((r: { error?: { message?: string } }) => {
-                  if (r.error) throw new Error(r.error.message ?? t("toast.enableFailed"));
-                }),
-            ),
+          selected.filter((s) => !s.enabled).map((s) => apiPost("/web/config/mcp", { action: "enable", name: s.name })),
         );
         toast.success(t("toast.batchEnabled", { count: selected.length }));
       } else {
         await Promise.all(
-          selected
-            .filter((s) => s.enabled)
-            .map((s) =>
-              client.web.config.mcp
-                .post({ action: "disable", name: s.name })
-                .then((r: { error?: { message?: string } }) => {
-                  if (r.error) throw new Error(r.error.message ?? t("toast.disableFailed"));
-                }),
-            ),
+          selected.filter((s) => s.enabled).map((s) => apiPost("/web/config/mcp", { action: "disable", name: s.name })),
         );
         toast.success(t("toast.batchDisabled", { count: selected.length }));
       }
@@ -479,15 +445,12 @@ export function McpPage() {
   const handleInspect = async (server: McpServerInfo) => {
     setInspectingServer(server.name);
     try {
-      const { data: inspectData, error: inspectErr } = await client.web.config.mcp.post({
+      const result = await apiPost<McpInspectResult>("/web/config/mcp", {
         action: "inspect",
         name: server.name,
       });
-      if (inspectErr) throw new Error(inspectErr.message ?? t("toast.inspectFailed"));
-      const result = unwrapConfigData<McpInspectResult>(inspectData);
       if (!result) {
-        const errResp = inspectData as { error?: { code?: string; message?: string } } | null;
-        throw new Error(errResp?.error?.message ?? t("toast.inspectFailed"));
+        throw new Error(t("toast.inspectFailed"));
       }
       toast.success(
         t("toast.inspectSuccess", {
@@ -527,14 +490,20 @@ export function McpPage() {
           ? Object.fromEntries(formHeaders.filter((h) => h.key.trim()).map((h) => [h.key, h.value]))
           : undefined;
       const timeoutNum = formTimeout ? parseInt(formTimeout, 10) : undefined;
-      const { data: testUrlData, error: testUrlErr } = await client.web.config.mcp.post({
+      const result = await apiPost<{
+        reachable?: boolean;
+        protocol?: string;
+        toolsCount?: number;
+        serverName?: string;
+        serverVersion?: string;
+        message?: string;
+      }>("/web/config/mcp", {
         action: "test_url",
         url: formUrl,
         headers: headersObj,
         timeout: timeoutNum,
       });
-      if (testUrlErr) throw new Error(testUrlErr.message ?? t("toast.testFailed"));
-      const result = unwrapConfigData(testUrlData) ?? testUrlData;
+
       if (result.reachable && result.protocol) {
         const toolsInfo = result.toolsCount != null ? `，${result.toolsCount} ${t("column.tools").toLowerCase()}` : "";
         toast.success(

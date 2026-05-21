@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { client } from "../api/client";
+import { api, apiGet, apiPost } from "../api/client";
 
 type ChannelBinding = {
   id: string;
@@ -48,11 +48,7 @@ export function ChannelsPage() {
 
   const loadHermesStatus = useCallback(async () => {
     try {
-      const { data, error } = await client.web.channels.hermes.status.get();
-      if (error) {
-        setHermesStatus(null);
-        return;
-      }
+      const data = await apiGet<HermesStatus>("/web/channels/hermes/status");
       setHermesStatus(data);
     } catch {
       setHermesStatus(null);
@@ -61,13 +57,8 @@ export function ChannelsPage() {
 
   const loadBindings = useCallback(async () => {
     try {
-      const { data, error } = await client.web.channels.bindings.get();
-      if (error) {
-        console.error(t("loadBindingsFailed"), error);
-        toast.error(t("loadBindingsFailed"));
-        return;
-      }
-      setBindings(data as unknown as ChannelBinding[]);
+      const data = await apiGet<ChannelBinding[]>("/web/channels/bindings");
+      setBindings(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(t("loadBindingsFailed"), e);
       toast.error(t("loadBindingsFailed"));
@@ -76,17 +67,12 @@ export function ChannelsPage() {
 
   const loadEnvironments = useCallback(async () => {
     try {
-      const { data, error } = await client.web.environments.get();
-      if (error) {
-        return;
-      }
+      const data = await apiGet<EnvironmentSummary[]>("/web/environments");
       setEnvironments(
-        (Array.isArray(data) ? (data as unknown as EnvironmentSummary[]) : []).map(
-          (e: { id: string; name: string }) => ({
-            id: e.id,
-            name: e.name,
-          }),
-        ),
+        (Array.isArray(data) ? data : []).map((e: { id: string; name: string }) => ({
+          id: e.id,
+          name: e.name,
+        })),
       );
     } catch {}
   }, []);
@@ -110,15 +96,9 @@ export function ChannelsPage() {
 
   const handleToggleBinding = async (binding: ChannelBinding) => {
     try {
-      const { data, error } = await client.web.channels.bindings[binding.id].patch({
+      const updated = await api<ChannelBinding>(`/web/channels/bindings/${binding.id}`, "PATCH", {
         enabled: !binding.enabled,
       });
-      if (error) {
-        console.error(t("updateBindingFailed"), error);
-        toast.error(t("updateBindingFailed"));
-        return;
-      }
-      const updated = data as unknown as ChannelBinding;
       setBindings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
     } catch (e) {
       console.error(t("updateBindingFailed"), e);
@@ -128,12 +108,7 @@ export function ChannelsPage() {
 
   const handleDeleteBinding = async (id: string) => {
     try {
-      const { error } = await client.web.channels.bindings[id].delete();
-      if (error) {
-        console.error(t("deleteBindingFailed"), error);
-        toast.error(t("deleteBindingFailed"));
-        return;
-      }
+      await api<void>(`/web/channels/bindings/${id}`, "DELETE");
       setBindings((prev) => prev.filter((b) => b.id !== id));
       toast.success(t("bindingDeleted"));
     } catch (e) {
@@ -149,17 +124,11 @@ export function ChannelsPage() {
     }
     setFormSaving(true);
     try {
-      const { data, error } = await client.web.channels.bindings.post({
+      const created = await apiPost<ChannelBinding>("/web/channels/bindings", {
         platform: formPlatform,
         chatId: formChatId || null,
         agentId: formAgentId,
       });
-      if (error) {
-        console.error(t("createBindingFailed"), error);
-        toast.error(`${t("createBindingFailed")}: ${error.message || t("unknownError")}`);
-        return;
-      }
-      const created = data as unknown as ChannelBinding;
       setBindings((prev) => [...prev, created]);
       setDialogOpen(false);
       setFormPlatform("");

@@ -12,8 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { client } from "../api/client";
-import { unwrapConfigData } from "../api/config-response";
+import { apiGet, apiPost } from "../api/client";
 import { PermissionTab } from "../components/PermissionTab";
 import { dispatchConfigChange } from "../lib/config-events";
 import type { AgentDetail, AgentInfo } from "../types/config";
@@ -168,11 +167,17 @@ export function AgentsPage() {
   const loadAgents = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: listData, error: listErr } = await client.web.config.agents.post({ action: "list" });
-      if (listErr) throw new Error(listErr.message ?? t("loadErrorShort"));
-      const data = unwrapConfigData(listData) ?? listData;
-      setAgents(Array.isArray(data?.agents) ? data.agents : []);
-      setDefaultAgent(data?.default_agent ?? null);
+      const listData = await apiPost<{ agents?: AgentInfo[]; default_agent?: AgentInfo }>("/web/config/agents", {
+        action: "list",
+      });
+      const agentsList = (listData as Record<string, unknown>)?.agents;
+      setAgents(Array.isArray(agentsList) ? agentsList : []);
+      const defaultAgentName = (listData as Record<string, unknown>)?.default_agent;
+      setDefaultAgent(
+        typeof defaultAgentName === "string"
+          ? defaultAgentName
+          : ((defaultAgentName as { name?: string })?.name ?? null),
+      );
     } catch (e) {
       console.error(t("loadErrorShort"), e);
       toast.error(t("loadError", { message: e instanceof Error ? e.message : t("unknownError") }));
@@ -183,10 +188,10 @@ export function AgentsPage() {
 
   const loadModelOptions = useCallback(async () => {
     try {
-      const { data: modelsData, error: modelsErr } = await client.web.config.models.post({ action: "get" });
-      if (modelsErr) return;
-      const data = unwrapConfigData(modelsData) ?? modelsData;
-      setModelOptions(Array.isArray(data?.available) ? data.available.map((m: { fullId: string }) => m.fullId) : []);
+      const modelsData = await apiPost<{ available?: { fullId: string }[] }>("/web/config/models", { action: "get" });
+      setModelOptions(
+        Array.isArray(modelsData?.available) ? modelsData.available.map((m: { fullId: string }) => m.fullId) : [],
+      );
     } catch {
       /* silent */
     }
@@ -194,9 +199,8 @@ export function AgentsPage() {
 
   const loadKnowledgeOptions = useCallback(async () => {
     try {
-      const { data: kbData, error: kbErr } = await client.web.knowledgeBases.get();
-      if (kbErr) return;
-      setKnowledgeOptions(kbData as unknown as KnowledgeBaseInfo[]);
+      const kbData = await apiGet<KnowledgeBaseInfo[]>("/web/knowledgeBases");
+      setKnowledgeOptions(Array.isArray(kbData) ? kbData : []);
     } catch {
       /* silent */
     }
@@ -204,12 +208,14 @@ export function AgentsPage() {
 
   const loadSkillOptions = useCallback(async () => {
     try {
-      const { data: skillsData, error: skillsErr } = await client.web.config.skills.post({ action: "list" });
-      if (skillsErr) return;
-      const data = unwrapConfigData(skillsData) ?? skillsData;
+      const skillsData = await apiPost<{ skills?: { id: string; name: string; description?: string }[] }>(
+        "/web/config/skills",
+        { action: "list" },
+      );
+      const skills = (skillsData as Record<string, unknown>)?.skills;
       setSkillOptions(
-        Array.isArray(data?.skills)
-          ? data.skills.map((s: { id: string; name: string; description?: string }) => ({
+        Array.isArray(skills)
+          ? (skills as { id: string; name: string; description?: string }[]).map((s) => ({
               id: s.id,
               name: s.name,
               description: s.description ?? "",
@@ -301,35 +307,33 @@ export function AgentsPage() {
     setFormKnowledgeMaxResults(knowledgeDefaults.maxResults);
     setFormPermission(null);
     try {
-      const { data: agentData, error: agentErr } = await client.web.config.agents.post({
+      const detail = await apiPost<Record<string, unknown>>("/web/config/agents", {
         action: "get",
         name: agent.name,
       });
-      if (agentErr) throw new Error(agentErr.message ?? t("knowledge.loadError", { message: "" }));
-      const detail = unwrapConfigData(agentData) ?? agentData;
-      setFormSteps(String(detail.steps ?? 50));
-      setFormPrompt(detail.prompt || "");
-      setFormDescription(detail.description || "");
-      setFormVariant(detail.variant || "");
-      setFormTemperature(
-        detail.temperature !== null && detail.temperature !== undefined ? String(detail.temperature) : "",
-      );
-      setFormTopP(detail.top_p !== null && detail.top_p !== undefined ? String(detail.top_p) : "");
-      setFormColor(detail.color || "");
-      setFormHidden(detail.hidden ?? false);
-      setFormDisable(detail.disable ?? false);
-      const knowledgeState = buildKnowledgeFormState(detail);
+      const d = detail as Record<string, unknown>;
+
+      setFormSteps(String(d.steps ?? 50));
+      setFormPrompt(String(d.prompt ?? ""));
+      setFormDescription(String(d.description ?? ""));
+      setFormVariant(String(d.variant ?? ""));
+      setFormTemperature(d.temperature !== null && d.temperature !== undefined ? String(d.temperature) : "");
+      setFormTopP(d.top_p !== null && d.top_p !== undefined ? String(d.top_p) : "");
+      setFormColor(String(d.color ?? ""));
+      setFormHidden(Boolean(d.hidden));
+      setFormDisable(Boolean(d.disable));
+      const knowledgeState = buildKnowledgeFormState(d as Parameters<typeof buildKnowledgeFormState>[0]);
       setFormKnowledgeBaseIds(knowledgeState.knowledgeBaseIds);
       setFormKnowledgeSearchFirst(knowledgeState.searchFirst);
       setFormKnowledgeMaxResults(knowledgeState.maxResults);
       setFormPermission(
-        detail.permission
-          ? typeof detail.permission === "string"
-            ? (detail.permission as unknown as Record<string, unknown>)
-            : (detail.permission as Record<string, unknown>)
+        d.permission
+          ? typeof d.permission === "string"
+            ? (d.permission as unknown as Record<string, unknown>)
+            : (d.permission as Record<string, unknown>)
           : null,
       );
-      setFormSkillIds(Array.isArray(detail.skillIds) ? detail.skillIds : []);
+      setFormSkillIds(Array.isArray(d.skillIds) ? (d.skillIds as string[]) : []);
     } catch {
       setFormSteps("50");
     }
@@ -368,10 +372,13 @@ export function AgentsPage() {
     }
     setFormSaving(true);
     try {
-      const latestKnowledgeOptions = await client.web.knowledgeBases
-        .get()
-        .then((r: { data: unknown }) => (Array.isArray(r.data) ? (r.data as unknown as KnowledgeBaseInfo[]) : []))
-        .catch(() => knowledgeOptions);
+      let latestKnowledgeOptions = knowledgeOptions;
+      try {
+        const kbData = await apiGet<KnowledgeBaseInfo[]>("/web/knowledgeBases");
+        latestKnowledgeOptions = Array.isArray(kbData) ? kbData : [];
+      } catch {
+        latestKnowledgeOptions = knowledgeOptions;
+      }
       setKnowledgeOptions(latestKnowledgeOptions);
       const validKnowledgeBaseIds = filterKnowledgeBaseIds(formKnowledgeBaseIds, latestKnowledgeOptions);
       if (validKnowledgeBaseIds.length !== formKnowledgeBaseIds.length) {
@@ -400,12 +407,10 @@ export function AgentsPage() {
         skillIds: formSkillIds,
       };
       if (editingAgent) {
-        const { error: setErr } = await client.web.config.agents.post({ action: "set", name, data });
-        if (setErr) throw new Error(setErr.message ?? t("save.errorUpdate", { message: "" }));
+        await apiPost("/web/config/agents", { action: "set", name, data });
         toast.success(t("save.successUpdate"));
       } else {
-        const { error: crtErr } = await client.web.config.agents.post({ action: "create", name, data });
-        if (crtErr) throw new Error(crtErr.message ?? t("save.errorCreate", { message: "" }));
+        await apiPost("/web/config/agents", { action: "create", name, data });
         toast.success(t("save.successCreate"));
       }
       setDialogOpen(false);
@@ -421,8 +426,7 @@ export function AgentsPage() {
 
   const handleSetDefault = async (name: string) => {
     try {
-      const { error: defErr } = await client.web.config.agents.post({ action: "set_default", name });
-      if (defErr) throw new Error(defErr.message ?? t("setDefault.error", { message: "" }));
+      await apiPost("/web/config/agents", { action: "set_default", name });
       setDefaultAgent(name);
       toast.success(t("setDefault.success", { name }));
     } catch (e) {
@@ -434,8 +438,7 @@ export function AgentsPage() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const { error: delErr } = await client.web.config.agents.post({ action: "delete", name: deleteTarget });
-      if (delErr) throw new Error(delErr.message ?? t("delete.error", { message: "" }));
+      await apiPost("/web/config/agents", { action: "delete", name: deleteTarget });
       toast.success(t("delete.success"));
       setConfirmOpen(false);
       loadAgents();
@@ -449,15 +452,7 @@ export function AgentsPage() {
   const confirmBatchDelete = async () => {
     const customAgents = selected.filter((a) => !a.builtIn);
     try {
-      await Promise.all(
-        customAgents.map((a) =>
-          client.web.config.agents
-            .post({ action: "delete", name: a.name })
-            .then((r: { error?: { message?: string } }) => {
-              if (r.error) throw new Error(r.error.message ?? t("delete.error", { message: "" }));
-            }),
-        ),
-      );
+      await Promise.all(customAgents.map((a) => apiPost("/web/config/agents", { action: "delete", name: a.name })));
       toast.success(t("batchDeleteCount", { count: customAgents.length }));
       setBatchConfirmOpen(false);
       setSelected([]);

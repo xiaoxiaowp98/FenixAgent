@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { client, fetchUpload } from "../api/client";
-import { unwrapConfigData } from "../api/config-response";
+import { apiPost, fetchUpload } from "../api/client";
 import { dispatchConfigChange } from "../lib/config-events";
 import { buildSkillUploadFormData, parseSkillUploadFiles, validateUploadBatch } from "../lib/skill-upload";
 import type { SkillUploadConflictResponse, SkillUploadConflictStrategy, UploadSkillSummary } from "../types/config";
@@ -47,8 +46,7 @@ export function getUploadResultMessage(
 }
 
 export function normalizeSkillUploadResult(response: unknown): SkillUploadResult {
-  const data =
-    unwrapConfigData<Partial<SkillUploadResult>>(response) ?? (response as Partial<SkillUploadResult> | null);
+  const data = response as Partial<SkillUploadResult> | null;
   return {
     imported: Array.isArray(data?.imported) ? data.imported : [],
     skipped: Array.isArray(data?.skipped) ? data.skipped : [],
@@ -160,10 +158,8 @@ export function SkillsPage() {
   const loadSkills = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: res, error: resErr } = await client.web.config.skills.post({ action: "list" });
-      if (resErr) throw new Error(resErr.message ?? t("toast.loadListFailed"));
-      const d = unwrapConfigData(res) ?? res;
-      setSkills(Array.isArray(d?.skills) ? d.skills : []);
+      const res = await apiPost<{ skills?: SkillInfo[] }>("/web/config/skills", { action: "list" });
+      setSkills(Array.isArray(res?.skills) ? res.skills : []);
     } catch (e) {
       console.error(t("toast.loadListFailed"), e);
       toast.error(
@@ -201,15 +197,10 @@ export function SkillsPage() {
     setCreateMode("text");
     resetUploadState();
     try {
-      const { data: res, error: resErr } = await client.web.config.skills.post({
+      const detail = await apiPost<{ name: string; description: string; content: string }>("/web/config/skills", {
         action: "get",
         name: skill.name,
       });
-      if (resErr) {
-        toast.error(t("toast.loadDetailFailed"));
-        return;
-      }
-      const detail = unwrapConfigData(res) ?? res;
       setFormName(detail.name);
       setFormDescription(detail.description);
       setFormContent(detail.content);
@@ -227,12 +218,11 @@ export function SkillsPage() {
     }
     setFormSaving(true);
     try {
-      const { error: setErr } = await client.web.config.skills.post({
+      await apiPost("/web/config/skills", {
         action: "set",
         name: formName,
         data: { description: formDescription, content: formContent },
       });
-      if (setErr) throw new Error(setErr.message ?? t("toast.saveFailed"));
       toast.success(editingSkill ? t("toast.skillUpdated") : t("toast.skillCreated"));
       setDialogOpen(false);
       loadSkills();
@@ -311,11 +301,10 @@ export function SkillsPage() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const { error: delErr } = await client.web.config.skills.post({
+      await apiPost("/web/config/skills", {
         action: "delete",
         name: deleteTarget,
       });
-      if (delErr) throw new Error(delErr.message ?? t("toast.deleteFailed"));
       toast.success(t("toast.skillDeleted"));
       setConfirmOpen(false);
       loadSkills();
@@ -332,15 +321,7 @@ export function SkillsPage() {
 
   const confirmBatchDelete = async () => {
     try {
-      await Promise.all(
-        selected.map((s) =>
-          client.web.config.skills
-            .post({ action: "delete", name: s.name })
-            .then((r: { error?: { message?: string } }) => {
-              if (r.error) throw new Error(r.error.message ?? t("toast.deleteFailed"));
-            }),
-        ),
-      );
+      await Promise.all(selected.map((s) => apiPost("/web/config/skills", { action: "delete", name: s.name })));
       toast.success(t("toast.batchDeleted", { count: selected.length }));
       setBatchConfirmOpen(false);
       setSelected([]);

@@ -2,7 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
-import { client } from "../api/client";
+import { api, apiGet, apiPost } from "../api/client";
 
 interface ApiKeyInfo {
   id: string;
@@ -27,12 +27,8 @@ export function ApiKeyManager() {
 
   const loadKeys = useCallback(async () => {
     try {
-      const { data, error: err } = await client.web.apiKeys.get();
-      if (err) {
-        setError(t("toast.loadFailed"));
-        return;
-      }
-      setKeys(data ?? []);
+      const data = await apiGet<ApiKeyInfo[]>("/web/apiKeys");
+      setKeys(Array.isArray(data) ? data : []);
     } catch {
       setError(t("toast.loadFailed"));
     } finally {
@@ -47,12 +43,8 @@ export function ApiKeyManager() {
   const handleCreate = async () => {
     setError("");
     try {
-      const { data, error: err } = await client.web.apiKeys.post({ label: newLabel || undefined });
-      if (err) {
-        setError(err.message ?? t("toast.createFailed"));
-        return;
-      }
-      setCreatedKey((data as { full_key?: string } | null)?.full_key ?? null);
+      const data = await apiPost<{ full_key?: string }>("/web/apiKeys", { label: newLabel || undefined });
+      setCreatedKey(data?.full_key ?? null);
       setNewLabel("");
       await loadKeys();
     } catch (err) {
@@ -62,7 +54,7 @@ export function ApiKeyManager() {
 
   const handleDelete = async (id: string) => {
     try {
-      await client.web.apiKeys({ id }).delete();
+      await api<void>(`/web/apiKeys/${id}`, "DELETE");
       await loadKeys();
     } catch {
       setError(t("toast.deleteFailed"));
@@ -71,7 +63,7 @@ export function ApiKeyManager() {
 
   const handleUpdateLabel = async (id: string) => {
     try {
-      await client.web.apiKeys({ id }).patch({ label: editLabel });
+      await api<void>(`/web/apiKeys/${id}`, "PATCH", { label: editLabel });
       setEditingId(null);
       await loadKeys();
     } catch {

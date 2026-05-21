@@ -13,8 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { client } from "../api/client";
-import { unwrapConfigData } from "../api/config-response";
+import { apiPost } from "../api/client";
 import { dispatchConfigChange } from "../lib/config-events";
 import type { ModelConfig, ProviderInfo, ProviderModel } from "../types/config";
 
@@ -180,16 +179,10 @@ function ModelSubrow({
     setModelSaving(true);
     try {
       if (isNewModel) {
-        const { error: addErr } = await client.web.config.providers.post(
-          buildProviderModelRequest("add_model", providerId, mfId.trim(), data),
-        );
-        if (addErr) throw new Error(addErr.message ?? t("saveProvider.errorGeneric", { message: "" }));
+        await apiPost("/web/config/providers", buildProviderModelRequest("add_model", providerId, mfId.trim(), data));
         toast.success(t("modelSubrow.saveModel.successCreate"));
       } else {
-        const { error: updErr } = await client.web.config.providers.post(
-          buildProviderModelRequest("update_model", providerId, mfId, data),
-        );
-        if (updErr) throw new Error(updErr.message ?? t("saveProvider.errorGeneric", { message: "" }));
+        await apiPost("/web/config/providers", buildProviderModelRequest("update_model", providerId, mfId, data));
         toast.success(t("modelSubrow.saveModel.successUpdate"));
       }
       setModelDialogOpen(false);
@@ -208,12 +201,11 @@ function ModelSubrow({
   const handleModelDelete = async () => {
     if (!deleteConfirm) return;
     try {
-      const { error: rmErr } = await client.web.config.providers.post({
+      await apiPost("/web/config/providers", {
         action: "remove_model",
         name: deleteConfirm.providerId,
         modelId: deleteConfirm.modelId,
       });
-      if (rmErr) throw new Error(rmErr.message ?? t("modelSubrow.deleteModel.error", { message: "" }));
       toast.success(t("modelSubrow.deleteModel.success"));
       const pid = deleteConfirm.providerId;
       const mid = deleteConfirm.modelId;
@@ -497,23 +489,21 @@ export function ModelsPage() {
     try {
       const [providersData, modelConfigData] = await Promise.all([
         (async () => {
-          const { data: listData, error: listErr } = await client.web.config.providers.post({ action: "list" });
-          if (listErr) throw new Error(listErr.message ?? t("loadProvidersError", { message: "" }));
-          const unwrapped = unwrapConfigData(listData) ?? listData;
-          const data = Array.isArray(unwrapped)
-            ? unwrapped
-            : ((unwrapped as { providers?: ProviderInfo[] }).providers ?? []);
+          const listData = await apiPost<{ providers?: ProviderInfo[] } | ProviderInfo[]>("/web/config/providers", {
+            action: "list",
+          });
+
+          const data = Array.isArray(listData) ? listData : (listData.providers ?? []);
           const modelsMap: Record<string, ProviderModel[]> = {};
           await Promise.all(
             data.map(async (p: ProviderInfo) => {
               try {
-                const { data: detailData, error: detailErr } = await client.web.config.providers.post({
+                const detail = await apiPost<{ models?: ProviderModel[] }>("/web/config/providers", {
                   action: "get",
                   name: p.id,
                 });
-                if (detailErr) throw new Error(detailErr.message ?? t("loadProviderDetailError", { message: "" }));
-                const detail = unwrapConfigData(detailData) ?? detailData;
-                modelsMap[p.id] = detail.models;
+
+                modelsMap[p.id] = detail.models ?? [];
               } catch {
                 modelsMap[p.id] = [];
               }
@@ -522,9 +512,8 @@ export function ModelsPage() {
           return { providers: data, providerModels: modelsMap };
         })(),
         (async () => {
-          const { data: modelsData, error: modelsErr } = await client.web.config.models.post({ action: "get" });
-          if (modelsErr) throw new Error(modelsErr.message ?? t("loadModelConfigError", { message: "" }));
-          return unwrapConfigData(modelsData) ?? modelsData;
+          const modelsData = await apiPost<ModelConfig>("/web/config/models", { action: "get" });
+          return modelsData;
         })(),
       ]);
       setProviders(providersData.providers);
@@ -631,8 +620,7 @@ export function ModelsPage() {
     try {
       const npmPackage = NPM_OPTIONS.find((o) => o.id === formNpm)?.npm ?? "@ai-sdk/openai-compatible";
       const data = buildProviderPayload(formApiKey, formBaseURL, npmPackage, formDisplayName);
-      const { error: saveErr } = await client.web.config.providers.post({ action: "set", name: formName, data });
-      if (saveErr) throw new Error(saveErr.message ?? t("saveProvider.errorGeneric", { message: "" }));
+      await apiPost("/web/config/providers", { action: "set", name: formName, data });
       toast.success(editingProvider ? t("saveProvider.successUpdate") : t("saveProvider.successCreate"));
       setDialogOpen(false);
       loadAll();
@@ -648,9 +636,11 @@ export function ModelsPage() {
   const handleTest = async (name: string) => {
     setTesting(name);
     try {
-      const { data: testData, error: testErr } = await client.web.config.providers.post({ action: "test", name });
-      if (testErr) throw new Error(testErr.message ?? t("testDialog.testError"));
-      const result = unwrapConfigData(testData) ?? testData;
+      const result = await apiPost<{ models: string[]; warning?: string }>("/web/config/providers", {
+        action: "test",
+        name,
+      });
+
       setTestResult({ name, models: result.models, warning: result.warning });
       const existing = (providerModels[name] ?? []).map((m) => m.id);
       setAddedModelIds(new Set(existing));
@@ -665,13 +655,12 @@ export function ModelsPage() {
   const handleAddFromTest = async (modelId: string) => {
     if (!testResult || "error" in testResult) return;
     try {
-      const { error: addFromTestErr } = await client.web.config.providers.post({
+      await apiPost("/web/config/providers", {
         action: "add_model",
         name: testResult.name,
         modelId,
         data: { modelId, name: modelId },
       });
-      if (addFromTestErr) throw new Error(addFromTestErr.message ?? t("testDialog.addModelError", { message: "" }));
       setAddedModelIds((prev) => new Set(prev).add(modelId));
       setProviderModels((prev) => ({
         ...prev,
@@ -696,8 +685,7 @@ export function ModelsPage() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const { error: delErr } = await client.web.config.providers.post({ action: "delete", name: deleteTarget });
-      if (delErr) throw new Error(delErr.message ?? t("deleteProvider.error", { message: "" }));
+      await apiPost("/web/config/providers", { action: "delete", name: deleteTarget });
       toast.success(t("deleteProvider.success"));
       setConfirmOpen(false);
       loadAll();
@@ -713,15 +701,7 @@ export function ModelsPage() {
   };
   const confirmBatchDelete = async () => {
     try {
-      await Promise.all(
-        selected.map((p) =>
-          client.web.config.providers
-            .post({ action: "delete", name: p.id })
-            .then((r: { error?: { message?: string } }) => {
-              if (r.error) throw new Error(r.error.message ?? t("deleteProvider.error", { message: "" }));
-            }),
-        ),
-      );
+      await Promise.all(selected.map((p) => apiPost("/web/config/providers", { action: "delete", name: p.id })));
       toast.success(t("batchDeleteCount", { count: selected.length }));
       setBatchConfirmOpen(false);
       setSelected([]);

@@ -12,7 +12,7 @@ import { TooltipProvider } from "../../components/ui/tooltip";
 import { type ACPClient, DisconnectRequestedError } from "../acp/client";
 import { createRelayClient } from "../acp/relay-client";
 import type { ConnectionState } from "../acp/types";
-import { client } from "../api/client";
+import { api, apiGet } from "../api/client";
 import { AskUserPanelView, PermissionPromptView, PlanPanelView } from "../components/PermissionViews";
 import { TaskPanel } from "../components/TaskPanel";
 import { RCSChatAdapter } from "../lib/rcs-chat-adapter";
@@ -83,13 +83,8 @@ function SessionDetailInner({ sessionId, initialCwd }: { sessionId: string; init
       setError("");
 
       try {
-        const { data, error: fetchErr } = await client.web.sessions({ id: sessionId }).get();
+        const sess = await apiGet<Session>(`/web/sessions/${sessionId}`);
         if (cancelled) return;
-        if (fetchErr) {
-          setError(fetchErr.message ?? "Failed to load session");
-          return;
-        }
-        const sess = data as unknown as Session;
         setSession(sess);
         setSessionStatus(sess.status);
       } catch (err) {
@@ -205,15 +200,12 @@ function SessionDetailInner({ sessionId, initialCwd }: { sessionId: string; init
   const handleSubmitAnswers = useCallback(
     async (requestId: string, answers: Record<string, unknown>, questions: import("../types").Question[]) => {
       try {
-        const { error: ctrlErr } = await client.web.sessions({ id: sessionId }).control.post({
+        await api(`/web/sessions/${sessionId}/control`, "POST", {
           type: "permission_response",
           approved: true,
           request_id: requestId,
           updated_input: { questions, answers },
         });
-        if (ctrlErr) {
-          console.error("Failed to submit answers:", ctrlErr.message);
-        }
       } catch (err) {
         console.error("Failed to submit answers:", err);
       }
@@ -226,29 +218,23 @@ function SessionDetailInner({ sessionId, initialCwd }: { sessionId: string; init
     async (requestId: string, value: string, feedback?: string) => {
       try {
         if (value === "no") {
-          const { error: ctrlErr } = await client.web.sessions({ id: sessionId }).control.post({
+          await api(`/web/sessions/${sessionId}/control`, "POST", {
             type: "permission_response",
             approved: false,
             request_id: requestId,
             ...(feedback ? { message: feedback } : {}),
           });
-          if (ctrlErr) {
-            console.error("Failed to submit plan response:", ctrlErr.message);
-          }
         } else {
           const modeMap: Record<string, string> = {
             "yes-accept-edits": "acceptEdits",
             "yes-default": "default",
           };
-          const { error: ctrlErr } = await client.web.sessions({ id: sessionId }).control.post({
+          await api(`/web/sessions/${sessionId}/control`, "POST", {
             type: "permission_response",
             approved: true,
             request_id: requestId,
             updated_permissions: [{ type: "setMode", mode: modeMap[value] || "default", destination: "session" }],
           });
-          if (ctrlErr) {
-            console.error("Failed to submit plan response:", ctrlErr.message);
-          }
         }
       } catch (err) {
         console.error("Failed to submit plan response:", err);

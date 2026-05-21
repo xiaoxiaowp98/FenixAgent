@@ -49,14 +49,21 @@ function useStats() {
     const results = await Promise.allSettled([
       apiGet<unknown[]>("/web/environments").then((d) => (Array.isArray(d) ? (d as Environment[]) : [])),
       apiGet<unknown[]>("/web/sessions").then((d) => (Array.isArray(d) ? (d as Session[]) : [])),
-      apiPost<{ agents?: AgentInfo[]; data?: { agents?: AgentInfo[] } }>("/web/config/agents", { action: "list" }).then((d) => {
-        const agents = d?.agents ?? d?.data?.agents;
-        return Array.isArray(agents) ? agents : [];
+      apiPost<{ agents?: AgentInfo[]; data?: { agents?: AgentInfo[] } }>("/web/config/agents", { action: "list" }).then(
+        (d) => {
+          const agents = d?.agents ?? d?.data?.agents;
+          return Array.isArray(agents) ? agents : [];
+        },
+      ),
+      apiPost<{ available: { fullId: string }[] }>("/web/config/models", { action: "get" }).then((d) => d ?? null),
+      apiPost<{ skills?: { name: string; enabled: boolean }[] }>("/web/config/skills", { action: "list" }).then((d) => {
+        const skills = (d as Record<string, unknown>)?.skills;
+        return Array.isArray(skills) ? skills : [];
       }),
-      apiPost<unknown>("/web/config/models", { action: "get" }).then((d) => d ?? null),
-      apiPost<unknown>("/web/config/skills", { action: "list" }).then((d) => (Array.isArray(d) ? d : [])),
       apiPost<unknown>("/web/config/mcp", { action: "list" }).then((d) => (Array.isArray(d) ? d : [])),
-      apiGet<unknown[]>("/web/tasks").then((d) => (Array.isArray(d) ? d : [])),
+      apiGet<{ id: string; enabled: boolean; lastStatus: string | null }[]>("/web/tasks").then((d) =>
+        Array.isArray(d) ? d : [],
+      ),
     ]);
     setState({
       environments: results[0].status === "fulfilled" ? results[0].value : [],

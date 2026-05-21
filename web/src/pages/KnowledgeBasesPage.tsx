@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { client, fetchUpload } from "../api/client";
+import { api, apiGet, apiPost, fetchUpload } from "../api/client";
 import type {
   KnowledgeBaseDetail,
   KnowledgeBaseInfo,
@@ -19,21 +19,18 @@ import type {
 } from "../types/knowledge";
 
 export async function loadKnowledgeBasesData() {
-  const { data, error } = await client.web.knowledgeBases.get();
-  if (error) throw new Error(error.message ?? "Failed to load knowledge bases");
-  return data as unknown as KnowledgeBaseInfo[];
+  return apiGet<KnowledgeBaseInfo[]>("/web/knowledgeBases");
 }
 
 export async function loadKnowledgeBaseDetailData(knowledgeBaseId: string) {
-  const [detailRes, resourcesRes] = await Promise.all([
-    client.web.knowledgeBases[knowledgeBaseId].get(),
-    client.web.knowledgeBases[knowledgeBaseId].resources.get(),
+  const [detail, resources] = await Promise.all([
+    apiGet<KnowledgeBaseDetail>(`/web/knowledgeBases/${knowledgeBaseId}`),
+    apiGet<KnowledgeResourceInfo[]>(`/web/knowledgeBases/${knowledgeBaseId}/resources`),
   ]);
-  if (detailRes.error) throw new Error(detailRes.error.message ?? "Failed to load knowledge base details");
-  if (resourcesRes.error) throw new Error(resourcesRes.error.message ?? "Failed to load resources");
-  const detail = (detailRes.data ?? {}) as Record<string, unknown>;
-  const resources = Array.isArray(resourcesRes.data) ? (resourcesRes.data as unknown as KnowledgeResourceInfo[]) : [];
-  return { detail: detail as unknown as KnowledgeBaseDetail, resources };
+  return {
+    detail,
+    resources: Array.isArray(resources) ? resources : [],
+  };
 }
 
 export async function uploadKnowledgeBaseFiles(
@@ -171,20 +168,18 @@ export function KnowledgeBasesPage() {
     setSaving(true);
     try {
       if (editingItem) {
-        const { error: err } = await client.web.knowledgeBases[editingItem.id].patch({
+        await api<void>(`/web/knowledgeBases/${editingItem.id}`, "PATCH", {
           name: formName.trim(),
           slug: formSlug.trim(),
           description: formDescription.trim() || null,
         });
-        if (err) throw new Error(err.message ?? t("updateFailed"));
         toast.success(t("knowledgeBaseUpdated"));
       } else {
-        const { error: err } = await client.web.knowledgeBases.post({
+        await apiPost<void>("/web/knowledgeBases", {
           name: formName.trim(),
           slug: formSlug.trim(),
           description: formDescription.trim() || undefined,
         });
-        if (err) throw new Error(err.message ?? t("createFailed"));
         toast.success(t("knowledgeBaseCreated"));
       }
       setDialogOpen(false);
@@ -200,8 +195,7 @@ export function KnowledgeBasesPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const { error: err } = await client.web.knowledgeBases[deleteTarget.id].delete();
-      if (err) throw new Error(err.message ?? t("deleteFailed"));
+      await api<void>(`/web/knowledgeBases/${deleteTarget.id}`, "DELETE");
       toast.success(t("knowledgeBaseDeleted"));
       setConfirmOpen(false);
       if (selectedId === deleteTarget.id) {
@@ -240,11 +234,10 @@ export function KnowledgeBasesPage() {
     }
     setImportingUrl(true);
     try {
-      const { error: err } = await client.web.knowledgeBases[selectedId].resources.url.post({
+      await apiPost<void>(`/web/knowledgeBases/${selectedId}/resources/url`, {
         url: urlValue.trim(),
         sourceName: urlSourceName.trim() || undefined,
       });
-      if (err) throw new Error(err.message ?? t("importFailed"));
       toast.success(t("urlResourceSubmitted"));
       setUrlValue("");
       setUrlSourceName("");
@@ -262,8 +255,7 @@ export function KnowledgeBasesPage() {
     if (!selectedId) return;
     setDeletingResourceId(resourceId);
     try {
-      const { error: err } = await client.web.knowledgeBases[selectedId].resources[resourceId].delete();
-      if (err) throw new Error(err.message ?? t("deleteResourceFailed"));
+      await api<void>(`/web/knowledgeBases/${selectedId}/resources/${resourceId}`, "DELETE");
       toast.success(t("resourceDeleted"));
       await loadDetail(selectedId);
       await loadItems();

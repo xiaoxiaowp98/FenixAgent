@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Form, FormControl, FormField, FormItem, FormLabel } from "../../components/ui/form";
 import { Input } from "../../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { client } from "../api/client";
+import { apiPost } from "../api/client";
 import type { Environment, Session } from "../types";
 
 const newSessionSchema = z.object({
@@ -39,8 +39,7 @@ export function NewSessionDialog({ open, environments, onClose, onCreated }: New
       const body: Record<string, string> = {};
       if (values.title.trim()) body.title = values.title.trim();
       if (values.envId) body.environment_id = values.envId;
-      const { data: session, error: sessionErr } = await client.web.sessions.post(body as Record<string, string>);
-      if (sessionErr) throw new Error(sessionErr.message ?? t("newSession.createFailed"));
+      const session = await apiPost<Session>("/web/sessions", body);
       onCreated(session);
     } catch (err) {
       form.setError("root", {

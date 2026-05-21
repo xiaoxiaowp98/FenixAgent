@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { client, fetchUpload } from "../../../api/client";
+import { api, apiGet, apiPost, fetchUpload } from "../../../api/client";
 import type {
   KnowledgeBaseDetail,
   KnowledgeBaseInfo,
@@ -46,8 +46,7 @@ export function AgentKnowledgeBasesPage() {
   const loadItems = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await client.web.knowledgeBases.get();
-      if (error) throw new Error(error.message ?? "Failed to load");
+      const data = await apiGet<KnowledgeBaseInfo[]>("/web/knowledgeBases");
       setItems((Array.isArray(data) ? data : []) as KnowledgeBaseInfo[]);
     } catch (e) {
       console.error("Failed to load knowledge bases", e);
@@ -61,14 +60,12 @@ export function AgentKnowledgeBasesPage() {
     async (id: string) => {
       setDetailLoading(true);
       try {
-        const [detailRes, resourcesRes] = await Promise.all([
-          client.web.knowledgeBases[id].get(),
-          client.web.knowledgeBases[id].resources.get(),
+        const [detail, resList] = await Promise.all([
+          apiGet<KnowledgeBaseDetail>(`/web/knowledgeBases/${id}`),
+          apiGet<KnowledgeResourceInfo[]>(`/web/knowledgeBases/${id}/resources`),
         ]);
-        if (detailRes.error) throw new Error("Failed to load detail");
-        if (resourcesRes.error) throw new Error("Failed to load resources");
-        setSelectedDetail((detailRes.data ?? {}) as unknown as KnowledgeBaseDetail);
-        setResources(Array.isArray(resourcesRes.data) ? (resourcesRes.data as unknown as KnowledgeResourceInfo[]) : []);
+        setSelectedDetail((detail ?? {}) as KnowledgeBaseDetail);
+        setResources(Array.isArray(resList) ? (resList as KnowledgeResourceInfo[]) : []);
         setSelectedId(id);
       } catch (e) {
         console.error("Failed to load detail", e);
@@ -105,12 +102,10 @@ export function AgentKnowledgeBasesPage() {
         description: formDescription.trim() || undefined,
       };
       if (editingItem) {
-        const { error } = await client.web.knowledgeBases[editingItem.id].put(payload);
-        if (error) throw new Error(error.message ?? "Failed to update");
+        await api("PUT", `/web/knowledgeBases/${editingItem.id}`, payload);
         toast.success(t("toast.updated"));
       } else {
-        const { error } = await client.web.knowledgeBases.post(payload);
-        if (error) throw new Error(error.message ?? "Failed to create");
+        await apiPost("/web/knowledgeBases", payload);
         toast.success(t("toast.created"));
       }
       setDialogOpen(false);
@@ -126,8 +121,7 @@ export function AgentKnowledgeBasesPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const { error } = await client.web.knowledgeBases[deleteTarget.id].delete();
-      if (error) throw new Error(error.message ?? "Failed to delete");
+      await api("DELETE", `/web/knowledgeBases/${deleteTarget.id}`);
       toast.success(t("toast.deleted"));
       setConfirmOpen(false);
       if (selectedId === deleteTarget.id) {
@@ -166,8 +160,7 @@ export function AgentKnowledgeBasesPage() {
     if (!selectedId) return;
     setDeletingResourceId(resourceId);
     try {
-      const { error } = await client.web.knowledgeBases[selectedId]({ resourceId }).delete();
-      if (error) throw new Error("Failed to delete resource");
+      await api("DELETE", `/web/knowledgeBases/${selectedId}/resources/${resourceId}`);
       toast.success(t("toast.resourceDeleted"));
       loadDetail(selectedId);
     } catch (e) {

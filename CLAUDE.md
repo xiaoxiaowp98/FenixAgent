@@ -387,6 +387,31 @@ web/src/routes/
   - `web/src/pages/workflow/`：WorkflowPage（保留内部子路由，使用 `window.location.pathname` 自行解析）
 - `web/src/acp/`：ACP 客户端（`client.ts`、`relay-client.ts`、`types.ts`），处理 session/list、session/load、session/resume 等 ACP 协议
 
+**前端双版本（v1 控制面板 / v2 Agent 面板）**：
+
+前端存在两套独立的 UI 布局，共享组件和 API client，但 Shell 层完全独立：
+
+| | v1 控制面板 | v2 Agent 面板 |
+|---|---|---|
+| **入口路由** | `web/src/routes/_app.tsx`（pathless layout） | `web/src/routes/agent/$agentId.tsx` |
+| **Shell 组件** | `web/src/components/shell/`：AppShell、Sidebar、Topbar | `web/src/pages/agent-panel/`：AgentAppShell、AgentSidebar |
+| **布局结构** | Sidebar（可折叠）+ Topbar + 主内容区 | AgentSidebar（不可折叠）+ ChatPanel + ArtifactsPanel（可折叠） |
+| **Sidebar 位置** | `web/src/components/shell/Sidebar.tsx` | `web/src/pages/agent-panel/AgentSidebar.tsx` |
+| **Sidebar 特性** | 可折叠/展开，导航项直接渲染为 Link | 始终展开，导航项通过 DropdownMenu 跳转 v1 页面 |
+| **认证状态** | Topbar 中的用户头像 + 退出登录 | Sidebar 底部的用户头像 + 退出登录弹窗 |
+| **团队切换** | Sidebar 底部 OrgSwitcher | Sidebar 底部 OrgSwitcher（与用户头像同区域） |
+| **聊天组件** | `web/components/chat/`（ChatInterface、ChatView 等） | 复用同一套 chat 组件，通过 ChatPanel 包装 |
+| **共享组件** | `web/components/`（chat/、ai-elements/、ui/、config/） | 同左 |
+| **CSS** | 全局样式 `web/src/index.css` | 专有样式 `web/src/pages/agent-panel/agent-panel.css` |
+
+注意事项：
+- `web/components/` 是两套 UI 共享的组件层（chat、ui、ai-elements 等），修改会影响两边
+- `web/src/components/` 是 v1 专用组件（shell/、config/、agent-panel/ 等）
+- `web/src/pages/agent-panel/` 是 v2 专有页面，包含自己的 Sidebar、CSS 和布局逻辑
+- OrgSwitcher（`web/src/components/OrgSwitcher.tsx`）被两个版本的 Sidebar 共用，样式需保持一致
+- v2 Sidebar 不支持折叠，不要添加 collapsed 相关逻辑
+- v2 的 AgentSidebarConfig 通过 `onNavigate` 回调导航到 v1 页面（models、skills 等），不是内部路由
+
 **导航方式**：
 
 - 声明式：`<Link to="/models">`（Sidebar 导航项）

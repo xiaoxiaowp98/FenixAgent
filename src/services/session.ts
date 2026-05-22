@@ -21,6 +21,14 @@ export function _setUuid(fn: () => string) {
   _uuid = fn;
 }
 
+import { sessionRepo as realSessionRepo } from "../repositories";
+import type { ISessionRepo } from "../repositories";
+
+export let _sessionRepo: ISessionRepo = realSessionRepo;
+export function _setSessionRepo(repo: ISessionRepo) {
+  _sessionRepo = repo;
+}
+
 // ────────────────────────────────────────────
 // EventBus 相关（核心保留）
 // ────────────────────────────────────────────
@@ -64,17 +72,21 @@ export async function resolveExistingSessionId(sessionId: string): Promise<strin
   return bus ? sessionId : null;
 }
 
-/** Session 不再由 RCS 创建，返回轻量存根 */
-export async function createSession(_req: Record<string, unknown>): Promise<LightweightSession> {
-  const id = `session_${_uuid().replace(/-/g, "")}`;
-  return { id, status: "idle" };
+/** Session 创建 — 写入 PG 持久化 */
+export async function createSession(req: Record<string, unknown>): Promise<LightweightSession> {
+  const session = await _sessionRepo.create({
+    environmentId: req.environment_id as string | undefined,
+    title: req.title as string | undefined,
+    source: (req.source as string) || "acp",
+    idPrefix: req.idPrefix as string | undefined,
+    userId: req.userId as string | undefined,
+  });
+  return { id: session.id, status: session.status };
 }
 
 // ────────────────────────────────────────────
 // Repository 代理接口
 // ────────────────────────────────────────────
-
-import { sessionRepo } from "../repositories";
 
 /** 查找或创建属于某 Environment 的 Session（Bridge 注册编排用） */
 export async function findOrCreateForEnvironment(
@@ -83,11 +95,11 @@ export async function findOrCreateForEnvironment(
   userId: string,
   source: string = "acp",
 ): Promise<{ id: string }> {
-  const existing = await sessionRepo.listByEnvironment(environmentId);
+  const existing = await _sessionRepo.listByEnvironment(environmentId);
   if (existing.length > 0) {
     return { id: existing[0].id };
   }
-  const session = await sessionRepo.create({
+  const session = await _sessionRepo.create({
     environmentId,
     title: defaultTitle,
     source,
@@ -98,5 +110,5 @@ export async function findOrCreateForEnvironment(
 
 /** 绑定 Session 的 owner UUID（web/auth 路由用） */
 export async function bindSessionOwner(sessionId: string, userId: string): Promise<void> {
-  await sessionRepo.bindOwner(sessionId, userId);
+  await _sessionRepo.bindOwner(sessionId, userId);
 }

@@ -34,4 +34,16 @@ export const PaginationParamsSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional().default(20),
 });
 
+/** 通用操作成功响应: `{ ok: true }` */
+export const OkResponseSchema = z.object({
+  ok: z.literal(true),
+});
+
+/** 通用状态响应: `{ status: "ok" }` */
+export const StatusOkResponseSchema = z.object({
+  status: z.literal("ok"),
+});
+
 export type PaginationParams = z.infer<typeof PaginationParamsSchema>;
+export type OkResponse = z.infer<typeof OkResponseSchema>;
+export type StatusOkResponse = z.infer<typeof StatusOkResponseSchema>;

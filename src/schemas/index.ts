@@ -4,22 +4,36 @@
 export {
   type ChannelBinding,
   ChannelBindingSchema,
+  type ChannelBindingListResponse,
+  ChannelBindingListResponseSchema,
   type ChannelProviderDescriptor,
   ChannelProviderDescriptorSchema,
+  type ChannelProviderListResponse,
+  ChannelProviderListResponseSchema,
   ChannelProviderStatusSchema,
   ChannelProviderTypeSchema,
   type CreateChannelBindingRequest,
   CreateChannelBindingRequestSchema,
+  type CreateChannelBindingResponse,
+  CreateChannelBindingResponseSchema,
+  type DeleteChannelBindingResponse,
+  DeleteChannelBindingResponseSchema,
   type HermesStatus,
   HermesStatusSchema,
+  type UpdateChannelBindingResponse,
+  UpdateChannelBindingResponseSchema,
 } from "./channel.schema";
 export {
   ApiErrorSchema,
   ConfigErrSchema,
   ConfigOkSchema,
   ConfigResponseSchema,
+  type OkResponse,
+  OkResponseSchema,
   type PaginationParams,
   PaginationParamsSchema,
+  type StatusOkResponse,
+  StatusOkResponseSchema,
 } from "./common.schema";
 // Config
 export {
@@ -56,6 +70,8 @@ export {
 export {
   type CreateEnvironmentRequest,
   CreateEnvironmentRequestSchema,
+  type DeleteEnvironmentResponse,
+  DeleteEnvironmentResponseSchema,
   EnterEnvironmentRequestSchema,
   type EnterEnvironmentResponse,
   EnterEnvironmentResponseSchema,
@@ -69,6 +85,8 @@ export {
   ListInstancesResponseSchema,
   type UpdateEnvironmentRequest,
   UpdateEnvironmentRequestSchema,
+  type UpdateEnvironmentResponse,
+  UpdateEnvironmentResponseSchema,
 } from "./environment.schema";
 // Files
 export {
@@ -87,8 +105,12 @@ export {
 } from "./file.schema";
 // Instances
 export {
+  type DeleteInstanceResponse,
+  DeleteInstanceResponseSchema,
   type InstanceInfo,
   InstanceInfoSchema,
+  type InstanceListResponse,
+  InstanceListResponseSchema,
   type InstanceStatus,
   InstanceStatusSchema,
   type SpawnInstanceFromEnvironmentRequest,
@@ -98,15 +120,25 @@ export {
 export {
   type CreateKnowledgeBaseRequest,
   CreateKnowledgeBaseRequestSchema,
+  type DeleteKnowledgeBaseResponse,
+  DeleteKnowledgeBaseResponseSchema,
+  type DeleteKnowledgeResourceResponse,
+  DeleteKnowledgeResourceResponseSchema,
   ImportKnowledgeUrlRequestSchema,
+  type ImportKnowledgeUrlResponse,
+  ImportKnowledgeUrlResponseSchema,
   type KnowledgeBaseInfo,
   KnowledgeBaseInfoSchema,
+  type KnowledgeBaseListResponse,
+  KnowledgeBaseListResponseSchema,
   KnowledgeBaseStatusSchema,
   type KnowledgeResourceItem,
   KnowledgeResourceItemSchema,
   KnowledgeResourceStatusSchema,
   type UpdateKnowledgeBaseRequest,
   UpdateKnowledgeBaseRequestSchema,
+  type UploadKnowledgeResourcesResponse,
+  UploadKnowledgeResourcesResponseSchema,
 } from "./knowledge.schema";
 // S3 Files
 export {
@@ -132,11 +164,17 @@ export {
 } from "./s3-file.schema";
 // Sessions
 export {
+  type InterruptResponse,
+  InterruptResponseSchema,
+  type SendEventResponse,
+  SendEventResponseSchema,
   type SessionEvent,
   SessionEventPayloadSchema,
   SessionEventSchema,
   type SessionHistory,
   SessionHistorySchema,
+  type SessionListResponse,
+  SessionListResponseSchema,
   type SessionResponse,
   SessionResponseSchema,
   type SessionSummary,
@@ -144,14 +182,76 @@ export {
 } from "./session.schema";
 // Tasks
 export {
+  type ClearTaskLogsResponse,
+  ClearTaskLogsResponseSchema,
   type CreateTaskRequest,
   CreateTaskRequestSchema,
+  type DeleteTaskResponse,
+  DeleteTaskResponseSchema,
   type ExecutionLogInfo,
   ExecutionLogInfoSchema,
   type PaginatedLogs,
   PaginatedLogsSchema,
   type TaskInfo,
   TaskInfoSchema,
+  type ToggleTaskResponse,
+  ToggleTaskResponseSchema,
+  type TriggerTaskResponse,
+  TriggerTaskResponseSchema,
   type UpdateTaskRequest,
   UpdateTaskRequestSchema,
 } from "./task.schema";
+// V1 Environment
+export {
+  type BridgeRegistrationRequest,
+  BridgeRegistrationRequestSchema,
+  type BridgeRegistrationResponse,
+  BridgeRegistrationResponseSchema,
+} from "./v1-environment.schema";
+// V1 Session
+export {
+  type CreateSessionRequest,
+  CreateSessionRequestSchema,
+  type SendEventsRequest,
+  SendEventsRequestSchema,
+  type UpdateSessionRequest,
+  UpdateSessionRequestSchema,
+  type V1ArchiveSessionResponse,
+  V1ArchiveSessionResponseSchema,
+  type V1CreateSessionResponse,
+  V1CreateSessionResponseSchema,
+  type V1GetSessionResponse,
+  V1GetSessionResponseSchema,
+  type V1SendEventsResponse,
+  V1SendEventsResponseSchema,
+} from "./v1-session.schema";
+// V2 Code Session
+export {
+  type CodeSessionBridgeResponse,
+  CodeSessionBridgeResponseSchema,
+  type CreateCodeSessionRequest,
+  CreateCodeSessionRequestSchema,
+  type CreateCodeSessionResponse,
+  CreateCodeSessionResponseSchema,
+} from "./v2-code-session.schema";
+// V2 Worker
+export {
+  type GetWorkerResponse,
+  GetWorkerResponseSchema,
+  type UpdateWorkerRequest,
+  UpdateWorkerRequestSchema,
+  type UpdateWorkerResponse,
+  UpdateWorkerResponseSchema,
+  type WorkerHeartbeatResponse,
+  WorkerHeartbeatResponseSchema,
+  WorkerRegisterResponseSchema,
+} from "./v2-worker.schema";
+// V2 Worker Events
+export {
+  type WorkerEventsRequest,
+  WorkerEventsRequestSchema,
+  type WorkerEventsResponse,
+  WorkerEventsResponseSchema,
+  type WorkerStateRequest,
+  WorkerStateRequestSchema,
+} from "./v2-worker-events.schema";

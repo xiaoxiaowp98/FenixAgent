@@ -12,4 +12,14 @@ export const BridgeRegistrationRequestSchema = z.object({
   metadata: z.object({ worker_type: z.string().optional() }).optional(),
 });
 
+/** POST /v1/environments/bridge 注册响应 */
+export const BridgeRegistrationResponseSchema = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  token: z.string().optional(),
+  secret: z.string().optional(),
+  status: z.string().optional(),
+});
+
 export type BridgeRegistrationRequest = z.infer<typeof BridgeRegistrationRequestSchema>;
+export type BridgeRegistrationResponse = z.infer<typeof BridgeRegistrationResponseSchema>;

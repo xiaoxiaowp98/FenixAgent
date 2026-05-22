@@ -6,6 +6,7 @@
 
 // ── Common ──
 export type { PaginationParams } from "../../../src/schemas/common.schema";
+export type { OkResponse, StatusOkResponse } from "../../../src/schemas/common.schema";
 
 // ── Environment ──
 export type {
@@ -15,6 +16,8 @@ export type {
   UpdateEnvironmentRequest,
   EnterEnvironmentResponse,
   ListInstancesResponse,
+  UpdateEnvironmentResponse,
+  DeleteEnvironmentResponse,
 } from "../../../src/schemas/environment.schema";
 
 // ── Instance ──
@@ -22,6 +25,8 @@ export type {
   InstanceInfo,
   InstanceStatus,
   SpawnInstanceFromEnvironmentRequest,
+  InstanceListResponse,
+  DeleteInstanceResponse,
 } from "../../../src/schemas/instance.schema";
 
 // ── Session ──
@@ -30,6 +35,9 @@ export type {
   SessionSummary,
   SessionEvent,
   SessionHistory,
+  SessionListResponse,
+  SendEventResponse,
+  InterruptResponse,
 } from "../../../src/schemas/session.schema";
 
 // ── Config ──
@@ -57,6 +65,10 @@ export type {
   PaginatedLogs,
   CreateTaskRequest,
   UpdateTaskRequest,
+  DeleteTaskResponse,
+  ToggleTaskResponse,
+  TriggerTaskResponse,
+  ClearTaskLogsResponse,
 } from "../../../src/schemas/task.schema";
 
 // ── File ──
@@ -86,6 +98,11 @@ export type {
   KnowledgeResourceItem,
   CreateKnowledgeBaseRequest,
   UpdateKnowledgeBaseRequest,
+  KnowledgeBaseListResponse,
+  DeleteKnowledgeBaseResponse,
+  UploadKnowledgeResourcesResponse,
+  ImportKnowledgeUrlResponse,
+  DeleteKnowledgeResourceResponse,
 } from "../../../src/schemas/knowledge.schema";
 
 // ── Channel ──
@@ -94,20 +111,29 @@ export type {
   HermesStatus,
   ChannelBinding,
   CreateChannelBindingRequest,
+  ChannelProviderListResponse,
+  ChannelBindingListResponse,
+  CreateChannelBindingResponse,
+  DeleteChannelBindingResponse,
+  UpdateChannelBindingResponse,
 } from "../../../src/schemas/channel.schema";
 
 // ── V1 ──
-export type { BridgeRegistrationRequest } from "../../../src/schemas/v1-environment.schema";
+export type { BridgeRegistrationRequest, BridgeRegistrationResponse } from "../../../src/schemas/v1-environment.schema";
 export type {
   CreateSessionRequest,
   UpdateSessionRequest,
   SendEventsRequest,
+  V1CreateSessionResponse,
+  V1GetSessionResponse,
+  V1SendEventsResponse,
 } from "../../../src/schemas/v1-session.schema";
 
 // ── V2 ──
-export type { CreateCodeSessionRequest } from "../../../src/schemas/v2-code-session.schema";
-export type { UpdateWorkerRequest } from "../../../src/schemas/v2-worker.schema";
+export type { CreateCodeSessionRequest, CreateCodeSessionResponse, CodeSessionBridgeResponse } from "../../../src/schemas/v2-code-session.schema";
+export type { UpdateWorkerRequest, GetWorkerResponse, UpdateWorkerResponse, WorkerHeartbeatResponse } from "../../../src/schemas/v2-worker.schema";
 export type {
   WorkerEventsRequest,
   WorkerStateRequest,
+  WorkerEventsResponse,
 } from "../../../src/schemas/v2-worker-events.schema";

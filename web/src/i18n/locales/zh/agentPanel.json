@@ -32,5 +32,6 @@
   "loading_agent_panel": "加载智能体面板...",
   "navigation": "设置",
   "createAgent": "新建智能体",
+  "agentConfig": "智能体配置",
   "newInstance": "新建实例"
 }

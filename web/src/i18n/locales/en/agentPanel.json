@@ -32,5 +32,6 @@
   "loading_agent_panel": "Loading agent panel...",
   "navigation": "Settings",
   "createAgent": "New Agent",
+  "agentConfig": "Agent Config",
   "newInstance": "New Instance"
 }

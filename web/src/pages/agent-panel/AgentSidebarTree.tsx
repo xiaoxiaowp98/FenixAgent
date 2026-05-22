@@ -10,9 +10,15 @@ interface AgentSidebarTreeProps {
   selectedInstanceId: string | null;
   onSelectInstance: (instanceId: string, envId: string, sessionId: string | null) => void;
   onCreateAgent?: () => void;
+  onEditAgent?: (agentName: string) => void;
 }
 
-export function AgentSidebarTree({ selectedInstanceId, onSelectInstance, onCreateAgent }: AgentSidebarTreeProps) {
+export function AgentSidebarTree({
+  selectedInstanceId,
+  onSelectInstance,
+  onCreateAgent,
+  onEditAgent,
+}: AgentSidebarTreeProps) {
   const { t } = useTranslation(NS.AGENT_PANEL);
   const [envs, setEnvs] = useState<Environment[]>([]);
   const [instancesMap, setInstancesMap] = useState<Record<string, EnvironmentInstance[]>>({});
@@ -76,7 +82,11 @@ export function AgentSidebarTree({ selectedInstanceId, onSelectInstance, onCreat
         await loadData();
       } catch (err) {
         console.error("Failed to stop instance:", err);
-        toast.error(t("stopInstanceFailed", { message: (err as Error).message }));
+        toast.error(
+          t("stopInstanceFailed", {
+            message: (err as Error).message,
+          }),
+        );
       }
     },
     [loadData, t],
@@ -86,14 +96,19 @@ export function AgentSidebarTree({ selectedInstanceId, onSelectInstance, onCreat
     async (env: Environment, instanceNumber?: number) => {
       try {
         const body = instanceNumber !== undefined ? { instance_number: instanceNumber } : {};
-        const result = await apiPost<{ session_id: string; instance_id: string; environment_id: string }>(
-          `/web/environments/${env.id}/enter`,
-          body,
-        );
+        const result = await apiPost<{
+          session_id: string;
+          instance_id: string;
+          environment_id: string;
+        }>(`/web/environments/${env.id}/enter`, body);
         onSelectInstance(result?.instance_id ?? "", result?.environment_id ?? env.id, result?.session_id ?? null);
       } catch (err) {
         console.error("Failed to enter instance:", err);
-        toast.error(t("enterInstanceFailed", { message: (err as Error).message }));
+        toast.error(
+          t("enterInstanceFailed", {
+            message: (err as Error).message,
+          }),
+        );
       }
     },
     [onSelectInstance, t],
@@ -137,7 +152,12 @@ export function AgentSidebarTree({ selectedInstanceId, onSelectInstance, onCreat
           <div key={env.id} className={idx > 0 ? "mt-1.5" : ""}>
             <button
               type="button"
-              onClick={() => setCollapsedEnvs((prev) => ({ ...prev, [env.id]: !prev[env.id] }))}
+              onClick={() =>
+                setCollapsedEnvs((prev) => ({
+                  ...prev,
+                  [env.id]: !prev[env.id],
+                }))
+              }
               className="agent-tree-env-header"
             >
               {collapsed ? (
@@ -148,6 +168,38 @@ export function AgentSidebarTree({ selectedInstanceId, onSelectInstance, onCreat
               <Bot className="w-4 h-4 flex-shrink-0" />
               <span className="truncate">{env.name}</span>
               {instances.length > 0 && <span className="agent-tree-instance-count">{instances.length}</span>}
+
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditAgent?.(env.agent_name!);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.stopPropagation();
+                    onEditAgent?.(env.agent_name!);
+                  }
+                }}
+                title={t("agentConfig")}
+                className={`w-5 h-5 flex items-center justify-center rounded hover:bg-surface-hover flex-shrink-0 text-text-dim hover:text-text-primary transition-colors${instances.length === 0 ? " ml-auto" : ""}`}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </span>
             </button>
             {!collapsed && (
               <div className="agent-tree-env-body">
@@ -168,7 +220,11 @@ export function AgentSidebarTree({ selectedInstanceId, onSelectInstance, onCreat
                         onClick={() => handleEnterInstance(env, inst.instance_number)}
                       >
                         <span className={`status-dot ${getInstanceStatus(inst)}`} />
-                        <span className="truncate">{t("instanceN", { number: inst.instance_number })}</span>
+                        <span className="truncate">
+                          {t("instanceN", {
+                            number: inst.instance_number,
+                          })}
+                        </span>
                       </div>
                     ))
                   : null}

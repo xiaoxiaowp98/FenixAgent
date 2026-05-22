@@ -27,6 +27,7 @@
   "batchDeleteError": "Batch delete failed: {{message}}",
   "dialog": {
     "editTitle": "Edit Agent",
+    "cancel": "Cancel",
     "createTitle": "New Agent",
     "tabs": {
       "basic": "Basic Config",

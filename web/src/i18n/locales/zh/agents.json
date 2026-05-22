@@ -27,6 +27,7 @@
   "batchDeleteError": "批量删除失败: {{message}}",
   "dialog": {
     "editTitle": "编辑Agent",
+    "cancel": "取消",
     "createTitle": "新建Agent",
     "tabs": {
       "basic": "基础配置",

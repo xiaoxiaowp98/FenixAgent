@@ -178,6 +178,8 @@ export function AgentSidebarTree({
           enterResult?.environment_id ?? envId,
           enterResult?.session_id ?? null,
         );
+        // 刷新列表以展示新实例
+        loadData();
       } catch (err) {
         console.error("Failed to enter instance:", err);
         toast.error(

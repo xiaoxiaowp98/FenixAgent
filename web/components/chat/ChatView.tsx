@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { PlanDisplayEntry, ThreadEntry, ToolCallEntry } from "../../src/lib/types";
 import { cn } from "../../src/lib/utils";
 import {
@@ -170,6 +171,7 @@ function groupToolCalls(entries: ThreadEntry[]): GroupedItem[] {
 // =============================================================================
 
 function LoadingIndicator() {
+  const { t } = useTranslation("components");
   return (
     <div className="flex items-center gap-3 pt-3">
       <div className="chat-loading-dots" aria-hidden="true">
@@ -177,7 +179,7 @@ function LoadingIndicator() {
         <span />
         <span />
       </div>
-      <span className="text-xs text-text-muted loading-text-shimmer">思考中</span>
+      <span className="text-xs text-text-muted loading-text-shimmer">{t("chatView.thinking")}</span>
     </div>
   );
 }

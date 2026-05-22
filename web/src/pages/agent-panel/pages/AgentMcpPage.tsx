@@ -707,7 +707,7 @@ export function AgentMcpPage() {
                   {formHeaders.map((entry, idx) => (
                     <div key={entry.key || `header-${idx}`} className="flex gap-2 items-center">
                       <Input
-                        placeholder="Header Name"
+                        placeholder={t("headerNamePlaceholder")}
                         value={entry.key}
                         onChange={(e) => {
                           const next = [...formHeaders];
@@ -717,7 +717,7 @@ export function AgentMcpPage() {
                         className="flex-1 text-sm"
                       />
                       <Input
-                        placeholder="Header Value"
+                        placeholder={t("headerValuePlaceholder")}
                         value={entry.value}
                         onChange={(e) => {
                           const next = [...formHeaders];

@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -8,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles } from "lucide-react";
 import { apiPost, fetchUpload } from "../../../api/client";
 import { dispatchConfigChange } from "../../../lib/config-events";
 import { buildSkillUploadFormData, parseSkillUploadFiles, validateUploadBatch } from "../../../lib/skill-upload";

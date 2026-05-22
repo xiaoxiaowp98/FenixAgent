@@ -1,5 +1,6 @@
 import { PanelRight, PanelRightClose } from "lucide-react";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { ThreadEntry, ToolCallEntry } from "../src/lib/types";
 import { cn } from "../src/lib/utils";
 
@@ -17,6 +18,7 @@ interface ContextPanelProps {
 }
 
 export function ContextPanel({ entries, agentName, modelName, duration, collapsed, onToggle }: ContextPanelProps) {
+  const { t } = useTranslation("components");
   const stats = useMemo(() => computeStats(entries), [entries]);
   const displayAgentName = useMemo(() => simplifyDisplayName(agentName), [agentName]);
 
@@ -26,8 +28,8 @@ export function ContextPanel({ entries, agentName, modelName, duration, collapse
       <button
         className="absolute left-0 -translate-x-full top-1/2 -translate-y-1/2 z-10 w-6 h-12 flex items-center justify-center rounded-l-lg border border-border border-r-0 bg-surface-1 text-text-muted cursor-pointer transition-colors duration-150 hover:bg-surface-2 hover:text-text-primary"
         onClick={onToggle}
-        title={collapsed ? "显示上下文面板" : "隐藏上下文面板"}
-        aria-label={collapsed ? "显示上下文面板" : "隐藏上下文面板"}
+        title={collapsed ? t("contextPanel.showContext") : t("contextPanel.hideContext")}
+        aria-label={collapsed ? t("contextPanel.showContext") : t("contextPanel.hideContext")}
       >
         {collapsed ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRight className="h-3.5 w-3.5" />}
       </button>
@@ -70,7 +72,9 @@ export function ContextPanel({ entries, agentName, modelName, duration, collapse
               className="w-1.5 h-1.5 rounded-full bg-accent-green animate-[status-active-pulse_2s_ease-in-out_infinite]"
               style={{ boxShadow: "0 0 6px color-mix(in srgb, var(--color-accent-green) 40%, transparent)" }}
             />
-            <span className="text-[10px] font-semibold text-accent-green uppercase tracking-[0.05em]">Running</span>
+            <span className="text-[10px] font-semibold text-accent-green uppercase tracking-[0.05em]">
+              {t("contextPanel.running")}
+            </span>
             {duration && <span className="text-[10px] text-text-dim ml-auto font-mono">{duration}</span>}
           </div>
         </div>
@@ -79,22 +83,28 @@ export function ContextPanel({ entries, agentName, modelName, duration, collapse
         <div className="grid grid-cols-3 border-b border-border">
           <div className="px-3 py-2.5 text-center border-r border-border">
             <div className="text-sm font-bold font-mono text-brand">{formatTokenCount(stats.estimatedTokens)}</div>
-            <div className="text-[9px] font-semibold uppercase tracking-[0.06em] text-text-muted mt-0.5">Tokens</div>
+            <div className="text-[9px] font-semibold uppercase tracking-[0.06em] text-text-muted mt-0.5">
+              {t("contextPanel.tokens")}
+            </div>
           </div>
           <div className="px-3 py-2.5 text-center border-r border-border">
             <div className="text-sm font-bold font-mono text-accent-green">{stats.totalToolCalls}</div>
-            <div className="text-[9px] font-semibold uppercase tracking-[0.06em] text-text-muted mt-0.5">Tools</div>
+            <div className="text-[9px] font-semibold uppercase tracking-[0.06em] text-text-muted mt-0.5">
+              {t("contextPanel.tools")}
+            </div>
           </div>
           <div className="px-3 py-2.5 text-center">
             <div className="text-sm font-bold font-mono text-accent-yellow">{stats.userMessages}</div>
-            <div className="text-[9px] font-semibold uppercase tracking-[0.06em] text-text-muted mt-0.5">Messages</div>
+            <div className="text-[9px] font-semibold uppercase tracking-[0.06em] text-text-muted mt-0.5">
+              {t("contextPanel.messages")}
+            </div>
           </div>
         </div>
 
         {/* Token bar */}
         <div className="px-4 py-3 border-b border-border">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-[11px] font-semibold text-text-secondary">Token 用量</span>
+            <span className="text-[11px] font-semibold text-text-secondary">{t("contextPanel.tokenUsage")}</span>
             <span className="text-[11px] font-mono text-text-primary font-semibold">
               {formatTokenCount(stats.estimatedTokens)} / 200k
             </span>
@@ -136,11 +146,11 @@ export function ContextPanel({ entries, agentName, modelName, duration, collapse
         {/* Tool chips */}
         <div className="px-4 py-3 flex-1">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-[11px] font-semibold text-text-secondary">工具调用</span>
+            <span className="text-[11px] font-semibold text-text-secondary">{t("contextPanel.toolCalls")}</span>
             <span className="text-[10px] font-mono text-text-muted">{stats.totalToolCalls}</span>
           </div>
           {stats.totalToolCalls === 0 ? (
-            <div className="text-[11px] text-text-muted py-1">暂无工具调用</div>
+            <div className="text-[11px] text-text-muted py-1">{t("contextPanel.noToolCalls")}</div>
           ) : (
             <div className="flex flex-wrap gap-1">
               {Object.entries(stats.toolCounts)
@@ -192,7 +202,9 @@ export function ContextPanel({ entries, agentName, modelName, duration, collapse
                 <span className="text-[11px] text-text-primary overflow-hidden text-ellipsis whitespace-nowrap">
                   {tool.title}
                 </span>
-                <span className="text-[9px] font-bold text-accent-yellow uppercase ml-auto shrink-0">待确认</span>
+                <span className="text-[9px] font-bold text-accent-yellow uppercase ml-auto shrink-0">
+                  {t("contextPanel.pendingConfirmation")}
+                </span>
               </div>
             ))}
           </div>

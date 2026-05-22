@@ -3,6 +3,7 @@
 import { ArrowDownIcon, UserIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 import { cn } from "../../src/lib/utils";
 import { Button } from "../ui/button";
@@ -36,27 +37,32 @@ export type ConversationEmptyStateProps = ComponentProps<"div"> & {
 
 export const ConversationEmptyState = ({
   className,
-  title = "No messages yet",
-  description = "Start a conversation to see messages here",
+  title,
+  description,
   icon,
   children,
   ...props
-}: ConversationEmptyStateProps) => (
-  <div
-    className={cn("flex size-full flex-col items-center justify-center gap-4 p-8 text-center", className)}
-    {...props}
-  >
-    {children ?? (
-      <>
-        {icon && <div className="text-text-muted">{icon}</div>}
-        <div className="space-y-2">
-          <h3 className="font-semibold text-base font-display text-text-primary">{title}</h3>
-          {description && <p className="text-text-muted text-sm leading-relaxed max-w-xs">{description}</p>}
-        </div>
-      </>
-    )}
-  </div>
-);
+}: ConversationEmptyStateProps) => {
+  const { t } = useTranslation("components");
+  const _title = title ?? t("conversation.noMessages");
+  const _description = description ?? t("conversation.startConversation");
+  return (
+    <div
+      className={cn("flex size-full flex-col items-center justify-center gap-4 p-8 text-center", className)}
+      {...props}
+    >
+      {children ?? (
+        <>
+          {icon && <div className="text-text-muted">{icon}</div>}
+          <div className="space-y-2">
+            <h3 className="font-semibold text-base font-display text-text-primary">{_title}</h3>
+            {_description && <p className="text-text-muted text-sm leading-relaxed max-w-xs">{_description}</p>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 export type ConversationScrollButtonProps = ComponentProps<typeof Button>;
 
@@ -67,6 +73,7 @@ export type ConversationScrollButtonProps = ComponentProps<typeof Button>;
  * When used in ConversationScrollButtons, the container manages visibility.
  */
 export const ConversationScrollButton = ({ className, ...props }: ConversationScrollButtonProps) => {
+  const { t } = useTranslation("components");
   const { scrollToBottom } = useStickToBottomContext();
 
   const handleScrollToBottom = useCallback(() => {
@@ -80,7 +87,7 @@ export const ConversationScrollButton = ({ className, ...props }: ConversationSc
       size="icon"
       type="button"
       variant="outline"
-      title="Scroll to bottom"
+      title={t("conversation.scrollToBottom")}
       {...props}
     >
       <ArrowDownIcon className="size-4" />
@@ -104,6 +111,7 @@ export const ConversationScrollToLastUserMessageButton = ({
   className,
   ...props
 }: ConversationScrollToLastUserMessageButtonProps) => {
+  const { t } = useTranslation("components");
   const handleScrollToLastUserMessage = useCallback(() => {
     // Find the last user message element by data attribute
     const lastUserMessage = document.querySelector(`[${LAST_USER_MESSAGE_ATTR}="true"]`);
@@ -119,7 +127,7 @@ export const ConversationScrollToLastUserMessageButton = ({
       size="icon"
       type="button"
       variant="outline"
-      title="Scroll to last user message"
+      title={t("conversation.scrollToLastUserMessage")}
       {...props}
     >
       <UserIcon className="size-4" />

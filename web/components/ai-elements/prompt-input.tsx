@@ -34,6 +34,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../../src/lib/utils";
 import { Button } from "../ui/button";
 import {
@@ -242,6 +243,7 @@ export type PromptInputAttachmentProps = HTMLAttributes<HTMLDivElement> & {
 };
 
 export function PromptInputAttachment({ data, className, ...props }: PromptInputAttachmentProps) {
+  const { t } = useTranslation("components");
   const attachments = usePromptInputAttachments();
 
   const filename = data.filename || "";
@@ -249,7 +251,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
   const mediaType = data.mediaType?.startsWith("image/") && data.url ? "image" : "file";
   const isImage = mediaType === "image";
 
-  const attachmentLabel = filename || (isImage ? "Image" : "Attachment");
+  const attachmentLabel = filename || (isImage ? t("promptInput.image") : t("promptInput.attachment"));
 
   return (
     <PromptInputHoverCard>
@@ -266,7 +268,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
             <div className="absolute inset-0 flex size-5 items-center justify-center overflow-hidden rounded bg-background transition-opacity group-hover:opacity-0">
               {isImage ? (
                 <img
-                  alt={filename || "attachment"}
+                  alt={filename || t("promptInput.attachment")}
                   className="size-5 object-cover"
                   height={20}
                   src={data.url}
@@ -279,7 +281,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
               )}
             </div>
             <Button
-              aria-label="Remove attachment"
+              aria-label={t("promptInput.removeAttachment")}
               className="absolute inset-0 size-5 cursor-pointer rounded p-0 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 [&>svg]:size-2.5"
               onClick={(e) => {
                 e.stopPropagation();
@@ -289,7 +291,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
               variant="ghost"
             >
               <XIcon />
-              <span className="sr-only">Remove</span>
+              <span className="sr-only">{t("promptInput.remove")}</span>
             </Button>
           </div>
 
@@ -312,7 +314,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
           <div className="flex items-center gap-2.5">
             <div className="min-w-0 flex-1 space-y-1 px-0.5">
               <h4 className="truncate font-semibold text-sm leading-none">
-                {filename || (isImage ? "Image" : "Attachment")}
+                {filename || (isImage ? t("promptInput.image") : t("promptInput.attachment"))}
               </h4>
               {data.mediaType && <p className="truncate font-mono text-muted-foreground text-xs">{data.mediaType}</p>}
             </div>
@@ -347,11 +349,10 @@ export type PromptInputActionAddAttachmentsProps = ComponentProps<typeof Dropdow
   label?: string;
 };
 
-export const PromptInputActionAddAttachments = ({
-  label = "Add photos or files",
-  ...props
-}: PromptInputActionAddAttachmentsProps) => {
+export const PromptInputActionAddAttachments = ({ label, ...props }: PromptInputActionAddAttachmentsProps) => {
+  const { t } = useTranslation("components");
   const attachments = usePromptInputAttachments();
+  const _label = label ?? t("promptInput.addPhotosOrFiles");
 
   return (
     <DropdownMenuItem
@@ -361,7 +362,7 @@ export const PromptInputActionAddAttachments = ({
         attachments.openFileDialog();
       }}
     >
-      <ImageIcon className="mr-2 size-4" /> {label}
+      <ImageIcon className="mr-2 size-4" /> {_label}
     </DropdownMenuItem>
   );
 };
@@ -398,6 +399,7 @@ export const PromptInput = ({
   children,
   ...props
 }: PromptInputProps) => {
+  const { t } = useTranslation("components");
   // Try to use a provider controller if present
   const controller = useOptionalPromptInputController();
   const usingProvider = !!controller;
@@ -723,12 +725,12 @@ export const PromptInput = ({
     <>
       <input
         accept={accept}
-        aria-label="Upload files"
+        aria-label={t("promptInput.uploadFiles")}
         className="hidden"
         multiple={multiple}
         onChange={handleChange}
         ref={inputRef}
-        title="Upload files"
+        title={t("promptInput.uploadFiles")}
         type="file"
       />
       <form className={cn("w-full", className)} onSubmit={handleSubmit} ref={formRef} {...props}>
@@ -908,6 +910,7 @@ export const PromptInputSubmit = ({
   children,
   ...props
 }: PromptInputSubmitProps) => {
+  const { t } = useTranslation("components");
   let Icon = <CornerDownLeftIcon className="size-4" />;
 
   if (status === "submitted") {
@@ -920,7 +923,7 @@ export const PromptInputSubmit = ({
 
   return (
     <InputGroupButton
-      aria-label="Submit"
+      aria-label={t("promptInput.submit")}
       className={cn(className)}
       size={size}
       type="submit"

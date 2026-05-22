@@ -2,6 +2,7 @@
 
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { type ComponentProps, createContext, type HTMLAttributes, useContext, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../../src/lib/utils";
 import type { Button } from "../ui/button";
 
@@ -67,6 +68,7 @@ export const CodeBlockCopyButton = ({
   className,
   ...props
 }: CodeBlockCopyButtonProps) => {
+  const { t } = useTranslation("components");
   const [isCopied, setIsCopied] = useState(false);
   const { code } = useContext(CodeBlockContext);
 
@@ -100,12 +102,12 @@ export const CodeBlockCopyButton = ({
       {isCopied ? (
         <>
           <CheckIcon size={12} />
-          <span>已复制</span>
+          <span>{t("codeBlock.copied")}</span>
         </>
       ) : (
         <>
           <CopyIcon size={12} />
-          <span>复制</span>
+          <span>{t("codeBlock.copy")}</span>
         </>
       )}
     </button>

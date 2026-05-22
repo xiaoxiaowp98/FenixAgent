@@ -1,5 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { AssistantMessageEntry, UserMessageEntry, UserMessageImage } from "../../src/lib/types";
 import { cn, esc } from "../../src/lib/utils";
 import { MessageResponse } from "../ai-elements/message";
@@ -19,6 +20,7 @@ interface UserBubbleProps {
 }
 
 export function UserBubble({ entry }: UserBubbleProps) {
+  const { t } = useTranslation("components");
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -66,7 +68,7 @@ export function UserBubble({ entry }: UserBubbleProps) {
                   onClick={() => setExpanded(true)}
                   className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-display font-medium text-white/90 hover:bg-white/15 h-auto"
                 >
-                  <span>展开</span>
+                  <span>{t("messageBubble.expand")}</span>
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               </div>
@@ -90,6 +92,7 @@ interface AssistantBubbleProps {
 }
 
 export function AssistantBubble({ entry, isStreaming, envId }: AssistantBubbleProps) {
+  const { t } = useTranslation("components");
   return (
     <div className="flex gap-4 items-start message-bubble-enter">
       {/* Agent avatar — 窄屏隐藏 */}
@@ -129,6 +132,7 @@ export function AssistantBubble({ entry, isStreaming, envId }: AssistantBubblePr
 // =============================================================================
 
 function ImageThumbnail({ image }: { image: UserMessageImage }) {
+  const { t } = useTranslation("components");
   const dataUrl = `data:${image.mimeType};base64,${image.data}`;
   return (
     <Button
@@ -141,7 +145,7 @@ function ImageThumbnail({ image }: { image: UserMessageImage }) {
         }
       }}
     >
-      <img src={dataUrl} alt="Uploaded image" className="h-20 w-20 object-cover" />
+      <img src={dataUrl} alt={t("messageBubble.uploadedImage")} className="h-20 w-20 object-cover" />
     </Button>
   );
 }

@@ -4,6 +4,7 @@ import type { FileUIPart, UIMessage } from "ai";
 import { ChevronLeftIcon, ChevronRightIcon, Maximize2, Minimize2, PaperclipIcon, XIcon } from "lucide-react";
 import type { ComponentProps, ErrorInfo, HTMLAttributes, ReactElement } from "react";
 import { Component, createContext, lazy, memo, Suspense, useCallback, useContext, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../../src/lib/utils";
 import { Button } from "../ui/button";
 import { ButtonGroup, ButtonGroupText } from "../ui/button-group";
@@ -36,6 +37,7 @@ const PREVIEW_SIZES = [
 ] as const;
 
 function IframePreview({ src, width, height, title, ...rest }: Record<string, unknown>) {
+  const { t } = useTranslation("components");
   const [expanded, setExpanded] = useState(false);
   const [sizeIdx, setSizeIdx] = useState(2); // 默认"大"
   const size = PREVIEW_SIZES[sizeIdx];
@@ -56,7 +58,7 @@ function IframePreview({ src, width, height, title, ...rest }: Record<string, un
           type="button"
           onClick={() => setExpanded(true)}
           className="absolute top-2 right-2 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 opacity-0 group-hover/iframe:opacity-100 transition-opacity hover:bg-white dark:hover:bg-gray-700 shadow-sm"
-          title="扩大"
+          title={t("message.expand")}
         >
           <Maximize2 className="h-5 w-5 text-gray-600 dark:text-gray-300" />
         </button>
@@ -91,7 +93,7 @@ function IframePreview({ src, width, height, title, ...rest }: Record<string, un
                 <button
                   type="button"
                   className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ml-1"
-                  title="缩小"
+                  title={t("message.collapse")}
                 >
                   <Minimize2 className="h-4 w-4" />
                 </button>
@@ -298,11 +300,12 @@ export const MessageBranchSelector = ({ className, from, ...props }: MessageBran
 export type MessageBranchPreviousProps = ComponentProps<typeof Button>;
 
 export const MessageBranchPrevious = ({ children, ...props }: MessageBranchPreviousProps) => {
+  const { t } = useTranslation("components");
   const { goToPrevious, totalBranches } = useMessageBranch();
 
   return (
     <Button
-      aria-label="Previous branch"
+      aria-label={t("message.previousBranch")}
       disabled={totalBranches <= 1}
       onClick={goToPrevious}
       size="icon-sm"
@@ -318,11 +321,12 @@ export const MessageBranchPrevious = ({ children, ...props }: MessageBranchPrevi
 export type MessageBranchNextProps = ComponentProps<typeof Button>;
 
 export const MessageBranchNext = ({ children, className, ...props }: MessageBranchNextProps) => {
+  const { t } = useTranslation("components");
   const { goToNext, totalBranches } = useMessageBranch();
 
   return (
     <Button
-      aria-label="Next branch"
+      aria-label={t("message.nextBranch")}
       disabled={totalBranches <= 1}
       onClick={goToNext}
       size="icon-sm"
@@ -417,17 +421,18 @@ export type MessageAttachmentProps = HTMLAttributes<HTMLDivElement> & {
 };
 
 export function MessageAttachment({ data, className, onRemove, ...props }: MessageAttachmentProps) {
+  const { t } = useTranslation("components");
   const filename = data.filename || "";
   const mediaType = data.mediaType?.startsWith("image/") && data.url ? "image" : "file";
   const isImage = mediaType === "image";
-  const attachmentLabel = filename || (isImage ? "Image" : "Attachment");
+  const attachmentLabel = filename || (isImage ? t("message.image") : t("message.attachment"));
 
   return (
     <div className={cn("group relative size-24 overflow-hidden rounded-lg", className)} {...props}>
       {isImage ? (
         <>
           <img
-            alt={filename || "attachment"}
+            alt={filename || t("message.attachment")}
             className="size-full object-cover"
             height={100}
             src={data.url}
@@ -435,7 +440,7 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
           />
           {onRemove && (
             <Button
-              aria-label="Remove attachment"
+              aria-label={t("message.removeAttachment")}
               className="absolute top-2 right-2 size-6 rounded-full bg-background/80 p-0 opacity-0 backdrop-blur-sm transition-opacity hover:bg-background group-hover:opacity-100 [&>svg]:size-3"
               onClick={(e) => {
                 e.stopPropagation();
@@ -445,7 +450,7 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
               variant="ghost"
             >
               <XIcon />
-              <span className="sr-only">Remove</span>
+              <span className="sr-only">{t("message.remove")}</span>
             </Button>
           )}
         </>
@@ -463,7 +468,7 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
           </Tooltip>
           {onRemove && (
             <Button
-              aria-label="Remove attachment"
+              aria-label={t("message.removeAttachment")}
               className="size-6 shrink-0 rounded-full p-0 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 [&>svg]:size-3"
               onClick={(e) => {
                 e.stopPropagation();
@@ -473,7 +478,7 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
               variant="ghost"
             >
               <XIcon />
-              <span className="sr-only">Remove</span>
+              <span className="sr-only">{t("message.remove")}</span>
             </Button>
           )}
         </>

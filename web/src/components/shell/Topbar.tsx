@@ -66,7 +66,7 @@ export function Topbar() {
       ].join(" ")}
     >
       <div className="flex items-center gap-1.5 text-[13px]">
-        <span className="text-text-dim">Dashboard</span>
+        <span className="text-text-dim">{t("dashboard")}</span>
         <span className="text-text-dim opacity-50">/</span>
         <span className="font-semibold text-text-bright font-[var(--font-display)]">{pageLabel}</span>
       </div>

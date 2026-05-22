@@ -145,5 +145,127 @@
       "noFileSelected": "Select a file to preview",
       "modifiedAt": "Modified"
     }
+  },
+  "tool": {
+    "statusPending": "Pending",
+    "statusRunning": "Running",
+    "statusAwaitingApproval": "Awaiting Approval",
+    "statusResponded": "Responded",
+    "statusCompleted": "Completed",
+    "statusError": "Error",
+    "statusDenied": "Denied",
+    "statusRejected": "Rejected",
+    "parameters": "Parameters",
+    "error": "Error",
+    "result": "Result"
+  },
+  "codeBlock": {
+    "copied": "Copied",
+    "copy": "Copy"
+  },
+  "permissionRequest": {
+    "title": "Permission Required"
+  },
+  "reasoning": {
+    "thinking": "Thinking...",
+    "thought": "Thought for a while",
+    "thoughtFor": "Thought for {{duration}}s"
+  },
+  "conversation": {
+    "noMessages": "No messages yet",
+    "startConversation": "Start a conversation to see messages here",
+    "scrollToBottom": "Scroll to bottom",
+    "scrollToLastUserMessage": "Scroll to last user message"
+  },
+  "message": {
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "previousBranch": "Previous branch",
+    "nextBranch": "Next branch",
+    "image": "Image",
+    "attachment": "Attachment",
+    "removeAttachment": "Remove attachment",
+    "remove": "Remove"
+  },
+  "promptInput": {
+    "image": "Image",
+    "attachment": "Attachment",
+    "removeAttachment": "Remove attachment",
+    "remove": "Remove",
+    "addPhotosOrFiles": "Add photos or files",
+    "uploadFiles": "Upload files",
+    "submit": "Submit"
+  },
+  "chatView": {
+    "thinking": "Thinking..."
+  },
+  "commandMenu": {
+    "noMatch": "No matching commands"
+  },
+  "messageBubble": {
+    "expand": "Expand",
+    "uploadedImage": "Uploaded image"
+  },
+  "planView": {
+    "executionPlan": "Execution Plan"
+  },
+  "sessionSidebar": {
+    "sessions": "Sessions",
+    "historySessions": "History Sessions",
+    "noSessions": "No sessions"
+  },
+  "toolCallGroup": {
+    "input": "Input",
+    "output": "Output"
+  },
+  "chatInput": {
+    "placeholder": "Send a message to the agent...",
+    "commandList": "Command List",
+    "referenceFile": "Reference File"
+  },
+  "modelConfig": {
+    "title": "Model Configuration",
+    "description": "Select primary and lightweight models",
+    "primaryModel": "Primary Model",
+    "primaryModelPlaceholder": "Select primary model",
+    "lightweightModel": "Lightweight Model",
+    "lightweightModelPlaceholder": "Select lightweight model",
+    "manualInputPlaceholder": "Or enter model ID manually"
+  },
+  "acpConnect": {
+    "server": "Server",
+    "connect": "Connect",
+    "remoteAccessPlaceholder": "For remote access"
+  },
+  "acpMain": {
+    "newSession": "New Session",
+    "noSessions": "No sessions",
+    "clickToCreate": "Click + above to create a new session",
+    "historySessions": "History Sessions",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "earlier": "Earlier"
+  },
+  "chatInterface": {
+    "newThread": "New Thread",
+    "agentPlaceholder": "Send a message to the agent...",
+    "waitingSession": "Waiting for session...",
+    "readonlyMode": "Read-only mode — cannot send messages"
+  },
+  "chatMessage": {
+    "you": "You",
+    "agent": "Agent"
+  },
+  "contextPanel": {
+    "showContext": "Show context panel",
+    "hideContext": "Hide context panel",
+    "running": "Running",
+    "tokens": "Tokens",
+    "tools": "Tools",
+    "messages": "Messages",
+    "tokenUsage": "Token Usage",
+    "toolCalls": "Tool Calls",
+    "noToolCalls": "No tool calls",
+    "pendingConfirmation": "Pending"
   }
 }

@@ -277,7 +277,11 @@
     "workflow_draft_path": "Draft Path",
     "workflow_read_prompt": "Please read the draft file first before responding to user requests.",
     "confirm_delete_latest": "Are you sure you want to set latest to v{{version}}?",
-    "confirm_restore_draft": "Restore v{{version}} content to draft? Current draft will be overwritten."
+    "confirm_restore_draft": "Restore v{{version}} content to draft? Current draft will be overwritten.",
+    "type_shell": "Shell",
+    "type_python": "Python",
+    "type_agent": "Agent",
+    "type_api": "API"
   },
   "page": {
     "back_to_list": "Back to list",

@@ -145,5 +145,127 @@
       "noFileSelected": "选择文件以预览",
       "modifiedAt": "修改时间"
     }
+  },
+  "tool": {
+    "statusPending": "等待中",
+    "statusRunning": "运行中",
+    "statusAwaitingApproval": "等待批准",
+    "statusResponded": "已响应",
+    "statusCompleted": "已完成",
+    "statusError": "错误",
+    "statusDenied": "已拒绝",
+    "statusRejected": "已拒绝",
+    "parameters": "参数",
+    "error": "错误",
+    "result": "结果"
+  },
+  "codeBlock": {
+    "copied": "已复制",
+    "copy": "复制"
+  },
+  "permissionRequest": {
+    "title": "需要权限"
+  },
+  "reasoning": {
+    "thinking": "思考中...",
+    "thought": "思考了一会",
+    "thoughtFor": "思考了 {{duration}} 秒"
+  },
+  "conversation": {
+    "noMessages": "暂无消息",
+    "startConversation": "开始对话以查看消息",
+    "scrollToBottom": "滚动到底部",
+    "scrollToLastUserMessage": "滚动到最后一条用户消息"
+  },
+  "message": {
+    "expand": "扩大",
+    "collapse": "缩小",
+    "previousBranch": "上一个分支",
+    "nextBranch": "下一个分支",
+    "image": "图片",
+    "attachment": "附件",
+    "removeAttachment": "移除附件",
+    "remove": "移除"
+  },
+  "promptInput": {
+    "image": "图片",
+    "attachment": "附件",
+    "removeAttachment": "移除附件",
+    "remove": "移除",
+    "addPhotosOrFiles": "添加图片或文件",
+    "uploadFiles": "上传文件",
+    "submit": "提交"
+  },
+  "chatView": {
+    "thinking": "思考中"
+  },
+  "commandMenu": {
+    "noMatch": "没有匹配的命令"
+  },
+  "messageBubble": {
+    "expand": "展开",
+    "uploadedImage": "已上传图片"
+  },
+  "planView": {
+    "executionPlan": "执行计划"
+  },
+  "sessionSidebar": {
+    "sessions": "会话",
+    "historySessions": "历史会话",
+    "noSessions": "暂无会话"
+  },
+  "toolCallGroup": {
+    "input": "输入",
+    "output": "输出"
+  },
+  "chatInput": {
+    "placeholder": "给智能体发送消息…",
+    "commandList": "命令列表",
+    "referenceFile": "引用文件"
+  },
+  "modelConfig": {
+    "title": "模型配置",
+    "description": "选择主模型和轻量模型",
+    "primaryModel": "主模型",
+    "primaryModelPlaceholder": "选择主模型",
+    "lightweightModel": "轻量模型",
+    "lightweightModelPlaceholder": "选择轻量模型",
+    "manualInputPlaceholder": "或手动输入模型 ID"
+  },
+  "acpConnect": {
+    "server": "服务器",
+    "connect": "连接",
+    "remoteAccessPlaceholder": "用于远程访问"
+  },
+  "acpMain": {
+    "newSession": "新会话",
+    "noSessions": "暂无会话",
+    "clickToCreate": "点击上方 + 创建新会话",
+    "historySessions": "历史会话",
+    "today": "今天",
+    "yesterday": "昨天",
+    "earlier": "更早"
+  },
+  "chatInterface": {
+    "newThread": "新对话",
+    "agentPlaceholder": "给智能体发送消息…",
+    "waitingSession": "等待会话...",
+    "readonlyMode": "只读模式 — 无法发送消息"
+  },
+  "chatMessage": {
+    "you": "你",
+    "agent": "智能体"
+  },
+  "contextPanel": {
+    "showContext": "显示上下文面板",
+    "hideContext": "隐藏上下文面板",
+    "running": "运行中",
+    "tokens": "Token",
+    "tools": "工具",
+    "messages": "消息",
+    "tokenUsage": "Token 用量",
+    "toolCalls": "工具调用",
+    "noToolCalls": "暂无工具调用",
+    "pendingConfirmation": "待确认"
   }
 }

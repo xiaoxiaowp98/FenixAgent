@@ -18,5 +18,6 @@
   "expand": "Expand sidebar",
   "logout": "Sign Out",
   "searchDev": "Global search coming soon",
-  "agentPanel": "Agent Panel"
+  "agentPanel": "Agent Panel",
+  "dashboard": "Dashboard"
 }

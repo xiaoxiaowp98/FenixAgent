@@ -1292,10 +1292,10 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                       }}
                       disabled={readOnly}
                     >
-                      <option value="shell">Shell</option>
-                      <option value="python">Python</option>
-                      <option value="agent">Agent</option>
-                      <option value="api">API</option>
+                      <option value="shell">{t("editor.type_shell")}</option>
+                      <option value="python">{t("editor.type_python")}</option>
+                      <option value="agent">{t("editor.type_agent")}</option>
+                      <option value="api">{t("editor.type_api")}</option>
                       <option value="audit">{t("editor.type_audit")}</option>
                       <option value="workflow">{t("editor.type_workflow")}</option>
                       <option value="loop">{t("editor.type_loop")}</option>

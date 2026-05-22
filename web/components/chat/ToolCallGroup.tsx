@@ -1,5 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ToolCallData, ToolCallEntry } from "../../src/lib/types";
 import { cn } from "../../src/lib/utils";
 import { ToolPermissionButtons } from "../ai-elements/permission-request";
@@ -126,6 +127,7 @@ interface ToolCallRowProps {
 }
 
 function ToolCallRow({ tool, onPermissionRespond }: ToolCallRowProps) {
+  const { t } = useTranslation("components");
   const [showDetail, setShowDetail] = useState(false);
   const detailRef = useRef<HTMLDivElement>(null);
   const [detailHeight, setDetailHeight] = useState(0);
@@ -198,7 +200,9 @@ function ToolCallRow({ tool, onPermissionRespond }: ToolCallRowProps) {
           <div className="px-3 py-2 pl-12">
             {tool.rawInput && Object.keys(tool.rawInput).length > 0 && (
               <div className={hasOutput ? "mb-2" : ""}>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-1">输入</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-1">
+                  {t("toolCallGroup.input")}
+                </div>
                 <pre className="tool-call-detail-code text-[11px] bg-surface-1 rounded-md p-2 overflow-x-auto font-mono max-h-36 text-text-secondary">
                   {truncate(JSON.stringify(tool.rawInput, null, 2), 2000)}
                 </pre>
@@ -206,7 +210,9 @@ function ToolCallRow({ tool, onPermissionRespond }: ToolCallRowProps) {
             )}
             {hasOutput && (
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-1">输出</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-text-dim mb-1">
+                  {t("toolCallGroup.output")}
+                </div>
                 <pre
                   className={cn(
                     "tool-call-detail-code text-[11px] rounded-md p-2 overflow-x-auto font-mono max-h-36",

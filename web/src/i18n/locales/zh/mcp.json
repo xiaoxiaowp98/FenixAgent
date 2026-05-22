@@ -105,5 +105,7 @@
     "batchDisabled": "已禁用 {{count}} 个服务器",
     "batchFailed": "批量操作失败",
     "batchFailedWith": "批量操作失败: {{message}}"
-  }
+  },
+  "headerNamePlaceholder": "Header 名称",
+  "headerValuePlaceholder": "Header 值"
 }

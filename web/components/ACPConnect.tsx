@@ -1,6 +1,7 @@
 import { ChevronDown, FolderOpen, Globe, Image, KeyRound, ScanLine, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import type { ACPSettings, BrowserToolParams, BrowserToolResult, ConnectionState } from "../src/acp";
 import { ACPClient, DEFAULT_SETTINGS, DisconnectRequestedError } from "../src/acp";
 import { type QRCodeData, useQRScanner } from "../src/hooks";
@@ -82,6 +83,7 @@ export function ACPConnect({
   placeholder = "Proxy server URL",
   showScanButton = false,
 }: ACPConnectProps) {
+  const { t } = useTranslation("components");
   const [settings, setSettings] = useState<ACPSettings>(() => getInitialSettings(inferFromUrl));
   const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
   const [error, setError] = useState<string | null>(null);
@@ -333,7 +335,7 @@ export function ACPConnect({
             <div className={`space-y-3 ${isScanning ? "invisible" : ""}`}>
               {/* Server URL */}
               <div className="space-y-1.5">
-                <Label htmlFor="proxy-url">Server</Label>
+                <Label htmlFor="proxy-url">{t("acpConnect.server")}</Label>
                 <div className="flex gap-2">
                   {showScanButton && !isConnected && !isConnecting && (
                     <Button
@@ -369,7 +371,7 @@ export function ACPConnect({
                       className="h-9 px-4"
                       type="button"
                     >
-                      {isConnecting ? "..." : "Connect"}
+                      {isConnecting ? "..." : t("acpConnect.connect")}
                     </Button>
                   ) : (
                     <Button
@@ -401,7 +403,7 @@ export function ACPConnect({
                       value={settings.token || ""}
                       onChange={(e) => updateSetting("token", e.target.value || undefined)}
                       onKeyDown={handleInputKeyDown}
-                      placeholder="For remote access"
+                      placeholder={t("acpConnect.remoteAccessPlaceholder")}
                       disabled={isConnected || isConnecting}
                       type="password"
                       aria-invalid={!!error}

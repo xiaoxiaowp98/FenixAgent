@@ -4,6 +4,7 @@ import type { ToolUIPart } from "ai";
 import { CheckCircleIcon, ChevronDownIcon, CircleIcon, ClockIcon, WrenchIcon, XCircleIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { isValidElement } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../../src/lib/utils";
 import { Badge } from "../ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
@@ -28,18 +29,20 @@ export type ToolHeaderProps = {
   className?: string;
 };
 
+const toolStatusLabels: Record<ExtendedToolState, string> = {
+  "input-streaming": "tool.statusPending",
+  "input-available": "tool.statusRunning",
+  "approval-requested": "tool.statusAwaitingApproval",
+  "approval-responded": "tool.statusResponded",
+  "output-available": "tool.statusCompleted",
+  "output-error": "tool.statusError",
+  "output-denied": "tool.statusDenied",
+  "waiting-for-confirmation": "tool.statusAwaitingApproval",
+  rejected: "tool.statusRejected",
+};
+
 const getStatusBadge = (status: ExtendedToolState) => {
-  const labels: Record<ExtendedToolState, string> = {
-    "input-streaming": "Pending",
-    "input-available": "Running",
-    "approval-requested": "Awaiting Approval",
-    "approval-responded": "Responded",
-    "output-available": "Completed",
-    "output-error": "Error",
-    "output-denied": "Denied",
-    "waiting-for-confirmation": "Awaiting Approval",
-    rejected: "Rejected",
-  };
+  const { t } = useTranslation("components");
 
   const icons: Record<ExtendedToolState, ReactNode> = {
     "input-streaming": <CircleIcon className="size-4" />,
@@ -56,7 +59,7 @@ const getStatusBadge = (status: ExtendedToolState) => {
   return (
     <Badge className="gap-1.5 rounded-full text-xs" variant="secondary">
       {icons[status]}
-      {labels[status]}
+      {t(toolStatusLabels[status])}
     </Badge>
   );
 };
@@ -88,14 +91,17 @@ export type ToolInputProps = ComponentProps<"div"> & {
   input: ToolUIPart["input"];
 };
 
-export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
-  <div className={cn("space-y-2 overflow-hidden p-4 max-w-full", className)} {...props}>
-    <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">Parameters</h4>
-    <div className="rounded-md bg-muted/50 overflow-hidden">
-      <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
+export const ToolInput = ({ className, input, ...props }: ToolInputProps) => {
+  const { t } = useTranslation("components");
+  return (
+    <div className={cn("space-y-2 overflow-hidden p-4 max-w-full", className)} {...props}>
+      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">{t("tool.parameters")}</h4>
+      <div className="rounded-md bg-muted/50 overflow-hidden">
+        <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export type ToolOutputProps = ComponentProps<"div"> & {
   output: ToolUIPart["output"];
@@ -103,6 +109,7 @@ export type ToolOutputProps = ComponentProps<"div"> & {
 };
 
 export const ToolOutput = ({ className, output, errorText, ...props }: ToolOutputProps) => {
+  const { t } = useTranslation("components");
   if (!(output || errorText)) {
     return null;
   }
@@ -118,7 +125,7 @@ export const ToolOutput = ({ className, output, errorText, ...props }: ToolOutpu
   return (
     <div className={cn("space-y-2 p-4 max-w-full overflow-hidden", className)} {...props}>
       <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-        {errorText ? "Error" : "Result"}
+        {errorText ? t("tool.error") : t("tool.result")}
       </h4>
       <div
         className={cn(

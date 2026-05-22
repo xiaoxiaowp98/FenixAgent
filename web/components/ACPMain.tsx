@@ -1,5 +1,6 @@
 import { MessageSquare, PanelLeft, PanelLeftClose, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ACPClient } from "../src/acp/client";
 import type { AgentSessionInfo } from "../src/acp/types";
 import { client as apiClient } from "../src/api/client";
@@ -31,6 +32,7 @@ export function ACPMain({
   rcsSessionId,
   scenePrompt,
 }: ACPMainProps) {
+  const { t } = useTranslation("components");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [cwd, setCwd] = useState<string | undefined>(initialCwd?.replace(/\/+$/, ""));
   const [cwdReady, setCwdReady] = useState(!agentId || !!initialCwd);
@@ -204,7 +206,7 @@ export function ACPMain({
                   size="icon"
                   onClick={() => chatRef.current?.newSession()}
                   className="h-7 w-7 text-text-muted hover:text-brand hover:bg-brand/10"
-                  title="新会话"
+                  title={t("acpMain.newSession")}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -244,7 +246,7 @@ export function ACPMain({
               size="icon"
               onClick={() => chatRef.current?.newSession()}
               className="h-7 w-7 text-text-muted hover:text-brand hover:bg-brand/10"
-              title="新会话"
+              title={t("acpMain.newSession")}
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -284,6 +286,7 @@ function SidebarSessionList({
   initialActiveSessionId: string | null;
   onSelectSession: (session: AgentSessionInfo) => void;
 }) {
+  const { t } = useTranslation("components");
   const [sessions, setSessions] = useState<AgentSessionInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -374,17 +377,21 @@ function SidebarSessionList({
   if (sessions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 gap-1">
-        <span className="text-xs text-text-muted font-display">暂无会话</span>
-        <span className="text-[10px] text-text-muted">点击上方 + 创建新会话</span>
+        <span className="text-xs text-text-muted font-display">{t("acpMain.noSessions")}</span>
+        <span className="text-[10px] text-text-muted">{t("acpMain.clickToCreate")}</span>
       </div>
     );
   }
 
   // 按日期分组
-  const groups = groupByRecency(sorted);
+  const groups = groupByRecency(sorted, {
+    today: t("acpMain.today"),
+    yesterday: t("acpMain.yesterday"),
+    earlier: t("acpMain.earlier"),
+  });
 
   return (
-    <nav className="py-1" aria-label="历史会话">
+    <nav className="py-1" aria-label={t("acpMain.historySessions")}>
       {groups.map((group, gi) => (
         <div key={group.label}>
           {gi > 0 && <div className="mx-3 my-2 border-t border-border/40" />}
@@ -411,7 +418,7 @@ function SidebarSessionList({
             >
               <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 opacity-50" />
               <span className="text-[13px] font-display truncate leading-snug">
-                {session.title?.trim() ? session.title : "新会话"}
+                {session.title?.trim() ? session.title : t("acpMain.newSession")}
               </span>
             </Button>
           ))}
@@ -430,15 +437,18 @@ interface SessionGroup {
   sessions: AgentSessionInfo[];
 }
 
-function groupByRecency(sessions: AgentSessionInfo[]): SessionGroup[] {
+function groupByRecency(
+  sessions: AgentSessionInfo[],
+  labels: { today: string; yesterday: string; earlier: string },
+): SessionGroup[] {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today.getTime() - 86400000);
 
   const groups: SessionGroup[] = [
-    { label: "今天", sessions: [] },
-    { label: "昨天", sessions: [] },
-    { label: "更早", sessions: [] },
+    { label: labels.today, sessions: [] },
+    { label: labels.yesterday, sessions: [] },
+    { label: labels.earlier, sessions: [] },
   ];
 
   for (const session of sessions) {

@@ -277,7 +277,11 @@
     "workflow_draft_path": "草稿路径",
     "workflow_read_prompt": "请先读取草稿文件再响应用户请求。",
     "confirm_delete_latest": "确定将 latest 指向 v{{version}}？",
-    "confirm_restore_draft": "将 v{{version}} 的内容恢复到草稿？当前草稿将被覆盖。"
+    "confirm_restore_draft": "将 v{{version}} 的内容恢复到草稿？当前草稿将被覆盖。",
+    "type_shell": "Shell",
+    "type_python": "Python",
+    "type_agent": "Agent",
+    "type_api": "API"
   },
   "page": {
     "back_to_list": "返回列表",

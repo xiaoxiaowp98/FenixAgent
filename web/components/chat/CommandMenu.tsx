@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { AvailableCommand } from "../../src/acp/types";
 import { cn } from "../../src/lib/utils";
 import { ScrollArea } from "../ui/scroll-area";
@@ -25,6 +26,7 @@ function prefixMatch(query: string, text: string): boolean {
 }
 
 export function CommandMenu({ commands, filter, onSelect, onClose, className }: CommandMenuProps) {
+  const { t } = useTranslation("components");
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -90,7 +92,7 @@ export function CommandMenu({ commands, filter, onSelect, onClose, className }: 
       <ScrollArea className="h-[320px]">
         <div className="py-1">
           {filtered.length === 0 ? (
-            <div className="text-xs text-text-muted font-display py-3 text-center">没有匹配的命令</div>
+            <div className="text-xs text-text-muted font-display py-3 text-center">{t("commandMenu.noMatch")}</div>
           ) : (
             filtered.map((cmd, index) => (
               <button

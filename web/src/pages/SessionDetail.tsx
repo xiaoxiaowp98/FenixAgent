@@ -355,7 +355,7 @@ function SessionDetailInner({ sessionId, initialCwd }: { sessionId: string; init
                 <button
                   onClick={() => setShowMeta(!showMeta)}
                   className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-text-muted hover:bg-surface-2 hover:text-text-secondary transition-colors"
-                  title="Session info"
+                  title={t("sessionInfo")}
                 >
                   <Info className="h-3.5 w-3.5" />
                 </button>

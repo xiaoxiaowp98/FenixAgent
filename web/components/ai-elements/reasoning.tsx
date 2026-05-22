@@ -4,6 +4,7 @@ import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../../src/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 import { Shimmer } from "./shimmer";
@@ -118,15 +119,20 @@ export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger> & 
   getThinkingMessage?: (isStreaming: boolean, duration?: number) => ReactNode;
 };
 
-const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
+const DefaultThinkingMessage = ({ isStreaming, duration }: { isStreaming: boolean; duration?: number }) => {
+  const { t } = useTranslation("components");
   if (isStreaming || duration === 0) {
-    return <Shimmer duration={1}>Thinking...</Shimmer>;
+    return <Shimmer duration={1}>{t("reasoning.thinking")}</Shimmer>;
   }
   if (duration === undefined) {
-    return <p>思考了一会</p>;
+    return <p>{t("reasoning.thought")}</p>;
   }
-  return <p>思考了 {duration} 秒</p>;
+  return <p>{t("reasoning.thoughtFor", { duration })}</p>;
 };
+
+const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => (
+  <DefaultThinkingMessage isStreaming={isStreaming} duration={duration} />
+);
 
 export const ReasoningTrigger = memo(
   ({ className, children, getThinkingMessage = defaultGetThinkingMessage, ...props }: ReasoningTriggerProps) => {

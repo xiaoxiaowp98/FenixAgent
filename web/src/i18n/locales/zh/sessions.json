@@ -69,5 +69,6 @@
   "timeJustNow": "just now",
   "timeMinAgo": "{{count}}min ago",
   "timeHoursAgo": "{{count}}h ago",
-  "timeDaysAgo": "{{count}}d ago"
+  "timeDaysAgo": "{{count}}d ago",
+  "sessionInfo": "会话信息"
 }

@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import type { AvailableCommand } from "../../src/acp/types";
 import { fetchUpload } from "../../src/api/client";
 import { FilePickerDialog } from "../../src/components/FilePickerDialog";
@@ -50,12 +51,14 @@ export function ChatInput({
   isLoading = false,
   onInterrupt,
   disabled = false,
-  placeholder = "给智能体发送消息…",
+  placeholder,
   supportsImages = false,
   commands,
   envId,
   className,
 }: ChatInputProps) {
+  const { t } = useTranslation("components");
+  const _placeholder = placeholder ?? t("chatInput.placeholder");
   const [text, setText] = useState("");
   const [images, setImages] = useState<UserMessageImage[]>([]);
   const [showCommandMenu, setShowCommandMenu] = useState(false);
@@ -356,7 +359,7 @@ export function ChatInput({
                     : "text-text-muted hover:text-text-secondary hover:bg-surface-1/50",
                 )}
                 disabled={disabled}
-                title="命令列表"
+                title={t("chatInput.commandList")}
               >
                 <Slash className="h-4 w-4" />
               </Button>
@@ -371,7 +374,7 @@ export function ChatInput({
                 onClick={() => setShowFilePicker(true)}
                 className="flex-shrink-0 h-8 w-8 text-text-muted hover:text-text-secondary hover:bg-surface-1/50"
                 disabled={disabled}
-                title="引用文件"
+                title={t("chatInput.referenceFile")}
               >
                 <AtSign className="h-4 w-4" />
               </Button>
@@ -384,7 +387,7 @@ export function ChatInput({
               onChange={handleInput}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder={placeholder}
+              placeholder={_placeholder}
               disabled={disabled}
               rows={1}
               className={cn(

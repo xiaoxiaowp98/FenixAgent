@@ -1,5 +1,6 @@
 import { CheckCircle2, ChevronRight, Circle, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { PlanEntry, PlanEntryPriority, PlanEntryStatus } from "../../src/acp/types";
 import type { PlanDisplayEntry } from "../../src/lib/types";
 import { cn } from "../../src/lib/utils";
@@ -14,6 +15,7 @@ interface PlanDisplayProps {
 }
 
 export function PlanDisplay({ entry }: PlanDisplayProps) {
+  const { t } = useTranslation("components");
   const [collapsed, setCollapsed] = useState(false);
   const { entries } = entry;
 
@@ -37,7 +39,7 @@ export function PlanDisplay({ entry }: PlanDisplayProps) {
             className={cn("transition-transform text-text-muted flex-shrink-0", collapsed && "rotate-90")}
           />
 
-          <span className="text-xs font-display font-medium text-text-secondary">执行计划</span>
+          <span className="text-xs font-display font-medium text-text-secondary">{t("planView.executionPlan")}</span>
 
           <span className="text-[10px] text-text-muted font-mono">
             {completed}/{total}

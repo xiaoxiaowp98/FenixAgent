@@ -105,5 +105,7 @@
     "batchDisabled": "Disabled {{count}} servers",
     "batchFailed": "Batch operation failed",
     "batchFailedWith": "Batch operation failed: {{message}}"
-  }
+  },
+  "headerNamePlaceholder": "Header Name",
+  "headerValuePlaceholder": "Header Value"
 }

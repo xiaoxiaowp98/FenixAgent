@@ -1,4 +1,5 @@
 import { Bot, Loader2, User, Wrench } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../src/lib/utils";
 
 export interface ToolCall {
@@ -20,6 +21,7 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ message }: ChatMessageProps) {
+  const { t } = useTranslation("components");
   const isUser = message.role === "user";
 
   return (
@@ -33,7 +35,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
       </div>
       <div className="flex-1 min-w-0 space-y-2">
-        <div className="text-sm font-medium">{isUser ? "You" : "Agent"}</div>
+        <div className="text-sm font-medium">{isUser ? t("chatMessage.you") : t("chatMessage.agent")}</div>
         <div className="text-sm whitespace-pre-wrap break-words">
           {message.content}
           {message.isStreaming && <span className="inline-block w-1.5 h-4 ml-0.5 bg-foreground animate-pulse" />}

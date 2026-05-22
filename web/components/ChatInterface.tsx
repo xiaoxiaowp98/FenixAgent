@@ -1,5 +1,6 @@
 import imageCompression from "browser-image-compression";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ACPClient } from "../src/acp/client";
 import type {
   ContentBlock,
@@ -171,6 +172,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   { client, agentId, cwd, cwdReady = true, readonly, hideContextPanel, rcsSessionId, onSessionCreated, scenePrompt },
   ref,
 ) {
+  const { t } = useTranslation("components");
   // Flat list of entries (like Zed's entries: Vec<AgentThreadEntry>)
   const [entries, setEntries] = useState<ThreadEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -900,7 +902,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
                       新会话
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>New Thread</TooltipContent>
+                  <TooltipContent>{t("chatInterface.newThread")}</TooltipContent>
                 </Tooltip>
               )}
             </div>
@@ -909,7 +911,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
               isLoading={isLoading}
               onInterrupt={handleCancel}
               disabled={!sessionReady}
-              placeholder={sessionReady ? "给智能体发送消息…" : "等待会话..."}
+              placeholder={sessionReady ? t("chatInterface.agentPlaceholder") : t("chatInterface.waitingSession")}
               supportsImages={supportsImages}
               commands={availableCommands.length > 0 ? availableCommands : undefined}
               envId={agentId}
@@ -919,7 +921,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
         {readonly && (
           <div className="flex-shrink-0">
             <div className="max-w-3xl mx-auto w-full px-4 sm:px-8 py-3 text-center">
-              <span className="text-xs text-text-muted">只读模式 — 无法发送消息</span>
+              <span className="text-xs text-text-muted">{t("chatInterface.readonlyMode")}</span>
             </div>
           </div>
         )}

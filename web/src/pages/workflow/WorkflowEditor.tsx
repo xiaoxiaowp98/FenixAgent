@@ -60,8 +60,8 @@ import {
   type RunSummary,
   workflowEngineApi,
 } from "../../api/workflow-engine";
-import { ChatPanel } from "../agent-panel/ChatPanel";
 import { buildRunSummary, useWorkflowEvents } from "../../lib/use-workflow-events";
+import { ChatPanel } from "../agent-panel/ChatPanel";
 import { autoLayout } from "./layout";
 import { nodeTypes } from "./nodes";
 import {
@@ -129,7 +129,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
   });
   const [metaAgentId, setMetaAgentId] = useState<string | null>(null);
 
-  const { pushWorkflowError } = useWorkflowEvents();
+  const { pushWorkflowError, pushWorkflowRunStatus, clearWorkflowEvents } = useWorkflowEvents();
 
   const scenePrompt = useMemo(() => {
     if (!workflowId) return;

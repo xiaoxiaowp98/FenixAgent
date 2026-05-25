@@ -24,6 +24,7 @@ import type {
   UserMessageEntry,
   UserMessageImage,
 } from "../src/lib/types";
+import { flushContext } from "../src/lib/context-queue";
 import { ContextPanel } from "./ContextPanel";
 import { ChatInput } from "./chat/ChatInput";
 import { ChatView } from "./chat/ChatView";
@@ -823,6 +824,12 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       if (scenePrompt && !scenePromptUsedRef.current) {
         contentBlocks.unshift({ type: "text", text: scenePrompt });
         scenePromptUsedRef.current = true;
+      }
+
+      // 注入上下文队列（flush 后清空）
+      const contextBlock = flushContext();
+      if (contextBlock) {
+        contentBlocks.unshift({ type: "text", text: contextBlock });
       }
 
       // Add user message entry

@@ -82,15 +82,15 @@ export function useWorkflowRun(params: UseWorkflowRunParams): UseWorkflowRunRetu
     setRunApprovals,
     selectedRunNodeId,
     setSelectedRunNodeId,
-    selectedNodeOutput,
+    selectedNodeOutput: _selectedNodeOutput,
     setSelectedNodeOutput,
-    nodeOutputLoading,
+    nodeOutputLoading: _nodeOutputLoading,
     setNodeOutputLoading,
     syncYaml,
     fitView,
     setRightTab,
     setMeta,
-    lastSavedYaml,
+    lastSavedYaml: _lastSavedYaml,
     setLastSavedYaml,
   } = params;
 

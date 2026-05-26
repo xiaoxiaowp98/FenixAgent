@@ -62,7 +62,7 @@ import { useWorkflowRun } from "./hooks/useWorkflowRun";
 import { autoLayout } from "./layout";
 import { nodeTypes } from "./nodes";
 import { dedupEvents } from "./utils";
-import { createStartNode, defaultMeta, type WfMeta, yamlToFlow } from "./yaml-utils";
+import { createStartNode, defaultMeta, START_NODE_ID, type WfMeta, yamlToFlow } from "./yaml-utils";
 import "./workflow.css";
 
 const PALETTE_ITEMS = [
@@ -180,6 +180,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
     handleCancelRun,
     handleApprove,
     handleBackToEdit,
+    handleBackToList,
     handleRerunFrom,
     handleRefreshDraft,
     dryRunResult,
@@ -307,6 +308,13 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
   const updateMeta = useCallback((updates: Partial<WfMeta>) => {
     setMeta((prev) => ({ ...prev, ...updates }));
   }, []);
+
+  // ── Sync meta.params to start node data ──
+  useEffect(() => {
+    setNodes((nds) =>
+      nds.map((n) => (n.id === START_NODE_ID ? { ...n, data: { ...n.data, _params: meta.params } } : n)),
+    );
+  }, [meta.params, setNodes]);
 
   const sd = selectedNode?.data as Record<string, unknown> | undefined;
   const nodeType = selectedNode?.type ?? "shell";
@@ -718,6 +726,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
             nodeOutputLoading={nodeOutputLoading}
             handleCancelRun={handleCancelRun}
             handleBackToEdit={handleBackToEdit}
+            handleBackToList={handleBackToList}
             handleApprove={handleApprove}
             handleRerunFrom={handleRerunFrom}
             setActiveRunId={setActiveRunId}

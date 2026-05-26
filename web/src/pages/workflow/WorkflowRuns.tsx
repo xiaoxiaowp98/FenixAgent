@@ -169,7 +169,7 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
             background: "#fff",
           }}
         >
-          <Search size={13} style={{ color: "#9ca3af", flexShrink: 0 }} />
+          <Search size={13} style={{ color: "#4b5563", flexShrink: 0 }} />
           <input
             placeholder={t("runs.search_placeholder")}
             value={searchQuery}
@@ -203,26 +203,26 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
 
       {/* 内容 */}
       {loading ? (
-        <div style={{ textAlign: "center", padding: 40, color: "#9ca3af", fontSize: 13 }}>
+        <div style={{ textAlign: "center", padding: 40, color: "#4b5563", fontSize: 13 }}>
           <Loader size={20} style={{ animation: "spin 1s linear infinite", display: "inline-block" }} />
           <p style={{ marginTop: 8 }}>{t("runs.loading")}</p>
         </div>
       ) : error ? (
         <div style={{ textAlign: "center", padding: 40 }}>
           <AlertTriangle size={32} style={{ color: "#ef4444", margin: "0 auto 8px" }} />
-          <p style={{ fontSize: 13, color: "#6b7280" }}>{t("runs.load_failed", { error })}</p>
+          <p style={{ fontSize: 13, color: "#374151" }}>{t("runs.load_failed", { error })}</p>
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: "center", padding: 40 }}>
           {statusFilter !== "all" || searchQuery ? (
-            <Search size={32} style={{ color: "#d1d5db", margin: "0 auto 8px" }} />
+            <Search size={32} style={{ color: "#374151", margin: "0 auto 8px" }} />
           ) : (
-            <Inbox size={32} style={{ color: "#d1d5db", margin: "0 auto 8px" }} />
+            <Inbox size={32} style={{ color: "#374151", margin: "0 auto 8px" }} />
           )}
-          <p style={{ fontSize: 13, color: "#9ca3af", fontWeight: 500 }}>
+          <p style={{ fontSize: 13, color: "#4b5563", fontWeight: 500 }}>
             {statusFilter !== "all" || searchQuery ? t("runs.no_match") : t("runs.no_runs")}
           </p>
-          <p style={{ fontSize: 11, color: "#d1d5db", marginTop: 4 }}>
+          <p style={{ fontSize: 11, color: "#374151", marginTop: 4 }}>
             {statusFilter !== "all" || searchQuery ? t("runs.no_runs_filter_hint") : t("runs.no_runs_hint")}
           </p>
         </div>
@@ -246,7 +246,7 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
               borderBottom: "1px solid #e5e7eb",
               fontSize: 11,
               fontWeight: 600,
-              color: "#6b7280",
+              color: "#374151",
               textTransform: "uppercase",
               letterSpacing: 0.5,
             }}
@@ -280,17 +280,17 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
             >
               <div>
                 <div style={{ fontWeight: 500, color: "#111827" }}>{r.workflow_name}</div>
-                <div style={{ fontSize: 10, color: "#9ca3af", fontFamily: "ui-monospace, monospace", marginTop: 1 }}>
+                <div style={{ fontSize: 10, color: "#4b5563", fontFamily: "ui-monospace, monospace", marginTop: 1 }}>
                   {r.run_id.substring(0, 16)}...
                 </div>
               </div>
               <StatusBadge status={r.status} />
-              <div style={{ fontFamily: "ui-monospace, monospace", color: "#6b7280" }}>
+              <div style={{ fontFamily: "ui-monospace, monospace", color: "#374151" }}>
                 <span style={{ color: "#22c55e" }}>{r.node_summary.completed}</span>
-                <span style={{ color: "#d1d5db" }}>/{r.node_summary.total}</span>
+                <span style={{ color: "#374151" }}>/{r.node_summary.total}</span>
               </div>
-              <div style={{ color: "#6b7280" }}>{relativeTime(r.started_at, t)}</div>
-              <div style={{ fontFamily: "ui-monospace, monospace", color: "#6b7280" }}>
+              <div style={{ color: "#374151" }}>{relativeTime(r.started_at, t)}</div>
+              <div style={{ fontFamily: "ui-monospace, monospace", color: "#374151" }}>
                 {formatDuration(r.started_at, r.completed_at)}
               </div>
               <div style={{ display: "flex", gap: 4 }} onClick={(e) => e.stopPropagation()}>
@@ -328,7 +328,7 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
                     border: "none",
                     background: "none",
                     borderRadius: 4,
-                    color: "#6b7280",
+                    color: "#374151",
                     cursor: "pointer",
                   }}
                 >
@@ -341,7 +341,7 @@ export function WorkflowRuns({ onSelectRun }: WorkflowRunsProps) {
       )}
 
       {runs.length > 0 && (
-        <div style={{ marginTop: 12, fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+        <div style={{ marginTop: 12, fontSize: 11, color: "#4b5563", textAlign: "center" }}>
           {t("runs.total_records", { count: runs.length })}
         </div>
       )}

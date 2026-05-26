@@ -241,6 +241,8 @@
     "load_failed_short": "加载失败",
     "no_match": "没有匹配的记录",
     "run_history": "运行记录",
+    "back_to_list": "返回列表",
+    "view_all_runs": "查看全部运行记录",
     "dag_started": "工作流启动",
     "dag_completed": "工作流完成",
     "dag_cancelled": "工作流取消",

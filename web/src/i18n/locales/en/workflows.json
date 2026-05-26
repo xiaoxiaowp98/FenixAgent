@@ -241,6 +241,8 @@
     "load_failed_short": "Load failed",
     "no_match": "No matching records",
     "run_history": "Run History",
+    "back_to_list": "Back to list",
+    "view_all_runs": "View all run records",
     "dag_started": "Workflow started",
     "dag_completed": "Workflow completed",
     "dag_cancelled": "Workflow cancelled",

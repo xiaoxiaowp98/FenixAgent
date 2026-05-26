@@ -54,6 +54,7 @@ export interface UseWorkflowRunReturn {
   handleCancelRun: () => Promise<void>;
   handleApprove: (approval: PendingApproval) => Promise<void>;
   handleBackToEdit: () => void;
+  handleBackToList: () => void;
   handleRerunFrom: (nodeId: string) => Promise<void>;
   handleViewNodeOutput: (nodeId: string) => void;
   handleRefreshDraft: () => Promise<void>;
@@ -329,6 +330,25 @@ export function useWorkflowRun(params: UseWorkflowRunParams): UseWorkflowRunRetu
     setNodes,
   ]);
 
+  const handleBackToList = useCallback(() => {
+    if (pollRef.current) clearTimeout(pollRef.current);
+    setActiveRunId(null);
+    setRunSnapshot(null);
+    setRunEvents([]);
+    setRunApprovals([]);
+    setSelectedRunNodeId(null);
+    setSelectedNodeOutput(null);
+    setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _runStatus: undefined, _exitCode: undefined } })));
+  }, [
+    setActiveRunId,
+    setRunSnapshot,
+    setRunEvents,
+    setRunApprovals,
+    setSelectedRunNodeId,
+    setSelectedNodeOutput,
+    setNodes,
+  ]);
+
   const handleRerunFrom = useCallback(
     async (fromNodeId: string) => {
       if (!activeRunId) return;
@@ -496,6 +516,7 @@ export function useWorkflowRun(params: UseWorkflowRunParams): UseWorkflowRunRetu
     handleCancelRun,
     handleApprove,
     handleBackToEdit,
+    handleBackToList,
     handleRerunFrom,
     handleViewNodeOutput,
     handleRefreshDraft,

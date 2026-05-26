@@ -98,12 +98,12 @@ export function AgentSidebarTree({
     }
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: orgId triggers reload on org switch
   useEffect(() => {
     setLoading(true);
     loadData();
     const interval = setInterval(loadData, 15_000);
     return () => clearInterval(interval);
-    // biome-ignore lint/correctness/useExhaustiveDependencies: orgId triggers reload on org switch
   }, [loadData, orgId]);
 
   // 监听配置变更事件，agents 变更时立即刷新

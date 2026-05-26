@@ -144,6 +144,7 @@ export async function buildLaunchSpec(input: BuildLaunchSpecInput): Promise<Agen
   }
 
   const skills = fullConfig.skills.flatMap((s) => {
+    if (s.enabled === false) return [];
     const archivePath = getSkillArchivePath(getGlobalSkillsDir(), s.name);
     if (!existsSync(archivePath)) {
       log(`[launch-spec-builder] Skill archive missing, skipping: ${s.name}`);

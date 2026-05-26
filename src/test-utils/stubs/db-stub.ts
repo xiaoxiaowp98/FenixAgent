@@ -12,8 +12,9 @@ export function stubDb(db: DbStub) {
 }
 
 export function getDbStub(): DbStub {
-  if (!_dbStub) throw new Error("db stub not configured, call stubDb() in beforeEach");
-  return _dbStub;
+  // 未配置时返回空对象而非抛错，因为 ../db 的 mock.factory 在 preload 阶段就会被调用
+  // 测试如果忘记 stubDb()，会在使用时得到 "xxx is not a function" 错误
+  return _dbStub ?? ({} as DbStub);
 }
 
 export function resetDbStub() {

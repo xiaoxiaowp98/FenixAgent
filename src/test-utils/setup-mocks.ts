@@ -116,4 +116,22 @@ mock.module("../auth/api-key-service", () => {
 
 // ── raw db ──
 
-mock.module("../db", () => ({ db: getDbStub() }));
+mock.module("../db", () => {
+  const obj: Record<string, unknown> = {};
+  Object.defineProperty(obj, "db", {
+    enumerable: true,
+    configurable: true,
+    get: () => getDbStub(),
+  });
+  Object.defineProperty(obj, "client", {
+    enumerable: true,
+    configurable: true,
+    get: () => ({}),
+  });
+  Object.defineProperty(obj, "initDb", {
+    enumerable: true,
+    configurable: true,
+    get: () => async () => {},
+  });
+  return obj;
+});

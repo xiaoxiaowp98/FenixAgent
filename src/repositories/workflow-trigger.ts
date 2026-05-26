@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "../db";
 import { workflowTrigger } from "../db/schema";
 
@@ -17,11 +17,7 @@ export interface IWorkflowTriggerRepo {
 
 class PgWorkflowTriggerRepo implements IWorkflowTriggerRepo {
   async getByHash(publicHash: string): Promise<WorkflowTriggerRow | null> {
-    const [row] = await db
-      .select()
-      .from(workflowTrigger)
-      .where(eq(workflowTrigger.publicHash, publicHash))
-      .limit(1);
+    const [row] = await db.select().from(workflowTrigger).where(eq(workflowTrigger.publicHash, publicHash)).limit(1);
     return row ?? null;
   }
 

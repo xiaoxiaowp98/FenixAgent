@@ -25,7 +25,7 @@ describe("hooks route — handleWebhookRequest 调用验证", () => {
   // trigger not found 返回 { accepted: false }
   test("returns not found for invalid hash", async () => {
     const { handleWebhookRequest } = await import("../services/workflow-trigger");
-    mockHandleWebhookRequest.mockResolvedValueOnce({ accepted: false, error: "trigger not found" });
+    mockHandleWebhookRequest.mockResolvedValueOnce({ accepted: false, error: "trigger not found" } as any);
 
     const result = await handleWebhookRequest("nonexistent", {}, {}, {});
     expect(result.accepted).toBe(false);

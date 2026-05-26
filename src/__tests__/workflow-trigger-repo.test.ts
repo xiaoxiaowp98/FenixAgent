@@ -7,7 +7,12 @@ mock.module("../db", () => {
   chain.orderBy = () => chain;
   chain.limit = () => chain;
   chain.from = () => chain;
-  const selectReturn = { from: () => chain, where: () => chain, orderBy: () => chain, limit: () => Promise.resolve([]) };
+  const selectReturn = {
+    from: () => chain,
+    where: () => chain,
+    orderBy: () => chain,
+    limit: () => Promise.resolve([]),
+  };
   const insertReturn = { values: () => ({ returning: () => Promise.resolve([]) }) };
   const updateReturn = { set: () => ({ where: () => Promise.resolve([]) }) };
   const deleteReturn = { where: () => ({ returning: () => Promise.resolve([]) }) };

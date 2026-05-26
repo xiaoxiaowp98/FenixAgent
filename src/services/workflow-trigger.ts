@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { workflowTriggerRepo } from "../repositories/workflow-trigger";
-import type { WorkflowTriggerRow } from "../repositories/workflow-trigger";
 import { getBaseUrl } from "../config";
+import type { WorkflowTriggerRow } from "../repositories/workflow-trigger";
+import { workflowTriggerRepo } from "../repositories/workflow-trigger";
 
 // ── 类型 ──
 
@@ -124,6 +124,7 @@ export async function disableTrigger(triggerId: string, organizationId: string):
 // ── Webhook 处理 ──
 
 export interface WebhookPayload {
+  [key: string]: unknown;
   headers: Record<string, string>;
   body: unknown;
   query: Record<string, string>;
@@ -141,7 +142,7 @@ export async function handleWebhookRequest(
   query: Record<string, string>,
 ): Promise<{ accepted: boolean; error?: string }> {
   const row = await workflowTriggerRepo.getByHash(publicHash);
-  if (!row || !row.enabled) return { accepted: false, error: "trigger not found" };
+  if (!row?.enabled) return { accepted: false, error: "trigger not found" };
 
   const inputs: WebhookPayload = {
     headers,

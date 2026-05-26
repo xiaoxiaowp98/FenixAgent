@@ -9,13 +9,14 @@ import { handleWebhookRequest } from "../services/workflow-trigger";
 
 const app = new Elysia({ name: "hooks" });
 
-app.post("/hooks/:publicHash", async ({ params, request, body, query, error }) => {
+app.post("/hooks/:publicHash", async ({ params, request, body, set }) => {
   const { publicHash } = params as { publicHash: string };
 
   // 请求体大小检查（1MB）
   const contentLength = request.headers.get("content-length");
   if (contentLength && parseInt(contentLength, 10) > 1024 * 1024) {
-    return error(413, { error: "payload too large" });
+    set.status = 413;
+    return { error: "payload too large" };
   }
 
   // 提取 headers
@@ -44,7 +45,8 @@ app.post("/hooks/:publicHash", async ({ params, request, body, query, error }) =
   const result = await handleWebhookRequest(publicHash, headers, parsedBody, queryObj);
 
   if (!result.accepted) {
-    return error(404, { error: result.error });
+    set.status = 404;
+    return { error: result.error };
   }
 
   return { received: true };

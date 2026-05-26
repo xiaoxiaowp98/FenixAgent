@@ -34,7 +34,7 @@ describe("workflow-trigger-service", () => {
   // createTrigger 生成 hash 并调用 repo.create
   test("createTrigger generates hash and returns webhookUrl", async () => {
     const { createTrigger } = await import("../services/workflow-trigger");
-    mockRepo.create.mockImplementation(async (data: any) => ({
+    (mockRepo.create as any).mockImplementation(async (data: any) => ({
       id: "trig-1",
       organizationId: data.organizationId,
       workflowId: data.workflowId,

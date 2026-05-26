@@ -53,7 +53,10 @@ mock.module("../services/config-pg", () => {
       enumerable: true,
       configurable: true,
       // 惰性包装：getter 返回一个函数，调用时才查找 stub
-      get: () => (...args: unknown[]) => (getConfigPgStub(key) as AnyFn)(...args),
+      get:
+        () =>
+        (...args: unknown[]) =>
+          (getConfigPgStub(key) as AnyFn)(...args),
     });
   }
   return obj;
@@ -78,7 +81,10 @@ mock.module("../auth/better-auth", () => {
     Object.defineProperty(apiObj, key, {
       enumerable: true,
       configurable: true,
-      get: () => (...args: unknown[]) => (getAuthApiStub(key) as AnyFn)(...args),
+      get:
+        () =>
+        (...args: unknown[]) =>
+          (getAuthApiStub(key) as AnyFn)(...args),
     });
   }
   return {
@@ -99,7 +105,10 @@ mock.module("../auth/api-key-service", () => {
     Object.defineProperty(obj, key, {
       enumerable: true,
       configurable: true,
-      get: () => (...args: unknown[]) => (getApiKeyServiceStub(key) as AnyFn)(...args),
+      get:
+        () =>
+        (...args: unknown[]) =>
+          (getApiKeyServiceStub(key) as AnyFn)(...args),
     });
   }
   return obj;

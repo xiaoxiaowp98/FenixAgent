@@ -2,6 +2,7 @@ import { createReadStream } from "node:fs";
 import { mkdir, open, readdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import { environmentRepo } from "../repositories";
+import { resolveWorkspacePath as computeWorkspacePath } from "./workspace-resolver";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -113,7 +114,7 @@ export async function resolveWorkspacePath(
   const env = await environmentRepo.getById(environmentId);
   if (!env) return null;
 
-  const workspaceDir = env.workspacePath;
+  const workspaceDir = computeWorkspacePath(env.organizationId ?? env.userId ?? "", env.userId ?? "", env.id);
   const userDir = join(workspaceDir, "user");
   await mkdir(userDir, { recursive: true });
 

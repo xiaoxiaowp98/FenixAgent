@@ -9,12 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { kbApi } from "@/src/api/sdk";
-import type {
-  KnowledgeBaseDetail,
-  KnowledgeBaseInfo,
-  KnowledgeResourceInfo,
-  KnowledgeUploadResponse,
-} from "../../../types/knowledge";
+import type { KnowledgeBaseDetail, KnowledgeBaseInfo, KnowledgeResourceInfo } from "../../../types/knowledge";
 import { AgentCardList } from "../shared/AgentCardList";
 import { AgentPageHeader } from "../shared/AgentPageHeader";
 
@@ -142,7 +137,7 @@ export function AgentKnowledgeBasesPage() {
       for (const file of files) {
         formData.append("files", file);
       }
-      const { data } = await kbApi.uploadResources({ id: selectedId }, formData);
+      await kbApi.uploadResources({ id: selectedId }, formData);
       toast.success(t("toast.uploaded"));
       loadDetail(selectedId);
     } catch (e) {

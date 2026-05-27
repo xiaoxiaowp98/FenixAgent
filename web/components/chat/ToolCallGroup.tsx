@@ -139,11 +139,18 @@ function ToolCallRow({ tool, onPermissionRespond }: ToolCallRowProps) {
     tool.status !== "running" && tool.status !== "waiting_for_confirmation" && (tool.rawOutput || tool.content);
   const description = getDescription(tool);
 
-  // Measure detail height for animation
+  // Measure detail height for animation — use ResizeObserver to track dynamic content
   useEffect(() => {
-    if (detailRef.current) {
-      setDetailHeight(detailRef.current.scrollHeight);
-    }
+    const el = detailRef.current;
+    if (!el) return;
+    const update = () => {
+      const h = el.scrollHeight;
+      if (h > 0) setDetailHeight(h);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   return (

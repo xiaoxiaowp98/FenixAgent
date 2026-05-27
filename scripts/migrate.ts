@@ -2,8 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 
-const connectionString =
-  process.env.DATABASE_URL || "postgres://rcs:rcs@localhost:5432/rcs";
+const connectionString = process.env.DATABASE_URL || "postgres://rcs:rcs@localhost:5432/rcs";
 
 const client = postgres(connectionString, { max: 1 });
 const db = drizzle(client);

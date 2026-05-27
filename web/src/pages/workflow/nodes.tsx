@@ -154,7 +154,7 @@ export function WorkflowNode({ data, id, selected, type }: NodeProps) {
       {!isStart && (
         <Handle
           type="target"
-          position={Position.Left}
+          position={Position.Top}
           style={{ background: colors.main, width: 8, height: 8, border: "2px solid #fff" }}
         />
       )}
@@ -283,7 +283,7 @@ export function WorkflowNode({ data, id, selected, type }: NodeProps) {
 
       <Handle
         type="source"
-        position={Position.Right}
+        position={Position.Bottom}
         style={{ background: colors.main, width: 8, height: 8, border: "2px solid #fff" }}
       />
     </div>

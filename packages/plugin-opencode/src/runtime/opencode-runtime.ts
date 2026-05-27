@@ -105,6 +105,9 @@ export function createOpencodeRuntime(dependencies: OpencodeRuntimeDependencies 
 
   function resolveWorkspace(launchSpec: AgentLaunchSpec): string {
     const root = process.env.WORKSPACE_ROOT ?? join(process.cwd(), "workspaces");
+    if (launchSpec.environmentId) {
+      return join(root, launchSpec.organizationId, launchSpec.userId, launchSpec.environmentId);
+    }
     return join(root, launchSpec.organizationId, launchSpec.userId);
   }
 

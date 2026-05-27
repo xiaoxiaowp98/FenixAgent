@@ -4,6 +4,7 @@ import { basename, join } from "node:path";
 import { environmentRepo } from "../repositories/environment";
 import { resolveExecutable } from "../utils/executable";
 import { getAgentConfigById } from "./config-pg";
+import { resolveWorkspacePath as computeWorkspacePath } from "./workspace-resolver";
 
 const SUMMARY_LIMIT = 2000;
 
@@ -89,12 +90,9 @@ export async function runAgentTask(input: RunAgentTaskInput): Promise<AgentTaskR
     defaultAgent = agentConfig?.name ?? null;
   }
 
-  const { runDir, workspaceName } = await prepareRunWorkspace(
-    env.workspacePath,
-    input.taskId,
-    input.logId,
-    defaultAgent,
-  );
+  const workspaceDir = computeWorkspacePath(env.organizationId ?? env.userId ?? "", env.userId ?? "", env.id);
+
+  const { runDir, workspaceName } = await prepareRunWorkspace(workspaceDir, input.taskId, input.logId, defaultAgent);
 
   const opencodePath = resolveExecutable("opencode");
   const startedAt = Date.now();

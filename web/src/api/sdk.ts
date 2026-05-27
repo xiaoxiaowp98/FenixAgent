@@ -25,8 +25,6 @@ import {
   SkillConfigApi,
   TaskApi,
   UserFileApi,
-  V1EnvironmentApi,
-  V1SessionApi,
   V2CodeSessionApi,
   V2WorkerApi,
   WorkflowDefApi,
@@ -56,8 +54,6 @@ export const workflowDefApi = new WorkflowDefApi();
 export const metaAgentApi = new MetaAgentApi();
 export const authApi = new AuthApi();
 
-// ── V1/V2 模块（一般前端不直接使用，保留导出） ──
-export const v1EnvApi = new V1EnvironmentApi();
-export const v1SessionApi = new V1SessionApi();
+// ── V2 模块（一般前端不直接使用，保留导出） ──
 export const v2CodeSessionApi = new V2CodeSessionApi();
 export const v2WorkerApi = new V2WorkerApi();

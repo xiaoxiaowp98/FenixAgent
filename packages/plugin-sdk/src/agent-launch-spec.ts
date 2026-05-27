@@ -84,6 +84,7 @@ export type McpServerConfig = StdioMcpServerConfig | StreamableHttpMcpServerConf
 export interface AgentLaunchSpec {
   organizationId: string;
   userId: string;
+  environmentId?: string;
   env?: Record<string, string>;
   agent: AgentConfig;
   model: ModelConfig;

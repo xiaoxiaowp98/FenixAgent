@@ -342,11 +342,6 @@ export function AgentMcpPage() {
   const handleTestFormUrl = async () => {
     if (!formUrl.trim()) return;
     setTestingUrl(true);
-    const headersObj =
-      formHeaders.filter((h) => h.key.trim()).length > 0
-        ? Object.fromEntries(formHeaders.filter((h) => h.key.trim()).map((h) => [h.key, h.value]))
-        : undefined;
-    const timeoutNum = formTimeout ? parseInt(formTimeout, 10) : undefined;
     const { data: result, error: testError } = await mcpApi.testUrl(formUrl);
     if (testError) {
       console.error(t("toast.testFailed"), testError);

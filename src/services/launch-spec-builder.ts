@@ -99,6 +99,7 @@ function resolveModelConfig(modelRef: string | null | undefined, providers: Agen
 export interface BuildLaunchSpecInput {
   organizationId: string;
   userId: string;
+  environmentId?: string;
   agentName: string;
   agentConfigId?: string | null;
   agentPrompt?: string | null;
@@ -118,8 +119,17 @@ export function setBuildLaunchSpec(fn: ((input: BuildLaunchSpecInput) => Promise
 
 export async function buildLaunchSpec(input: BuildLaunchSpecInput): Promise<AgentLaunchSpec> {
   if (_buildLaunchSpec) return _buildLaunchSpec(input);
-  const { organizationId, userId, agentName, agentConfigId, agentPrompt, modelRef, fullConfig, environmentSecret } =
-    input;
+  const {
+    organizationId,
+    userId,
+    environmentId,
+    agentName,
+    agentConfigId,
+    agentPrompt,
+    modelRef,
+    fullConfig,
+    environmentSecret,
+  } = input;
 
   const agent = {
     name: agentName,
@@ -174,6 +184,7 @@ export async function buildLaunchSpec(input: BuildLaunchSpecInput): Promise<Agen
   return {
     organizationId,
     userId,
+    ...(environmentId ? { environmentId } : {}),
     ...(input.extraEnv ? { env: input.extraEnv } : {}),
     agent,
     model,

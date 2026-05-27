@@ -49,7 +49,9 @@ app.get(
     const authCtx = store.authContext!;
     const env = await requireEnv(params.id, authCtx.organizationId, error);
     if (env instanceof Response) return env;
-    const paths = await listPathsRecursive(env.workspacePath);
+    const resolved = await resolveWorkspacePath(params.id, ".");
+    if (!resolved) return error(404, { error: { type: "not_found", message: "工作区不存在" } });
+    const paths = await listPathsRecursive(resolved.workspaceDir);
     return { paths };
   },
   { sessionAuth: true },

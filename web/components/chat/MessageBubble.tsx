@@ -93,7 +93,6 @@ interface AssistantBubbleProps {
 }
 
 export function AssistantBubble({ entry, isStreaming, envId }: AssistantBubbleProps) {
-  const { t } = useTranslation("components");
   return (
     <div className="flex gap-4 items-start message-bubble-enter">
       {/* Agent avatar — 窄屏隐藏 */}

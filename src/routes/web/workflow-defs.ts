@@ -22,6 +22,14 @@ import {
   updateWorkflowMeta,
 } from "../../repositories/workflow-def";
 import { publishWorkflowEvent } from "../../services/workflow/workflow-events";
+import {
+  createTrigger,
+  deleteTrigger,
+  disableTrigger,
+  enableTrigger,
+  listTriggers,
+  regenerateHash,
+} from "../../services/workflow-trigger";
 
 const app = new Elysia({ name: "web-workflow-defs" }).use(authGuardPlugin);
 
@@ -154,6 +162,74 @@ app.post(
             return error(400, { error: { type: "VALIDATION_ERROR", message: "workflowId and version are required" } });
           }
           await restoreVersionToDraft(workflowId, authCtx, version);
+          return { success: true };
+        }
+
+        // ── Workflow Trigger ──
+
+        case "createTrigger": {
+          const workflowId = payload.workflowId as string;
+          const triggerType = (payload.type as string) || "webhook";
+          const triggerConfig = payload.config as Record<string, unknown> | undefined;
+          if (!workflowId) {
+            return error(400, { error: { type: "VALIDATION_ERROR", message: "workflowId is required" } });
+          }
+          const trigger = await createTrigger({
+            organizationId: authCtx.organizationId,
+            workflowId,
+            type: triggerType,
+            userId: authCtx.userId,
+            config: triggerConfig,
+          });
+          return { success: true, data: trigger };
+        }
+
+        case "listTriggers": {
+          const workflowId = payload.workflowId as string;
+          if (!workflowId) {
+            return error(400, { error: { type: "VALIDATION_ERROR", message: "workflowId is required" } });
+          }
+          const triggers = await listTriggers(workflowId);
+          return { success: true, data: triggers };
+        }
+
+        case "deleteTrigger": {
+          const triggerId = payload.triggerId as string;
+          if (!triggerId) {
+            return error(400, { error: { type: "VALIDATION_ERROR", message: "triggerId is required" } });
+          }
+          const deleted = await deleteTrigger(triggerId, authCtx.organizationId);
+          if (!deleted) return error(404, { error: { type: "NOT_FOUND", message: "Trigger not found" } });
+          return { success: true };
+        }
+
+        case "regenerateHash": {
+          const triggerId = payload.triggerId as string;
+          if (!triggerId) {
+            return error(400, { error: { type: "VALIDATION_ERROR", message: "triggerId is required" } });
+          }
+          const result = await regenerateHash(triggerId, authCtx.organizationId);
+          if (!result) return error(404, { error: { type: "NOT_FOUND", message: "Trigger not found" } });
+          return { success: true, data: result };
+        }
+
+        case "enableTrigger": {
+          const triggerId = payload.triggerId as string;
+          if (!triggerId) {
+            return error(400, { error: { type: "VALIDATION_ERROR", message: "triggerId is required" } });
+          }
+          const ok = await enableTrigger(triggerId, authCtx.organizationId);
+          if (!ok) return error(404, { error: { type: "NOT_FOUND", message: "Trigger not found" } });
+          return { success: true };
+        }
+
+        case "disableTrigger": {
+          const triggerId = payload.triggerId as string;
+          if (!triggerId) {
+            return error(400, { error: { type: "VALIDATION_ERROR", message: "triggerId is required" } });
+          }
+          const ok = await disableTrigger(triggerId, authCtx.organizationId);
+          if (!ok) return error(404, { error: { type: "NOT_FOUND", message: "Trigger not found" } });
           return { success: true };
         }
 

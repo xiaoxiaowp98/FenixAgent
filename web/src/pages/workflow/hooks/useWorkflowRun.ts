@@ -17,6 +17,7 @@ import {
   pushWorkflowError,
   pushWorkflowRunStatus,
 } from "../../../lib/use-workflow-events";
+import { autoLayout } from "../layout";
 import { dedupEvents } from "../utils";
 import { START_NODE_ID } from "../yaml-utils";
 
@@ -53,6 +54,7 @@ export interface UseWorkflowRunReturn {
   handleCancelRun: () => Promise<void>;
   handleApprove: (approval: PendingApproval) => Promise<void>;
   handleBackToEdit: () => void;
+  handleBackToList: () => void;
   handleRerunFrom: (nodeId: string) => Promise<void>;
   handleViewNodeOutput: (nodeId: string) => void;
   handleRefreshDraft: () => Promise<void>;
@@ -188,17 +190,22 @@ export function useWorkflowRun(params: UseWorkflowRunParams): UseWorkflowRunRetu
   );
 
   useEffect(() => {
-    if (!activeRunId || !runSnapshot) return;
-    const status = runSnapshot.dag_status;
-    if (["SUCCESS", "FAILED", "CANCELLED", "ERROR"].includes(status)) return;
+    if (!activeRunId) return;
+    if (runSnapshot) {
+      const status = runSnapshot.dag_status;
+      if (["SUCCESS", "FAILED", "CANCELLED", "ERROR"].includes(status)) {
+        setRunning(false);
+        return;
+      }
+    }
     let cancelled = false;
     const poll = async () => {
       if (cancelled) return;
       await loadRunData(activeRunId);
-      if (!cancelled) pollRef.current = setTimeout(poll, 10_000);
+      if (!cancelled) pollRef.current = setTimeout(poll, 2_000);
     };
-    // SSE 作为主要状态更新机制，轮询 10s 作为兜底
-    pollRef.current = setTimeout(poll, 10_000);
+    // 引擎异步执行，轮询 2s 获取实时快照
+    pollRef.current = setTimeout(poll, 2_000);
     return () => {
       cancelled = true;
       if (pollRef.current) clearTimeout(pollRef.current);
@@ -258,11 +265,11 @@ export function useWorkflowRun(params: UseWorkflowRunParams): UseWorkflowRunRetu
       setSelectedNodeOutput(null);
       setRightTab("run");
       await loadRunData(result.runId);
+      // running 保持 true，轮询检测到终止状态时重置
     } catch (err) {
       console.error(err);
       pushWorkflowError("run", (err as Error).message);
       toast.error(`${t("editor.run_failed")}: ${(err as Error).message}`);
-    } finally {
       setRunning(false);
     }
   }, [
@@ -309,6 +316,7 @@ export function useWorkflowRun(params: UseWorkflowRunParams): UseWorkflowRunRetu
 
   const handleBackToEdit = useCallback(() => {
     if (pollRef.current) clearTimeout(pollRef.current);
+    setRunning(false);
     setActiveRunId(null);
     setRunSnapshot(null);
     setRunEvents([]);
@@ -325,6 +333,26 @@ export function useWorkflowRun(params: UseWorkflowRunParams): UseWorkflowRunRetu
     setSelectedRunNodeId,
     setSelectedNodeOutput,
     setRightTab,
+    setNodes,
+  ]);
+
+  const handleBackToList = useCallback(() => {
+    if (pollRef.current) clearTimeout(pollRef.current);
+    setRunning(false);
+    setActiveRunId(null);
+    setRunSnapshot(null);
+    setRunEvents([]);
+    setRunApprovals([]);
+    setSelectedRunNodeId(null);
+    setSelectedNodeOutput(null);
+    setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _runStatus: undefined, _exitCode: undefined } })));
+  }, [
+    setActiveRunId,
+    setRunSnapshot,
+    setRunEvents,
+    setRunApprovals,
+    setSelectedRunNodeId,
+    setSelectedNodeOutput,
     setNodes,
   ]);
 
@@ -428,7 +456,7 @@ export function useWorkflowRun(params: UseWorkflowRunParams): UseWorkflowRunRetu
       const wf = await workflowDefApi.get(workflowId);
       if (wf.draftYaml) {
         const { nodes: newNodes, edges: newEdges, meta: newMeta } = yamlToFlow(wf.draftYaml);
-        setNodes(newNodes);
+        setNodes(autoLayout(newNodes, newEdges));
         setEdges(newEdges);
         setMeta(() => newMeta);
         setLastSavedYaml(wf.draftYaml);
@@ -495,6 +523,7 @@ export function useWorkflowRun(params: UseWorkflowRunParams): UseWorkflowRunRetu
     handleCancelRun,
     handleApprove,
     handleBackToEdit,
+    handleBackToList,
     handleRerunFrom,
     handleViewNodeOutput,
     handleRefreshDraft,

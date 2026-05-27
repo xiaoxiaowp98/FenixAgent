@@ -1,4 +1,5 @@
-import { AlertTriangle, Inbox, Loader, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { AlertTriangle, ExternalLink, Inbox, Loader, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { type RunSummary, workflowEngineApi } from "../../../api/workflow-engine";
@@ -85,7 +86,7 @@ export function RunListPanel({ onClose, onSelect }: { onClose: () => void; onSel
       {/* 列表 */}
       <div style={{ flex: 1, overflowY: "auto" }}>
         {loading ? (
-          <div style={{ textAlign: "center", padding: 24, color: "#9ca3af", fontSize: 11 }}>
+          <div style={{ textAlign: "center", padding: 24, color: "#4b5563", fontSize: 11 }}>
             <Loader size={16} style={{ animation: "wf-spin 1s linear infinite", display: "inline-block" }} />
             <p style={{ marginTop: 4 }}>{t("editor.load_failed")}</p>
           </div>
@@ -95,7 +96,7 @@ export function RunListPanel({ onClose, onSelect }: { onClose: () => void; onSel
             <p style={{ fontSize: 11, color: "#6b7280" }}>{t("editor.load_failed_short")}</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 24, color: "#d1d5db", fontSize: 11 }}>
+          <div style={{ textAlign: "center", padding: 24, color: "#6b7280", fontSize: 11 }}>
             <Inbox size={24} style={{ margin: "0 auto 4px" }} />
             <p>{statusFilter !== "all" ? t("editor.no_match") : t("runs.no_runs")}</p>
           </div>
@@ -143,10 +144,10 @@ export function RunListPanel({ onClose, onSelect }: { onClose: () => void; onSel
                     )}
                     {t(cfg.labelKey)}
                   </span>
-                  <span style={{ fontSize: 10, color: "#9ca3af", fontFamily: "ui-monospace, monospace" }}>
+                  <span style={{ fontSize: 10, color: "#4b5563", fontFamily: "ui-monospace, monospace" }}>
                     {r.node_summary.completed}/{r.node_summary.total}
                   </span>
-                  <span style={{ marginLeft: "auto", fontSize: 9, color: "#d1d5db" }}>
+                  <span style={{ marginLeft: "auto", fontSize: 9, color: "#6b7280" }}>
                     {relativeTime(t, r.started_at)}
                   </span>
                 </div>
@@ -162,7 +163,7 @@ export function RunListPanel({ onClose, onSelect }: { onClose: () => void; onSel
                 >
                   {r.workflow_name}
                 </div>
-                <div style={{ fontSize: 9, color: "#d1d5db", fontFamily: "ui-monospace, monospace" }}>
+                <div style={{ fontSize: 9, color: "#6b7280", fontFamily: "ui-monospace, monospace" }}>
                   {r.run_id.substring(0, 20)}...
                 </div>
               </div>
@@ -171,20 +172,36 @@ export function RunListPanel({ onClose, onSelect }: { onClose: () => void; onSel
         )}
       </div>
 
-      {/* 底部统计 */}
-      {runs.length > 0 && (
-        <div
+      {/* 底部统计 + 查看全部 */}
+      <div
+        style={{
+          padding: "6px 12px",
+          borderTop: "1px solid #f3f4f6",
+          fontSize: 10,
+          color: "#6b7280",
+          textAlign: "center",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+        }}
+      >
+        {runs.length > 0 && <span>{t("runs.total_records", { count: runs.length })}</span>}
+        <Link
+          to="/agent/workflow"
+          search={{ tab: "runs" }}
           style={{
-            padding: "6px 12px",
-            borderTop: "1px solid #f3f4f6",
-            fontSize: 10,
-            color: "#d1d5db",
-            textAlign: "center",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 3,
+            color: "#3b82f6",
+            textDecoration: "none",
+            fontWeight: 500,
           }}
         >
-          {t("runs.total_records", { count: runs.length })}
-        </div>
-      )}
+          {t("editor.view_all_runs")} <ExternalLink size={10} />
+        </Link>
+      </div>
     </>
   );
 }

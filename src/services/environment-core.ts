@@ -40,7 +40,7 @@ export function toResponse(row: EnvironmentRecord): EnvironmentResponse {
   return {
     id: row.id,
     machine_name: row.machineName,
-    directory: row.directory,
+    directory: row.workspacePath,
     branch: row.branch,
     status: row.status,
     username: row.username,

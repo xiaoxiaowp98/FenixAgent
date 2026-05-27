@@ -15,6 +15,7 @@ function createLaunchSpec(overrides: Partial<AgentLaunchSpec> = {}): AgentLaunch
   return {
     organizationId: "org-test",
     userId: "user-test",
+    environmentId: "env-test",
     env: { ACP_RCS_TOKEN: "rcs-secret", OPENAI_API_KEY: "sk-test" },
     agent: { name: "writer", prompt: "Be precise" },
     model: {
@@ -48,7 +49,7 @@ describe("opencode-runtime prepareEnvironment", () => {
 
     const state = runtime.getInstanceState("inst_prepare");
     expect(state?.status).toBe("prepared");
-    expect(state?.workspace).toMatch(/org-test[/\\]user-test$/);
+    expect(state?.workspace).toMatch(/org-test[/\\]user-test[/\\]env-test$/);
     expect(state?.launchSpec).toEqual(launchSpec);
     expect(state?.installedSkills?.[0]?.path).toContain(".opencode/skills/writer-skill");
 
@@ -139,7 +140,7 @@ describe("opencode-runtime prepareEnvironment", () => {
       });
 
       const state = runtime.getInstanceState("inst_custom_root");
-      expect(state?.workspace).toBe(join(tmpRoot, "org-test", "user-test"));
+      expect(state?.workspace).toBe(join(tmpRoot, "org-test", "user-test", "env-test"));
     } finally {
       if (originalRoot !== undefined) process.env.WORKSPACE_ROOT = originalRoot;
       else delete process.env.WORKSPACE_ROOT;
@@ -160,11 +161,11 @@ describe("opencode-runtime prepareEnvironment", () => {
 
     await runtime.prepareEnvironment({
       instanceId: "inst_org_a",
-      launchSpec: createLaunchSpec({ organizationId: "org-a", userId: "user-1" }),
+      launchSpec: createLaunchSpec({ organizationId: "org-a", userId: "user-1", environmentId: "env-a" }),
     });
     await runtime.prepareEnvironment({
       instanceId: "inst_org_b",
-      launchSpec: createLaunchSpec({ organizationId: "org-b", userId: "user-1" }),
+      launchSpec: createLaunchSpec({ organizationId: "org-b", userId: "user-1", environmentId: "env-b" }),
     });
 
     const stateA = runtime.getInstanceState("inst_org_a");
@@ -172,6 +173,64 @@ describe("opencode-runtime prepareEnvironment", () => {
     expect(stateA?.workspace).not.toBe(stateB?.workspace);
 
     // cleanup
+    for (const state of [stateA, stateB]) {
+      if (state?.workspace) {
+        await rm(state.workspace, { recursive: true, force: true });
+      }
+    }
+  });
+
+  // environmentId 缺失时 fallback 到 org/user 两段路径
+  test("falls back to org/user path when environmentId is not provided", async () => {
+    const runtime = createOpencodeRuntime({
+      skillInstallerDependencies: {
+        fetch: mockFetch,
+        extractArchive: async (_archivePath, targetDir) => {
+          await writeFile(join(targetDir, "SKILL.md"), "# installed\n", "utf8");
+        },
+      },
+    });
+
+    await runtime.prepareEnvironment({
+      instanceId: "inst_no_envid",
+      launchSpec: createLaunchSpec({ environmentId: undefined }),
+    });
+
+    const state = runtime.getInstanceState("inst_no_envid");
+    expect(state?.workspace).toMatch(/org-test[/\\]user-test$/);
+    expect(state?.workspace).not.toMatch(/env-test/);
+
+    if (state?.workspace) {
+      await rm(state.workspace, { recursive: true, force: true });
+    }
+  });
+
+  // 相同 org/user 下不同 envId 产生不同 workspace
+  test("different envId under same org/user produces different workspaces", async () => {
+    const runtime = createOpencodeRuntime({
+      skillInstallerDependencies: {
+        fetch: mockFetch,
+        extractArchive: async (_archivePath, targetDir) => {
+          await writeFile(join(targetDir, "SKILL.md"), "# installed\n", "utf8");
+        },
+      },
+    });
+
+    await runtime.prepareEnvironment({
+      instanceId: "inst_env_a",
+      launchSpec: createLaunchSpec({ environmentId: "env-alpha" }),
+    });
+    await runtime.prepareEnvironment({
+      instanceId: "inst_env_b",
+      launchSpec: createLaunchSpec({ environmentId: "env-beta" }),
+    });
+
+    const stateA = runtime.getInstanceState("inst_env_a");
+    const stateB = runtime.getInstanceState("inst_env_b");
+    expect(stateA?.workspace).not.toBe(stateB?.workspace);
+    expect(stateA?.workspace).toMatch(/env-alpha$/);
+    expect(stateB?.workspace).toMatch(/env-beta$/);
+
     for (const state of [stateA, stateB]) {
       if (state?.workspace) {
         await rm(state.workspace, { recursive: true, force: true });

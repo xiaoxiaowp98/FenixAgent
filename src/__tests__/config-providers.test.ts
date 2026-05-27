@@ -1,6 +1,7 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { resetTestAuth, setTestAuth } from "../plugins/auth";
 import { setTestOrgContext } from "../services/org-context";
+import { resetAllStubs, stubConfigPg } from "../test-utils/helpers";
 
 // In-memory PG mock for providers
 let _providers: Map<
@@ -17,81 +18,83 @@ let _providers: Map<
   }
 > = new Map();
 
-mock.module("../services/config-pg", () => ({
-  listProviders: async (_ctx: any) => {
-    return [..._providers.values()].map((p) => ({
-      id: p.id,
-      name: p.name,
-      displayName: p.displayName,
-      npm: p.npm,
-      baseUrl: p.baseUrl,
-      apiKey: p.apiKey,
-      extraOptions: p.extraOptions,
-      modelCount: p.models.size,
-    }));
-  },
-  getProvider: async (_ctx: any, name: string) => {
-    const p = _providers.get(name);
-    if (!p) return null;
-    return {
-      ...p,
-      models: [...p.models.entries()].map(([modelId, m]) => ({ id: "model-uuid", providerId: p.id, modelId, ...m })),
-    };
-  },
-  upsertProvider: async (_ctx: any, name: string, data: any) => {
-    const existing = _providers.get(name);
-    if (existing) {
-      Object.assign(existing, {
-        displayName: data.displayName ?? existing.displayName,
-        npm: data.npm ?? existing.npm,
-        baseUrl: data.baseUrl ?? existing.baseUrl,
-        apiKey: data.apiKey ?? existing.apiKey,
-        extraOptions: data.extraOptions ?? existing.extraOptions,
+function setupStubs() {
+  stubConfigPg({
+    listProviders: async (_ctx: any) => {
+      return [..._providers.values()].map((p) => ({
+        id: p.id,
+        name: p.name,
+        displayName: p.displayName,
+        npm: p.npm,
+        baseUrl: p.baseUrl,
+        apiKey: p.apiKey,
+        extraOptions: p.extraOptions,
+        modelCount: p.models.size,
+      }));
+    },
+    getProvider: async (_ctx: any, name: string) => {
+      const p = _providers.get(name);
+      if (!p) return null;
+      return {
+        ...p,
+        models: [...p.models.entries()].map(([modelId, m]) => ({ id: "model-uuid", providerId: p.id, modelId, ...m })),
+      };
+    },
+    upsertProvider: async (_ctx: any, name: string, data: any) => {
+      const existing = _providers.get(name);
+      if (existing) {
+        Object.assign(existing, {
+          displayName: data.displayName ?? existing.displayName,
+          npm: data.npm ?? existing.npm,
+          baseUrl: data.baseUrl ?? existing.baseUrl,
+          apiKey: data.apiKey ?? existing.apiKey,
+          extraOptions: data.extraOptions ?? existing.extraOptions,
+        });
+        return existing.id;
+      }
+      const id = `prov-${name}`;
+      _providers.set(name, {
+        id,
+        name,
+        displayName: data.displayName ?? null,
+        npm: data.npm ?? null,
+        baseUrl: data.baseUrl ?? null,
+        apiKey: data.apiKey ?? null,
+        extraOptions: data.extraOptions ?? null,
+        models: new Map(),
       });
-      return existing.id;
-    }
-    const id = `prov-${name}`;
-    _providers.set(name, {
-      id,
-      name,
-      displayName: data.displayName ?? null,
-      npm: data.npm ?? null,
-      baseUrl: data.baseUrl ?? null,
-      apiKey: data.apiKey ?? null,
-      extraOptions: data.extraOptions ?? null,
-      models: new Map(),
-    });
-    return id;
-  },
-  deleteProvider: async (_ctx: any, name: string) => {
-    return _providers.delete(name);
-  },
-  addModel: async (_orgId: string, providerId: string, data: any) => {
-    for (const p of _providers.values()) {
-      if (p.id === providerId) {
-        p.models.set(data.modelId, data);
-        return;
+      return id;
+    },
+    deleteProvider: async (_ctx: any, name: string) => {
+      return _providers.delete(name);
+    },
+    addModel: async (_orgId: string, providerId: string, data: any) => {
+      for (const p of _providers.values()) {
+        if (p.id === providerId) {
+          p.models.set(data.modelId, data);
+          return;
+        }
       }
-    }
-  },
-  updateModel: async (_orgId: string, providerId: string, modelId: string, data: any) => {
-    for (const p of _providers.values()) {
-      if (p.id === providerId) {
-        const existing = p.models.get(modelId) ?? {};
-        p.models.set(modelId, { ...existing, ...data });
-        return;
+    },
+    updateModel: async (_orgId: string, providerId: string, modelId: string, data: any) => {
+      for (const p of _providers.values()) {
+        if (p.id === providerId) {
+          const existing = p.models.get(modelId) ?? {};
+          p.models.set(modelId, { ...existing, ...data });
+          return;
+        }
       }
-    }
-  },
-  removeModel: async (_orgId: string, providerId: string, modelId: string) => {
-    for (const p of _providers.values()) {
-      if (p.id === providerId) {
-        p.models.delete(modelId);
-        return;
+    },
+    removeModel: async (_orgId: string, providerId: string, modelId: string) => {
+      for (const p of _providers.values()) {
+        if (p.id === providerId) {
+          p.models.delete(modelId);
+          return;
+        }
       }
-    }
-  },
-}));
+    },
+  });
+}
 
 // Helper to get provider store for assertions
 function _getProviderStore() {
@@ -131,6 +134,8 @@ describe("Providers Config Route", () => {
   });
 
   beforeEach(() => {
+    resetAllStubs();
+    setupStubs();
     setTestAuth({
       user: { id: "test-user", email: "test@test.com", name: "Test" },
       authContext: { organizationId: "test-team", userId: "test-user", role: "owner" },
@@ -651,6 +656,8 @@ describe("Providers Config Route", () => {
 
 describe("Provider Test action - edge cases", () => {
   beforeEach(() => {
+    resetAllStubs();
+    setupStubs();
     _providers = new Map();
     setTestAuth({
       user: { id: "test-user", email: "test@test.com", name: "Test" },
@@ -675,6 +682,8 @@ describe("Provider Test action - edge cases", () => {
 
 describe("Provider atomic write", () => {
   beforeEach(() => {
+    resetAllStubs();
+    setupStubs();
     _providers = new Map();
     setTestAuth({
       user: { id: "test-user", email: "test@test.com", name: "Test" },

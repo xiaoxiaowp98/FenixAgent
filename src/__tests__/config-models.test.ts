@@ -1,8 +1,10 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { resetTestAuth, setTestAuth } from "../plugins/auth";
+import modelsRoute from "../routes/web/config/models";
 import { setTestOrgContext } from "../services/org-context";
+import { resetAllStubs, stubConfigPg } from "../test-utils/helpers";
 
-// In-memory mock for user config and providers
+// In-memory store for stub implementations
 let _userConfig: {
   defaultAgent: string | null;
   currentModel: string | null;
@@ -11,29 +13,6 @@ let _userConfig: {
 } = { defaultAgent: null, currentModel: null, smallModel: null, permission: null };
 let _providers: Map<string, { id: string; name: string; models: Map<string, Record<string, unknown>> }> = new Map();
 
-mock.module("../services/config-pg", () => ({
-  getUserConfig: async (_ctx: any) => ({ ..._userConfig }),
-  setUserConfig: async (_ctx: any, patch: any) => {
-    if (patch.currentModel !== undefined) _userConfig.currentModel = patch.currentModel;
-    if (patch.smallModel !== undefined) _userConfig.smallModel = patch.smallModel;
-    if (patch.permission !== undefined) _userConfig.permission = patch.permission;
-    if (patch.defaultAgent !== undefined) _userConfig.defaultAgent = patch.defaultAgent;
-  },
-  listProviders: async (_ctx: any) => {
-    return [..._providers.values()].map((p) => ({ id: p.id, name: p.name, modelCount: p.models.size }));
-  },
-  getProvider: async (_ctx: any, name: string) => {
-    const p = _providers.get(name);
-    if (!p) return null;
-    return {
-      ...p,
-      models: [...p.models.entries()].map(([modelId, m]) => ({ id: "model-uuid", providerId: p.id, modelId, ...m })),
-    };
-  },
-}));
-
-const modelsRoute = (await import("../routes/web/config/models")).default;
-
 describe("Models Config Route", () => {
   afterEach(() => {
     resetTestAuth();
@@ -41,6 +20,32 @@ describe("Models Config Route", () => {
   });
 
   beforeEach(() => {
+    resetAllStubs();
+    stubConfigPg({
+      getUserConfig: async (_ctx: any) => ({ ..._userConfig }),
+      setUserConfig: async (_ctx: any, patch: any) => {
+        if (patch.currentModel !== undefined) _userConfig.currentModel = patch.currentModel;
+        if (patch.smallModel !== undefined) _userConfig.smallModel = patch.smallModel;
+        if (patch.permission !== undefined) _userConfig.permission = patch.permission;
+        if (patch.defaultAgent !== undefined) _userConfig.defaultAgent = patch.defaultAgent;
+      },
+      listProviders: async (_ctx: any) => {
+        return [..._providers.values()].map((p) => ({ id: p.id, name: p.name, modelCount: p.models.size }));
+      },
+      getProvider: async (_ctx: any, name: string) => {
+        const p = _providers.get(name);
+        if (!p) return null;
+        return {
+          ...p,
+          models: [...p.models.entries()].map(([modelId, m]) => ({
+            id: "model-uuid",
+            providerId: p.id,
+            modelId,
+            ...m,
+          })),
+        };
+      },
+    });
     setTestAuth({
       user: { id: "test-user", email: "test@test.com", name: "Test" },
       authContext: { organizationId: "test-team", userId: "test-user", role: "owner" },

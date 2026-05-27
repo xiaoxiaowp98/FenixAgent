@@ -1,14 +1,9 @@
 // src/services/environment.ts — barrel re-export
 // 所有导出名称保持不变，下游 import 路径无需修改。
 
-export type {
-  BridgeRegistrationInput,
-  BridgeRegistrationResult,
-} from "./environment-acp";
 // ── acp ──
 export {
   createTemporaryEnvironment,
-  deregisterBridge,
   deregisterEnvironment,
   getEnvironment,
   getEnvironmentBySecret,
@@ -21,13 +16,10 @@ export {
   listActiveEnvironmentsResponse,
   markEnvironmentActive,
   markEnvironmentIdle,
-  reconnectBridge,
   reconnectEnvironment,
-  registerBridge,
   registerEnvironment,
   touchEnvironmentPoll,
   updateEnvironmentCapabilities,
-  updatePollTime,
 } from "./environment-acp";
 export type {
   CreateWebEnvironmentParams,

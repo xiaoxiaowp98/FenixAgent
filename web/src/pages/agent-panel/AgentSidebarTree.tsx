@@ -140,8 +140,9 @@ export function AgentSidebarTree({
 
   // 进入智能体：如果没有 environment 则自动创建
   const handleEnterAgent = useCallback(
-    async (node: AgentTreeNode, instanceNumber?: number) => {
+    async (node: AgentTreeNode, opts?: { instanceNumber?: number; spawnNew?: boolean }) => {
       const { agent, environment } = node;
+      const { instanceNumber, spawnNew } = opts ?? {};
       setEnteringAgentId(agent.id);
       try {
         let envId = environment?.id;
@@ -162,15 +163,32 @@ export function AgentSidebarTree({
           await loadData();
         }
 
-        // 进入 environment
-        const body = instanceNumber !== undefined ? { instance_number: instanceNumber } : {};
-        const { data: result } = await envApi.enter({ id: envId }, body);
-        const enterResult = result as { session_id?: string; instance_id?: string; environment_id?: string } | null;
-        onSelectInstance(
-          enterResult?.instance_id ?? "",
-          enterResult?.environment_id ?? envId,
-          enterResult?.session_id ?? null,
-        );
+        if (spawnNew) {
+          // 新建实例：先 spawn，再 enter 指定 instance_number
+          const { data: spawnResult } = await instanceApi.spawn({ environmentId: envId });
+          const spawned = spawnResult as { instance_number?: number } | null;
+          const newInstanceNumber = spawned?.instance_number;
+          if (newInstanceNumber !== undefined) {
+            const { data: result } = await envApi.enter({ id: envId }, { instance_number: newInstanceNumber });
+            const enterResult = result as { session_id?: string; instance_id?: string; environment_id?: string } | null;
+            onSelectInstance(
+              enterResult?.instance_id ?? "",
+              enterResult?.environment_id ?? envId,
+              enterResult?.session_id ?? null,
+            );
+          }
+        } else {
+          // 进入已有实例
+          const body = instanceNumber !== undefined ? { instance_number: instanceNumber } : {};
+          const { data: result } = await envApi.enter({ id: envId }, body);
+          const enterResult = result as { session_id?: string; instance_id?: string; environment_id?: string } | null;
+          onSelectInstance(
+            enterResult?.instance_id ?? "",
+            enterResult?.environment_id ?? envId,
+            enterResult?.session_id ?? null,
+          );
+        }
+
         // 刷新列表以展示新实例
         loadData();
       } catch (err) {
@@ -282,7 +300,7 @@ export function AgentSidebarTree({
                 <button
                   type="button"
                   disabled={isEntering}
-                  onClick={() => handleEnterAgent(node)}
+                  onClick={() => handleEnterAgent(node, { spawnNew: true })}
                   title={t("newInstance")}
                   className="agent-tree-new-instance"
                 >
@@ -294,7 +312,7 @@ export function AgentSidebarTree({
                       <div
                         key={inst.id}
                         className={`agent-tree-instance ${selectedInstanceId === inst.id ? "selected" : ""}`}
-                        onClick={() => handleEnterAgent(node, inst.instance_number)}
+                        onClick={() => handleEnterAgent(node, { instanceNumber: inst.instance_number })}
                       >
                         <span className={`status-dot ${getInstanceStatus(inst)}`} />
                         <span className="truncate">

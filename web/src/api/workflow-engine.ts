@@ -134,7 +134,7 @@ export const workflowEngineApi = {
   },
 
   /** 获取事件流 */
-  async getEvents(runId: string, nodeId?: string): Promise<DAGEvent[]> {
+  async getEvents(runId: string, _nodeId?: string): Promise<DAGEvent[]> {
     return _sdkEngineApi.getEvents(runId).then(({ data, error }) => {
       if (error) throw new Error(error.message);
       return (data ?? []) as DAGEvent[];

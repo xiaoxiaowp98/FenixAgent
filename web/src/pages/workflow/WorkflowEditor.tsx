@@ -27,6 +27,7 @@ import {
   FilePlus,
   Globe,
   LayoutGrid,
+  Link,
   List,
   Lock,
   MessageSquare,
@@ -51,6 +52,7 @@ import { connectWorkflowSSE, disconnectWorkflowSSE } from "../../api/workflow-ss
 import { MetaAgentPanel } from "./components/MetaAgentPanel";
 import { NodeConfigPanel } from "./components/NodeConfigPanel";
 import { RunStatusPanel } from "./components/RunStatusPanel";
+import { TriggerPanel } from "./components/TriggerPanel";
 import { VersionPanel } from "./components/VersionPanel";
 import { YamlSlidePanel } from "./components/YamlSlidePanel";
 import { useWorkflowCanvas } from "./hooks/useWorkflowCanvas";
@@ -60,7 +62,7 @@ import { useWorkflowRun } from "./hooks/useWorkflowRun";
 import { autoLayout } from "./layout";
 import { nodeTypes } from "./nodes";
 import { dedupEvents } from "./utils";
-import { createStartNode, defaultMeta, type WfMeta, yamlToFlow } from "./yaml-utils";
+import { createStartNode, defaultMeta, START_NODE_ID, type WfMeta, yamlToFlow } from "./yaml-utils";
 import "./workflow.css";
 
 const PALETTE_ITEMS = [
@@ -98,7 +100,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
   const [selectedRunNodeId, setSelectedRunNodeId] = useState<string | null>(null);
   const [selectedNodeOutput, setSelectedNodeOutput] = useState<NodeOutput | null>(null);
   const [nodeOutputLoading, setNodeOutputLoading] = useState(false);
-  const [rightTab, setRightTab] = useState<"config" | "run" | "versions">("config");
+  const [rightTab, setRightTab] = useState<"config" | "run" | "versions" | "triggers">("config");
 
   // ── Refs ──
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -178,6 +180,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
     handleCancelRun,
     handleApprove,
     handleBackToEdit,
+    handleBackToList,
     handleRerunFrom,
     handleRefreshDraft,
     dryRunResult,
@@ -305,6 +308,13 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
   const updateMeta = useCallback((updates: Partial<WfMeta>) => {
     setMeta((prev) => ({ ...prev, ...updates }));
   }, []);
+
+  // ── Sync meta.params to start node data ──
+  useEffect(() => {
+    setNodes((nds) =>
+      nds.map((n) => (n.id === START_NODE_ID ? { ...n, data: { ...n.data, _params: meta.params } } : n)),
+    );
+  }, [meta.params, setNodes]);
 
   const sd = selectedNode?.data as Record<string, unknown> | undefined;
   const nodeType = selectedNode?.type ?? "shell";
@@ -465,6 +475,14 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
                     data-tooltip={t("editor.tooltip_versions")}
                   >
                     <Rocket size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`wf-toolbar-btn ${rightTab === "triggers" ? "active" : ""}`}
+                    onClick={() => setRightTab(rightTab === "triggers" ? "config" : "triggers")}
+                    data-tooltip={t("editor.tab_triggers")}
+                  >
+                    <Link size={15} />
                   </button>
                 </>
               )}
@@ -647,6 +665,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
             { key: "config" as const, label: t("editor.tab_config") },
             { key: "run" as const, label: t("editor.tab_run") },
             { key: "versions" as const, label: t("editor.tab_versions") },
+            { key: "triggers" as const, label: t("editor.tab_triggers") },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -707,6 +726,7 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
             nodeOutputLoading={nodeOutputLoading}
             handleCancelRun={handleCancelRun}
             handleBackToEdit={handleBackToEdit}
+            handleBackToList={handleBackToList}
             handleApprove={handleApprove}
             handleRerunFrom={handleRerunFrom}
             setActiveRunId={setActiveRunId}
@@ -728,6 +748,9 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
             publishing={publishing}
           />
         )}
+
+        {/* ── 触发器 Tab ── */}
+        {rightTab === "triggers" && <TriggerPanel workflowId={workflowId} onClose={() => setRightTab("config")} />}
       </aside>
 
       {/* Meta Agent Chat 侧边栏 */}

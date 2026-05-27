@@ -10,7 +10,7 @@ import type { AgentFullConfig } from "./config-pg";
 import { getAgentConfigById, getAgentFullConfig } from "./config-pg";
 import { getCoreRuntime } from "./core-bootstrap";
 import { buildLaunchSpec } from "./launch-spec-builder";
-import { findOrCreateForEnvironment } from "./session";
+import { _sessionRepo } from "./session";
 
 // ────────────────────────────────────────────
 // 公共类型
@@ -150,6 +150,7 @@ export async function spawnInstanceFromEnvironment(
   const launchSpec = await buildLaunchSpec({
     organizationId: env.organizationId ?? userId,
     userId: env.userId ?? userId,
+    environmentId: environmentId,
     agentName,
     agentConfigId: env.agentConfigId ?? null,
     agentPrompt,
@@ -349,8 +350,21 @@ export async function enterEnvironment(
     inst = result.instance;
   }
 
-  // 为该环境查找或创建 RCS session（前端导航需要 session_id）
-  const { id: sessionId } = await findOrCreateForEnvironment(environmentId, "Web Session", userId, "web");
+  // 为该实例查找或创建独立 session（多实例场景下每个实例需要独立 session）
+  const sessions = await _sessionRepo.listByEnvironment(environmentId);
+  const existingSession = sessions.find((s) => s.title === `Instance ${inst.instanceNumber}`);
+  let sessionId: string;
+  if (existingSession) {
+    sessionId = existingSession.id;
+  } else {
+    const session = await _sessionRepo.create({
+      environmentId,
+      title: `Instance ${inst.instanceNumber}`,
+      source: "web",
+      userId,
+    });
+    sessionId = session.id;
+  }
 
   return {
     session_id: sessionId,

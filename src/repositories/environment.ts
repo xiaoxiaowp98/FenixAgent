@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { v4 as uuid } from "uuid";
 import { db } from "../db";
 import { environment, user } from "../db/schema";
+import { resolveWorkspacePath } from "../services/workspace-resolver";
 
 /** Environment 持久化记录 */
 export interface EnvironmentRecord {
@@ -29,6 +30,7 @@ export interface EnvironmentRecord {
 }
 
 export interface EnvironmentCreateParams {
+  id?: string;
   name?: string;
   description?: string;
   workspacePath?: string;
@@ -84,15 +86,16 @@ export interface IEnvironmentRepo {
 }
 
 function rowToRecord(row: typeof environment.$inferSelect): EnvironmentRecord {
+  const computedWorkspace = resolveWorkspacePath(row.organizationId ?? row.userId ?? "", row.userId ?? "", row.id);
   return {
     id: row.id,
     name: row.name,
     description: row.description,
-    workspacePath: row.workspacePath,
+    workspacePath: computedWorkspace,
     agentConfigId: row.agentConfigId ?? null,
     secret: row.secret,
     machineName: row.machineName,
-    directory: row.workspacePath,
+    directory: computedWorkspace,
     branch: row.branch,
     gitRepoUrl: row.gitRepoUrl,
     maxSessions: row.maxSessions,
@@ -111,10 +114,10 @@ function rowToRecord(row: typeof environment.$inferSelect): EnvironmentRecord {
 
 class PgEnvironmentRepo implements IEnvironmentRepo {
   async create(params: EnvironmentCreateParams): Promise<EnvironmentRecord> {
-    const id = `env_${uuid().replace(/-/g, "")}`;
+    const id = params.id ?? `env_${uuid().replace(/-/g, "")}`;
     const now = new Date();
     const name = params.name || `env-${id.slice(4, 12)}`;
-    const workspacePath = params.workspacePath || params.directory || "/tmp";
+    const workspacePath = params.workspacePath ?? params.directory ?? "/tmp";
     const status = params.status || "active";
     const secret = params.secret || `sec_${uuid().replace(/-/g, "")}`;
     const orgId = params.organizationId ?? params.userId;

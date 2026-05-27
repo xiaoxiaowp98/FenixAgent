@@ -161,7 +161,7 @@ describe("error handling", () => {
   test("SDK returns SERVER_ERROR on 500 response", async () => {
     fetchMock.response = { ok: false, status: 500, statusText: "Internal Server Error" };
     fetchMock.responseData = {};
-    const { data, error } = await sdk.sessionApi.list();
+    const { error } = await sdk.sessionApi.list();
     expect(error).not.toBeNull();
     expect(error?.code).toBe("SERVER_ERROR");
   });

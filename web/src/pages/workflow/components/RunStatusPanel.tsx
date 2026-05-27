@@ -1,4 +1,4 @@
-import { Edit3, Loader, RefreshCw, ShieldCheck, Square } from "lucide-react";
+import { ArrowLeft, Edit3, Loader, RefreshCw, ShieldCheck, Square } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   type DAGEvent,
@@ -29,6 +29,7 @@ export interface RunStatusPanelProps {
   nodeOutputLoading: boolean;
   handleCancelRun: () => Promise<void>;
   handleBackToEdit: () => void;
+  handleBackToList: () => void;
   handleApprove: (approval: PendingApproval) => Promise<void>;
   handleRerunFrom: (fromNodeId: string) => Promise<void>;
   setActiveRunId: (id: string | null) => void;
@@ -57,6 +58,7 @@ export function RunStatusPanel({
   nodeOutputLoading,
   handleCancelRun,
   handleBackToEdit,
+  handleBackToList,
   handleApprove,
   handleRerunFrom,
   setActiveRunId,
@@ -110,6 +112,25 @@ export function RunStatusPanel({
           gap: 6,
         }}
       >
+        <button
+          type="button"
+          onClick={handleBackToList}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 22,
+            height: 22,
+            border: "none",
+            background: "#f3f4f6",
+            borderRadius: 4,
+            color: "#374151",
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          <ArrowLeft size={12} />
+        </button>
         <span style={{ fontSize: 12, fontWeight: 600, color: "#111827" }}>{t("editor.run_result")}</span>
         {runSnapshot && (
           <span
@@ -235,7 +256,7 @@ export function RunStatusPanel({
             padding: "4px 12px",
             borderBottom: "1px solid #f3f4f6",
             fontSize: 10,
-            color: "#9ca3af",
+            color: "#4b5563",
             display: "flex",
             justifyContent: "space-between",
           }}
@@ -262,7 +283,7 @@ export function RunStatusPanel({
             background: "none",
             fontSize: 11,
             fontWeight: runRightTab === "events" ? 600 : 400,
-            color: runRightTab === "events" ? "#111827" : "#9ca3af",
+            color: runRightTab === "events" ? "#111827" : "#4b5563",
             borderBottom: runRightTab === "events" ? "2px solid #3b82f6" : "2px solid transparent",
             cursor: "pointer",
           }}
@@ -283,7 +304,7 @@ export function RunStatusPanel({
             background: "none",
             fontSize: 11,
             fontWeight: runRightTab === "output" ? 600 : 400,
-            color: runRightTab === "output" ? "#111827" : "#9ca3af",
+            color: runRightTab === "output" ? "#111827" : "#4b5563",
             borderBottom: runRightTab === "output" ? "2px solid #3b82f6" : "2px solid transparent",
             cursor: "pointer",
           }}
@@ -298,7 +319,7 @@ export function RunStatusPanel({
           {(() => {
             const filtered = selectedRunNodeId ? runEvents.filter((e) => e.node_id === selectedRunNodeId) : runEvents;
             return filtered.length === 0 ? (
-              <div style={{ padding: 20, textAlign: "center", color: "#d1d5db" }}>
+              <div style={{ padding: 20, textAlign: "center", color: "#6b7280" }}>
                 {selectedRunNodeId ? t("editor.no_events_for_node") : t("editor.no_events")}
               </div>
             ) : (
@@ -321,7 +342,7 @@ export function RunStatusPanel({
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 1 }}>
                       <span style={{ fontWeight: 500, color: "#374151" }}>{formatEventType(t, evt.type)}</span>
-                      <span style={{ color: "#d1d5db", fontSize: 9, flexShrink: 0 }}>
+                      <span style={{ color: "#6b7280", fontSize: 9, flexShrink: 0 }}>
                         {new Date(evt.timestamp).toLocaleTimeString("zh-CN", {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -330,14 +351,14 @@ export function RunStatusPanel({
                       </span>
                     </div>
                     {evt.node_id && (
-                      <span style={{ color: "#9ca3af", fontFamily: "ui-monospace, monospace", fontSize: 9 }}>
+                      <span style={{ color: "#4b5563", fontFamily: "ui-monospace, monospace", fontSize: 9 }}>
                         {evt.node_id}
                       </span>
                     )}
                     {evt.metadata && Object.keys(evt.metadata).length > 0 && (
                       <div
                         style={{
-                          color: "#9ca3af",
+                          color: "#4b5563",
                           fontSize: 9,
                           marginTop: 1,
                           fontFamily: "ui-monospace, monospace",
@@ -358,13 +379,13 @@ export function RunStatusPanel({
       {runRightTab === "output" && (
         <div style={{ flex: 1, overflowY: "auto", fontSize: 11 }}>
           {!selectedRunNodeId ? (
-            <div style={{ padding: 20, textAlign: "center", color: "#d1d5db" }}>{t("editor.click_node_output")}</div>
+            <div style={{ padding: 20, textAlign: "center", color: "#6b7280" }}>{t("editor.click_node_output")}</div>
           ) : nodeOutputLoading ? (
-            <div style={{ padding: 20, textAlign: "center", color: "#9ca3af" }}>
+            <div style={{ padding: 20, textAlign: "center", color: "#4b5563" }}>
               <Loader size={14} style={{ animation: "wf-spin 1s linear infinite", display: "inline-block" }} />
             </div>
           ) : !selectedNodeOutput ? (
-            <div style={{ padding: 20, textAlign: "center", color: "#d1d5db" }}>{t("editor.no_output")}</div>
+            <div style={{ padding: 20, textAlign: "center", color: "#6b7280" }}>{t("editor.no_output")}</div>
           ) : (
             <>
               <div

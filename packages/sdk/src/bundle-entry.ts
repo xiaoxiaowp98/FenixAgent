@@ -41,8 +41,6 @@ export { ApiKeyApi, OrganizationApi } from "./modules/organization";
 export { S3FileApi } from "./modules/s3-file";
 export { ControlApi, SessionApi } from "./modules/session";
 export { TaskApi } from "./modules/task";
-export { V1EnvironmentApi } from "./modules/v1-environment";
-export { V1SessionApi } from "./modules/v1-session";
 export { V2CodeSessionApi } from "./modules/v2-code-session";
 export { V2WorkerApi } from "./modules/v2-worker";
 export { WorkflowDefApi } from "./modules/workflow-defs";

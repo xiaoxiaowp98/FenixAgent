@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { agentConfig, environment } from "../db/schema";
@@ -8,11 +9,10 @@ import * as configPg from "./config-pg";
 import type { CreateWebEnvironmentParams, UpdateWebEnvironmentParams } from "./environment-core";
 import { generateEnvSecret, getOwnedEnvironment, KEBAB_CASE_RE } from "./environment-core";
 import { groupActiveInstancesByEnvironment } from "./instance";
-import { resolveWorkspacePath } from "./workspace-resolver";
 
 export type { CreateWebEnvironmentParams, UpdateWebEnvironmentParams };
 
-/** 创建 Web 控制面板 Environment — workspace 路径由 orgId + userId 自动计算 */
+/** 创建 Web 控制面板 Environment — workspace 路径运行时实时计算，创建时写空字符串 */
 export async function createWebEnvironment(params: CreateWebEnvironmentParams) {
   const { name, description, autoStart, userId, organizationId } = params;
 
@@ -27,17 +27,18 @@ export async function createWebEnvironment(params: CreateWebEnvironmentParams) {
     if (!agent) throw new ValidationError(`AgentConfig '${params.agentConfigId}' 不存在`);
   }
 
-  // workspace 路径由 orgId + userId 自动计算
-  const workspacePath = resolveWorkspacePath(organizationId ?? userId, userId);
+  // 预生成 environment ID（workspace 路径运行时实时计算）
+  const envId = `env_${randomBytes(12).toString("hex")}`;
 
-  // 创建记录
+  // 创建记录，workspacePath 写空字符串
   const secret = generateEnvSecret();
   let record: Awaited<ReturnType<typeof environmentRepo.create>>;
   try {
     record = await environmentRepo.create({
+      id: envId,
       name,
       description,
-      workspacePath,
+      workspacePath: "",
       status: "idle",
       secret,
       userId,

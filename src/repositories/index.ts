@@ -44,6 +44,8 @@ export {
   setLatestVersion,
   updateWorkflowMeta,
 } from "./workflow-def";
+export type { IWorkflowTriggerRepo, WorkflowTriggerInsert, WorkflowTriggerRow } from "./workflow-trigger";
+export { workflowTriggerRepo } from "./workflow-trigger";
 
 import { sessionRepo } from "./session";
 import { sessionWorkerRepo } from "./session-worker";

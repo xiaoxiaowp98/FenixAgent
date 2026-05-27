@@ -77,7 +77,7 @@ export function yamlToFlow(yamlStr: string): { nodes: Node[]; edges: Edge[]; met
     nodes.push({
       id: raw.id,
       type,
-      position: { x: 240 + idx * 260, y: 100 + (idx % 3) * 100 },
+      position: { x: 100 + (idx % 3) * 200, y: 80 + idx * 100 },
       data,
     });
 

@@ -14,12 +14,10 @@ import { rateLimitPlugin } from "./plugins/rate-limit";
 import { ctrlStaticPlugin } from "./plugins/static";
 import { environmentRepo } from "./repositories";
 import acpRoutes from "./routes/acp";
+import hooksRoutes from "./routes/hooks";
 import knowledgeMcpRoutes from "./routes/mcp/knowledge";
-import v1Environments from "./routes/v1/environments";
-import v1EnvironmentsWork from "./routes/v1/environments.work";
-import v1SessionIngress from "./routes/v1/session-ingress";
-import v1Sessions from "./routes/v1/sessions";
 import v2CodeSessions from "./routes/v2/code-sessions";
+import sessionIngress from "./routes/v2/session-ingress";
 import v2Worker from "./routes/v2/worker";
 import v2WorkerEvents from "./routes/v2/worker-events";
 import v2WorkerEventsStream from "./routes/v2/worker-events-stream";
@@ -74,7 +72,7 @@ try {
     if (!env.userId) continue;
     if (!env.organizationId) continue;
     if (!env.autoStart) continue;
-    const cwd = resolveWorkspacePath(env.organizationId, env.userId);
+    const cwd = resolveWorkspacePath(env.organizationId, env.userId, env.id);
     if (!existsSync(cwd)) {
       console.log(`[RCS] Skipping environment ${env.name}: workspace directory does not exist (${cwd})`);
       continue;
@@ -151,11 +149,7 @@ const app = new Elysia()
   .use(authPlugin)
   // Static files under /ctrl
   .use(ctrlStaticPlugin)
-  // v1 compatibility routes
-  .use(v1Environments)
-  .use(v1EnvironmentsWork)
-  .use(v1Sessions)
-  .use(v1SessionIngress)
+  .use(sessionIngress)
   // v2 routes
   .use(v2CodeSessions)
   .use(v2Worker)
@@ -167,6 +161,8 @@ const app = new Elysia()
   .use(workflowStaticApp)
   // MCP routes
   .use(knowledgeMcpRoutes)
+  // Webhook trigger routes (no auth)
+  .use(hooksRoutes)
   // ACP protocol routes
   .use(acpRoutes);
 

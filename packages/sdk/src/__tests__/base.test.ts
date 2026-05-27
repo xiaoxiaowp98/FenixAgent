@@ -10,6 +10,7 @@ afterEach(() => {
 describe("BaseApi.replaceParams", () => {
   it("替换单个参数", () => {
     const api = new BaseApi();
+    // biome-ignore lint/complexity/useLiteralKeys: testing protected method
     const result = api["replaceParams"]("/web/sessions/:sessionId/events", {
       sessionId: "ses_123",
     });
@@ -18,6 +19,7 @@ describe("BaseApi.replaceParams", () => {
 
   it("替换多个参数", () => {
     const api = new BaseApi();
+    // biome-ignore lint/complexity/useLiteralKeys: testing protected method
     const result = api["replaceParams"]("/v1/:orgId/:userId/profile", {
       orgId: "org_1",
       userId: "usr_2",
@@ -27,6 +29,7 @@ describe("BaseApi.replaceParams", () => {
 
   it("无参数路径原样返回", () => {
     const api = new BaseApi();
+    // biome-ignore lint/complexity/useLiteralKeys: testing protected method
     const result = api["replaceParams"]("/web/environments", {});
     expect(result).toBe("/web/environments");
   });
@@ -83,6 +86,7 @@ describe("BaseApi.post — 错误响应", () => {
       ),
     ) as unknown as typeof fetch;
 
+    // biome-ignore lint/complexity/useLiteralKeys: testing protected method
     const result = await api["post"]("/web/environments", { name: "test" });
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -97,6 +101,7 @@ describe("BaseApi.post — 错误响应", () => {
       Promise.resolve(new Response("Internal Server Error", { status: 500 })),
     ) as unknown as typeof fetch;
 
+    // biome-ignore lint/complexity/useLiteralKeys: testing protected method
     const result = await api["post"]<never>("/web/test");
     expect(result.ok).toBe(false);
     if (!result.ok) {

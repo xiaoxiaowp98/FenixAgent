@@ -997,6 +997,7 @@ body {
   margin-bottom: 28px;
 }
 
+/* biome-ignore lint/style/noDescendingSpecificity: VitePress theme override */
 .cta-code code {
   color: var(--rcs-brand);
 }

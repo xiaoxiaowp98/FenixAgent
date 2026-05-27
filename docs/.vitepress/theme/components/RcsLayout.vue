@@ -1,7 +1,8 @@
 <script setup>
 import { useData } from "vitepress";
 
-const { frontmatter, isDark } = useData();
+// biome-ignore lint/correctness/useHookAtTopLevel: VitePress useData, not React
+const { frontmatter } = useData();
 const _isHome = frontmatter.value.layout === "page" && frontmatter.value.home !== false;
 </script>
 

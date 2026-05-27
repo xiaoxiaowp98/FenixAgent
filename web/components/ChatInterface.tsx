@@ -12,7 +12,7 @@ import type {
 } from "../src/acp/types";
 import { useCommands } from "../src/hooks/useCommands";
 import { useModes } from "../src/hooks/useModes";
-import { flushContext } from "../src/lib/context-queue";
+import { flushContext, isVisibleContentBlock } from "../src/lib/context-queue";
 import type {
   AssistantMessageEntry,
   ChatInputMessage,
@@ -377,6 +377,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     else if (update.sessionUpdate === "user_message_chunk") {
       const text = update.content.type === "text" && update.content.text ? update.content.text : "";
       if (!text) return;
+      // 过滤 system-reminder 内容块，不应在聊天界面显示
+      if (!isVisibleContentBlock({ type: "text", text })) return;
 
       setEntries((prev) => {
         const lastEntry = prev[prev.length - 1];

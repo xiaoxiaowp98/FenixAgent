@@ -30,7 +30,7 @@ import {
 } from "../../lib/agent-utils";
 import { dispatchConfigChange } from "../../lib/config-events";
 import { getSkillOptionValue, mapSkillOptions } from "../../lib/skill-resource-access";
-import type { ResourceAccess } from "../../types/config";
+import type { ModelEntry, ResourceAccess } from "../../types/config";
 import type { KnowledgeBaseInfo } from "../../types/knowledge";
 
 interface AgentFormDialogProps {
@@ -42,12 +42,21 @@ interface AgentFormDialogProps {
   agentName?: string;
 }
 
+export function mapModelOptions(available: ModelEntry[]): { value: string; label: string }[] {
+  return available.map((model) => {
+    const source =
+      model.providerResourceAccess?.sourceOrganizationName ?? model.providerResourceAccess?.sourceOrganizationId;
+    const label = source ? `${source} / ${model.fullId}` : model.fullId;
+    return { value: model.stableFullId ?? model.fullId, label };
+  });
+}
+
 export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSuccess, agentName }: AgentFormDialogProps) {
   const isEdit = mode === "edit";
   const { t } = useTranslation(NS.AGENTS);
   const { t: tAgentPanel } = useTranslation(NS.AGENT_PANEL);
 
-  const [modelOptions, setModelOptions] = useState<string[]>([]);
+  const [modelOptions, setModelOptions] = useState<{ value: string; label: string }[]>([]);
   const [knowledgeOptions, setKnowledgeOptions] = useState<KnowledgeBaseInfo[]>([]);
   const [skillOptions, setSkillOptions] = useState<
     { id: string; key: string; name: string; label: string; description: string; resourceAccess?: ResourceAccess }[]
@@ -142,7 +151,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
 
           const modelsData = modelsResult.data as unknown as Record<string, unknown> | null;
           const available = modelsData?.available;
-          const models = Array.isArray(available) ? (available as Array<{ fullId: string }>).map((m) => m.fullId) : [];
+          const models = Array.isArray(available) ? mapModelOptions(available as ModelEntry[]) : [];
           setModelOptions(models);
 
           const kbData = kbResult.data;
@@ -177,9 +186,9 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
       modelApi.get().then(({ data, error }) => {
         if (error) return;
         const available = (data as unknown as Record<string, unknown>)?.available;
-        const models = Array.isArray(available) ? (available as Array<{ fullId: string }>).map((m) => m.fullId) : [];
+        const models = Array.isArray(available) ? mapModelOptions(available as ModelEntry[]) : [];
         setModelOptions(models);
-        setFormModel(models[0] || "");
+        setFormModel(models[0]?.value || "");
       });
 
       kbApi.list().then(({ data, error }) => {
@@ -462,8 +471,8 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                       </SelectTrigger>
                       <SelectContent>
                         {modelOptions.map((m) => (
-                          <SelectItem key={m} value={m}>
-                            {m}
+                          <SelectItem key={m.value} value={m.value}>
+                            {m.label}
                           </SelectItem>
                         ))}
                       </SelectContent>

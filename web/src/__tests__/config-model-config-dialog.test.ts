@@ -29,6 +29,33 @@ describe("buildModelOptions", () => {
     ]);
   });
 
+  test("prefers stableFullId and includes source organization in label", () => {
+    const available: ModelEntry[] = [
+      {
+        id: "shared-model",
+        provider: "openai",
+        label: "Shared Model",
+        fullId: "openai/shared-model",
+        stableFullId: "org-source/provider-uid/shared-model",
+        contextLimit: null,
+        outputLimit: null,
+        providerResourceAccess: {
+          ownership: "external",
+          sourceOrganizationId: "org-source",
+          sourceOrganizationName: "Source Team",
+          resourceUid: "provider-uid",
+          resourceKey: "org-source/provider-uid",
+          manageable: false,
+          writable: false,
+        },
+      },
+    ];
+    const result = buildModelOptions(available);
+    expect(result).toEqual([
+      { value: "org-source/provider-uid/shared-model", label: "Shared Model (openai / Source Team)" },
+    ]);
+  });
+
   test("returns empty array for empty available list", () => {
     const result = buildModelOptions([]);
     expect(result).toEqual([]);

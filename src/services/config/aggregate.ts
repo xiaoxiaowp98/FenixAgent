@@ -1,8 +1,11 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { agentConfig, agentConfigSkill, type mcpServer, provider, skill } from "../../db/schema";
 import type { AuthContext } from "../../plugins/auth";
 import { listMcpServers } from "./mcp-server";
+import { listReadableProviders } from "./provider";
+import { listSkills } from "./skill";
+import type { ResourceAccess } from "./types";
 
 // ────────────────────────────────────────────
 // 批量配置读取（spawn 时一次性获取 Agent 完整配置）
@@ -10,28 +13,23 @@ import { listMcpServers } from "./mcp-server";
 
 export interface AgentFullConfig {
   agentConfig: typeof agentConfig.$inferSelect | null;
-  providers: (typeof provider.$inferSelect)[];
-  skills: (typeof skill.$inferSelect)[];
+  providers: (typeof provider.$inferSelect & { resourceAccess?: ResourceAccess })[];
+  skills: (typeof skill.$inferSelect & { resourceAccess?: ResourceAccess })[];
   mcpServers: (typeof mcpServer.$inferSelect)[];
-}
-
-/** 获取组织全局技能 */
-function listGlobalSkills(orgId: string) {
-  return db.select().from(skill).where(eq(skill.organizationId, orgId));
 }
 
 export async function getAgentFullConfig(ctx: AuthContext, agentConfigId: string | null): Promise<AgentFullConfig> {
   if (!agentConfigId) {
     const [providers, mcpServers, skills] = await Promise.all([
-      db.select().from(provider).where(eq(provider.organizationId, ctx.organizationId)),
+      listReadableProviders(ctx),
       listMcpServers(ctx).then((rows) => rows.filter((row) => row.enabled === true)),
-      listGlobalSkills(ctx.organizationId),
+      listSkills(ctx),
     ]);
     return { agentConfig: null, providers, skills, mcpServers };
   }
 
   const [providers, mcpServers, acRows, skillBindings] = await Promise.all([
-    db.select().from(provider).where(eq(provider.organizationId, ctx.organizationId)),
+    listReadableProviders(ctx),
     listMcpServers(ctx).then((rows) => rows.filter((row) => row.enabled === true)),
     db
       .select()
@@ -46,10 +44,11 @@ export async function getAgentFullConfig(ctx: AuthContext, agentConfigId: string
 
   const [ac] = acRows;
 
-  let skills: (typeof skill.$inferSelect)[] = [];
+  let skills: (typeof skill.$inferSelect & { resourceAccess?: ResourceAccess })[] = [];
   if (ac && skillBindings.length > 0) {
     const skillIds = skillBindings.map((b) => b.skillId);
-    skills = await db.select().from(skill).where(inArray(skill.id, skillIds));
+    const readableSkills = await listSkills(ctx);
+    skills = readableSkills.filter((row) => skillIds.includes(row.id));
   }
 
   return { agentConfig: ac ?? null, providers, skills, mcpServers };

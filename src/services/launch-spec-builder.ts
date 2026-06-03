@@ -100,6 +100,25 @@ function resolveModelConfig(modelRef: string | null | undefined, providers: Agen
 
   if (!modelRef) return fallback;
 
+  const stableParts = modelRef.split("/");
+  if (stableParts.length >= 3) {
+    const resourceKey = `${stableParts[0]}/${stableParts[1]}`;
+    const modelId = stableParts.slice(2).join("/");
+    const prov = providers.find((p) => p.resourceAccess?.resourceKey === resourceKey);
+    if (!prov) {
+      log(`[launch-spec-builder] 未找到 provider resourceKey '${resourceKey}'，使用默认配置`);
+      return { ...fallback, model: modelRef };
+    }
+
+    return {
+      provider: prov.name,
+      protocol: toLaunchModelProtocol(prov.protocol, prov.name),
+      baseUrl: prov.baseUrl || "",
+      apiKey: prov.apiKey || "",
+      model: modelId,
+    };
+  }
+
   const slashIndex = modelRef.indexOf("/");
   if (slashIndex < 0) {
     return { ...fallback, model: modelRef };
@@ -108,15 +127,24 @@ function resolveModelConfig(modelRef: string | null | undefined, providers: Agen
   const providerName = modelRef.slice(0, slashIndex);
   const modelId = modelRef.slice(slashIndex + 1);
 
-  const prov = providers.find((p) => p.name === providerName);
+  const candidates = providers.filter((p) => p.name === providerName);
+  const prov =
+    candidates.find((p) => p.resourceAccess?.ownership === "internal") ??
+    candidates.find((p) => p.resourceAccess === undefined) ??
+    candidates[0];
   if (!prov) {
     log(`[launch-spec-builder] 未找到 provider '${providerName}'，使用默认配置`);
     return { ...fallback, model: modelRef };
   }
+  if (candidates.length > 1) {
+    log(
+      `[launch-spec-builder] provider '${providerName}' 存在同名资源，旧模型引用优先使用 ${prov.organizationId}/${prov.id}`,
+    );
+  }
 
   return {
-    provider: providerName,
-    protocol: toLaunchModelProtocol(prov.protocol, providerName),
+    provider: prov.name,
+    protocol: toLaunchModelProtocol(prov.protocol, prov.name),
     baseUrl: prov.baseUrl || "",
     apiKey: prov.apiKey || "",
     model: modelId,

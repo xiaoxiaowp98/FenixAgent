@@ -30,7 +30,16 @@ export {
   validateMcpConfig,
 } from "./mcp-server";
 export { addModel, removeModel, updateModel } from "./model";
-export { buildModelData, deleteProvider, getProvider, listProviders, upsertProvider } from "./provider";
+export {
+  assertProviderInternalWritable,
+  buildModelData,
+  deleteProvider,
+  getProvider,
+  getProviderByResourceKey,
+  listProviders,
+  listReadableProviders,
+  upsertProvider,
+} from "./provider";
 export {
   deleteSkill,
   getSkill,
@@ -45,12 +54,14 @@ export type {
   McpServerInfoOutput,
   McpServerSetOptions,
   ModelCostConfig,
+  ModelEntryWithProviderAccess,
   ModelLimitConfig,
   ModelModalities,
   ModelOptions,
   PermissionAction,
   PermissionConfig,
   ProviderExtraOptions,
+  ProviderSetOptions,
   ProviderUpsertData,
   ResourceAccess,
   ResourceAccessInput,

@@ -118,21 +118,35 @@ export interface ModelConfig extends Indexable {
 }
 export interface ModelEntry {
   id: string;
-  name: string;
   provider: string;
+  name?: string;
+  fullId?: string;
+  label?: string;
+  contextLimit?: number | null;
+  outputLimit?: number | null;
+  providerResourceAccess?: ResourceAccess;
+  providerResourceKey?: string;
+  stableFullId?: string;
 }
 export interface ProviderDetail extends Indexable {
+  id?: string;
   name: string;
   protocol: "openai" | "anthropic";
   keyHint?: string;
   baseURL?: string;
   models?: ModelEntry[];
+  resourceAccess?: ResourceAccess;
+  resourceKey?: string;
 }
 export interface ProviderInfo extends Indexable {
+  id?: string;
   name: string;
   protocol: "openai" | "anthropic";
   keyHint?: string;
   baseURL?: string;
+  modelCount?: number;
+  resourceAccess?: ResourceAccess;
+  resourceKey?: string;
 }
 export interface SkillInfo extends Indexable {
   id?: string;

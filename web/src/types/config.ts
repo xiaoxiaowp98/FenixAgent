@@ -137,6 +137,8 @@ export interface ProviderInfo {
   keyHint: string | null;
   baseURL: string | null;
   modelCount: number;
+  resourceAccess?: ResourceAccess;
+  resourceKey?: string;
 }
 
 export interface ProviderModel {
@@ -146,6 +148,9 @@ export interface ProviderModel {
   limit: unknown;
   cost: unknown;
   options?: Record<string, unknown>;
+  providerResourceAccess?: ResourceAccess;
+  providerResourceKey?: string;
+  stableFullId?: string;
 }
 
 export interface ProviderDetail {
@@ -156,6 +161,8 @@ export interface ProviderDetail {
   baseURL: string | null;
   options: Record<string, unknown>;
   models: ProviderModel[];
+  resourceAccess?: ResourceAccess;
+  resourceKey?: string;
 }
 
 // --- Models ---
@@ -167,6 +174,9 @@ export interface ModelEntry {
   label: string;
   contextLimit: number | null;
   outputLimit: number | null;
+  providerResourceAccess?: ResourceAccess;
+  providerResourceKey?: string;
+  stableFullId?: string;
 }
 
 export interface ModelConfig {

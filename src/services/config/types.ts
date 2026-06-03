@@ -95,6 +95,19 @@ export interface ProviderUpsertData {
   extraOptions?: ProviderExtraOptions;
 }
 
+/** Additional options accepted by provider writes. */
+export interface ProviderSetOptions {
+  publicReadable?: boolean;
+}
+
+/** Minimal provider identity with resource access metadata. */
+export interface ProviderResourceRef {
+  id: string;
+  name: string;
+  organizationId: string;
+  resourceAccess: ResourceAccess;
+}
+
 // ────────────────────────────────────────────
 // Model
 // ────────────────────────────────────────────
@@ -141,6 +154,20 @@ export interface ModelDataInput {
   limit?: unknown;
   cost?: unknown;
   options?: unknown;
+}
+
+/** Model row decorated with the access metadata inherited from its provider. */
+export interface ModelEntryWithProviderAccess {
+  id: string;
+  providerId: string;
+  organizationId: string;
+  modelId: string;
+  displayName: string | null;
+  modalities: unknown;
+  limitConfig: unknown;
+  cost: unknown;
+  options: unknown;
+  providerResourceAccess: ResourceAccess;
 }
 
 // ────────────────────────────────────────────

@@ -248,6 +248,14 @@
     "lightweightModel": "Lightweight Model",
     "lightweightModelPlaceholder": "Select lightweight model"
   },
+  "resource": {
+    "internal": "Internal",
+    "external": "External",
+    "public": "Public",
+    "makePublic": "Make Public",
+    "makePrivate": "Make Private",
+    "readOnly": "Read only"
+  },
   "acpConnect": {
     "server": "Server",
     "connect": "Connect",

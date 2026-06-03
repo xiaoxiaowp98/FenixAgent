@@ -27,10 +27,6 @@ export function setOrganizationRepoForTesting(repo: IOrganizationRepo) {
   _deps.organizationRepo = repo;
 }
 
-export function isManageable(ctx: AuthContext) {
-  return ctx.role === "owner" || ctx.role === "admin";
-}
-
 export function buildResourceAccess(
   ctx: AuthContext,
   _resourceType: ResourcePermissionType,
@@ -45,7 +41,9 @@ export function buildResourceAccess(
     sourceOrganizationName,
     resourceUid: row.id,
     resourceKey: `${row.organizationId}/${row.id}`,
-    manageable: internal && isManageable(ctx),
+    // Public-read toggles go through the original resource write APIs, which only
+    // require the resource to belong to the current organization.
+    manageable: internal,
     writable: internal,
     publicReadable: internal ? publicReadable : undefined,
   };

@@ -1,7 +1,8 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../db";
-import { agentConfig, agentConfigSkill, mcpServer, provider, skill } from "../../db/schema";
+import { agentConfig, agentConfigSkill, type mcpServer, provider, skill } from "../../db/schema";
 import type { AuthContext } from "../../plugins/auth";
+import { listMcpServers } from "./mcp-server";
 
 // ────────────────────────────────────────────
 // 批量配置读取（spawn 时一次性获取 Agent 完整配置）
@@ -23,10 +24,7 @@ export async function getAgentFullConfig(ctx: AuthContext, agentConfigId: string
   if (!agentConfigId) {
     const [providers, mcpServers, skills] = await Promise.all([
       db.select().from(provider).where(eq(provider.organizationId, ctx.organizationId)),
-      db
-        .select()
-        .from(mcpServer)
-        .where(and(eq(mcpServer.organizationId, ctx.organizationId), eq(mcpServer.enabled, true))),
+      listMcpServers(ctx).then((rows) => rows.filter((row) => row.enabled === true)),
       listGlobalSkills(ctx.organizationId),
     ]);
     return { agentConfig: null, providers, skills, mcpServers };
@@ -34,10 +32,7 @@ export async function getAgentFullConfig(ctx: AuthContext, agentConfigId: string
 
   const [providers, mcpServers, acRows, skillBindings] = await Promise.all([
     db.select().from(provider).where(eq(provider.organizationId, ctx.organizationId)),
-    db
-      .select()
-      .from(mcpServer)
-      .where(and(eq(mcpServer.organizationId, ctx.organizationId), eq(mcpServer.enabled, true))),
+    listMcpServers(ctx).then((rows) => rows.filter((row) => row.enabled === true)),
     db
       .select()
       .from(agentConfig)

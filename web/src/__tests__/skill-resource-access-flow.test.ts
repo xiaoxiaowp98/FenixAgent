@@ -11,6 +11,7 @@ import type { ResourceAccess } from "../types/config";
 const internalAccess: ResourceAccess = {
   ownership: "internal",
   sourceOrganizationId: "org-current",
+  sourceOrganizationName: "Current Team",
   resourceUid: "skill-internal",
   resourceKey: "org-current/skill-internal",
   manageable: true,
@@ -94,6 +95,9 @@ describe("skill resource access frontend flow", () => {
 
   // Skill 展示标签优先使用组织名，缺失时退回组织 ID。
   test("Skill 展示标签使用组织名和 skill 名", () => {
+    expect(getSkillOptionLabel({ id: "skill-internal", name: "shared", resourceAccess: internalAccess })).toBe(
+      "Current Team/shared",
+    );
     expect(getSkillOptionLabel({ id: "skill-external", name: "shared", resourceAccess: externalAccess })).toBe(
       "Source Team/shared",
     );

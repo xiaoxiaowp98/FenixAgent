@@ -286,12 +286,18 @@ export interface McpServerInfo {
   summary: string;
   timeout?: number;
   toolsCount?: number;
+  resourceAccess?: ResourceAccess;
+  resourceKey?: string;
 }
 
 /** MCP 服务器详情（编辑用） */
 export interface McpServerDetail {
   name: string;
   config: McpServerConfig;
+  enabled?: boolean;
+  summary?: string;
+  resourceAccess?: ResourceAccess;
+  resourceKey?: string;
 }
 
 /** MCP Tool 缓存记录 */

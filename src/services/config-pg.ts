@@ -7,6 +7,7 @@ export type {
   AgentKnowledgeConfig,
   McpServerConfig,
   McpServerInfoOutput,
+  McpServerSetOptions,
   ModelCostConfig,
   ModelLimitConfig,
   ModelModalities,
@@ -26,6 +27,7 @@ export type {
 export {
   AGENT_SETTABLE_FIELDS,
   addModel,
+  assertMcpServerInternalWritable,
   createAgentConfig,
   createMcpServer,
   deleteAgentConfig,
@@ -36,6 +38,7 @@ export {
   getAgentConfigById,
   getAgentFullConfig,
   getMcpServer,
+  getMcpServerByResourceKey,
   getProvider,
   getSkill,
   getSkillByResourceKey,

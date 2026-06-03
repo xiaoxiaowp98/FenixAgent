@@ -17,9 +17,11 @@ export type { AgentFullConfig } from "./aggregate";
 export { getAgentFullConfig } from "./aggregate";
 export { parseJsonb, parseJsonbOr } from "./jsonb";
 export {
+  assertMcpServerInternalWritable,
   createMcpServer,
   deleteMcpServer,
   getMcpServer,
+  getMcpServerByResourceKey,
   isValidMcpName,
   listMcpServers,
   setMcpServerEnabled,
@@ -41,6 +43,7 @@ export type {
   AgentKnowledgeConfig,
   McpServerConfig,
   McpServerInfoOutput,
+  McpServerSetOptions,
   ModelCostConfig,
   ModelLimitConfig,
   ModelModalities,

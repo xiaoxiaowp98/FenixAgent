@@ -93,12 +93,16 @@ export interface McpServerDetail extends Indexable {
   config: Record<string, unknown>;
   enabled?: boolean;
   summary?: string;
+  resourceAccess?: ResourceAccess;
+  resourceKey?: string;
 }
 export interface McpServerInfo extends Indexable {
   name: string;
   type?: string;
   enabled?: boolean;
   summary?: string;
+  resourceAccess?: ResourceAccess;
+  resourceKey?: string;
 }
 export interface McpToolInfo {
   name: string;

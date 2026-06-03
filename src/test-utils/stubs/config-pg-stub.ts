@@ -13,10 +13,12 @@ interface ConfigPgStubs {
   deleteMcpServer: StubFn;
   deleteProvider: StubFn;
   deleteSkill: StubFn;
+  assertMcpServerInternalWritable: StubFn;
   getAgentConfig: StubFn;
   getAgentConfigById: StubFn;
   getAgentFullConfig: StubFn;
   getMcpServer: StubFn;
+  getMcpServerByResourceKey: StubFn;
   getProvider: StubFn;
   getSkill: StubFn;
   getSkillByResourceKey: StubFn;

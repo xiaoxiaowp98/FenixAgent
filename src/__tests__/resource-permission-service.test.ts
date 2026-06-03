@@ -81,15 +81,15 @@ describe("resource-permission service", () => {
     });
   });
 
-  // member 组织内资源可写但不可管理公开状态
-  test("member 内部资源不可管理", async () => {
+  // member 组织内资源可写，且公开开关能力与原写接口保持一致
+  test("member 内部资源允许管理公开状态", async () => {
     stubResourcePermissionRepo({
       listOwnedByOrganization: async () => [],
     });
 
     const [row] = await decorateResourceAccess(memberCtx, "skill", [{ id: "skill_1", organizationId: "org_current" }]);
 
-    expect(row.resourceAccess.manageable).toBe(false);
+    expect(row.resourceAccess.manageable).toBe(true);
     expect(row.resourceAccess.writable).toBe(true);
     expect(row.resourceAccess.publicReadable).toBe(false);
   });

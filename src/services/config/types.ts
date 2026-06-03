@@ -201,6 +201,13 @@ export interface McpServerInfoOutput {
   enabled: boolean;
   summary: string;
   timeout?: number;
+  resourceAccess?: ResourceAccess;
+  resourceKey?: string;
+}
+
+/** Additional options accepted by MCP writes. */
+export interface McpServerSetOptions {
+  publicReadable?: boolean;
 }
 
 // ────────────────────────────────────────────

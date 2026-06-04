@@ -111,6 +111,7 @@
       },
       "devDependencies": {
         "@agentclientprotocol/sdk": "^0.21.1",
+        "@fenix/ccb": "workspace:*",
         "@fenix/opencode": "workspace:*",
         "@fenix/plugin-sdk": "workspace:*",
         "@stricli/auto-complete": "^1.2.4",

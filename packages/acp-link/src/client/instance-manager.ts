@@ -3,12 +3,20 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
 import * as acp from "@agentclientprotocol/sdk";
+import {
+  buildCcbMcpConfig,
+  buildCcbRuntimeConfig,
+  installSkills as ccbInstallSkills,
+  writeCcbConfig,
+} from "@fenix/ccb";
 import { buildOpencodeRuntimeConfig, installSkills, writeOpencodeConfig } from "@fenix/opencode";
 import type { AgentLaunchSpec } from "@fenix/plugin-sdk";
 import { AcpDispatcher, type AcpSessionState, createAcpSessionState } from "../acp-dispatcher.js";
 import { ACP_METHOD, createNotification } from "../json-rpc.js";
 import { registerWorkspace } from "./file-operations.js";
 import { resolveExecutable } from "./resolve-executable";
+
+export type AgentType = "opencode" | "ccb";
 
 interface InstanceState {
   instanceId: string;
@@ -31,17 +39,19 @@ export class InstanceManager {
   private readonly agentName: string;
   private readonly agentArgs: string[];
   private readonly workspaceRoot: string;
+  private readonly agentType: AgentType;
 
-  constructor(agentName: string, workspaceRoot: string, agentArgs?: string[]) {
+  constructor(agentName: string, workspaceRoot: string, agentArgs?: string[], agentType?: AgentType) {
     this.agentName = agentName;
     this.agentArgs = agentArgs ?? ["acp"];
     this.workspaceRoot = workspaceRoot;
+    this.agentType = agentType ?? "opencode";
   }
 
   async prepare(instanceId: string, launchSpec: AgentLaunchSpec): Promise<void> {
     const workspace = this.resolveWorkspace(launchSpec);
 
-    // Ensure workspace directory exists (same as local opencode-runtime.ts)
+    // Ensure workspace directory exists
     await mkdir(workspace, { recursive: true });
 
     // Register workspace mapping for file operations
@@ -49,9 +59,11 @@ export class InstanceManager {
       registerWorkspace(launchSpec.environmentId, workspace);
     }
 
-    const installedSkills = await installSkills(workspace, launchSpec.skills);
-    const runtimeConfig = buildOpencodeRuntimeConfig(launchSpec, installedSkills);
-    await writeOpencodeConfig(workspace, runtimeConfig);
+    if (this.agentType === "ccb") {
+      await this.prepareCcb(workspace, launchSpec);
+    } else {
+      await this.prepareOpencode(workspace, launchSpec);
+    }
 
     this.instances.set(instanceId, {
       instanceId,
@@ -64,7 +76,34 @@ export class InstanceManager {
       dispatcher: null,
     });
 
-    console.log(`[instance-manager] prepared: ${instanceId} at ${workspace}`);
+    console.log(`[instance-manager] prepared: ${instanceId} at ${workspace} (type=${this.agentType})`);
+  }
+
+  private async prepareOpencode(workspace: string, launchSpec: AgentLaunchSpec): Promise<void> {
+    const installedSkills = await installSkills(workspace, launchSpec.skills);
+    const runtimeConfig = buildOpencodeRuntimeConfig(launchSpec, installedSkills);
+    await writeOpencodeConfig(workspace, runtimeConfig);
+  }
+
+  private async prepareCcb(workspace: string, launchSpec: AgentLaunchSpec): Promise<void> {
+    const installedSkills = await ccbInstallSkills(workspace, launchSpec.skills);
+    const runtimeConfig = buildCcbRuntimeConfig(launchSpec, installedSkills);
+    await writeCcbConfig(workspace, runtimeConfig);
+
+    // MCP servers → .mcp.json
+    const mcpConfig = buildCcbMcpConfig(launchSpec);
+    if (mcpConfig) {
+      const { writeCcbMcpConfig } = await import("@fenix/ccb");
+      await writeCcbMcpConfig(workspace, mcpConfig);
+      console.log(`[instance-manager] wrote .mcp.json with ${Object.keys(mcpConfig.mcpServers).length} servers`);
+    }
+
+    // Agent prompt → .claude/CLAUDE.md
+    if (launchSpec.agent.prompt) {
+      const { writeClaudeMd } = await import("@fenix/ccb");
+      await writeClaudeMd(workspace, launchSpec.agent.prompt);
+      console.log(`[instance-manager] wrote .claude/CLAUDE.md`);
+    }
   }
 
   async start(

@@ -150,7 +150,7 @@ export function ChatInput({
         handleSubmit();
       }
     },
-    [handleSubmit, isLoading, onInterrupt, showCommandMenu],
+    [handleSubmit, isLoading, showCommandMenu],
   );
 
   const handleInput = useCallback(

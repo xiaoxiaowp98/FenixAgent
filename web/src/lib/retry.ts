@@ -46,7 +46,7 @@ export async function retryWithBackoff<T>(
       if (!shouldRetry(error)) throw error;
       if (signal?.aborted) throw new DOMException("Retry aborted", "AbortError");
 
-      const rawDelay = Math.min(baseDelayMs * Math.pow(2, attempt), maxDelayMs);
+      const rawDelay = Math.min(baseDelayMs * 2 ** attempt, maxDelayMs);
       const delay = jitter === "full" ? rawDelay * (0.5 + Math.random() * 0.5) : rawDelay;
       await sleep(delay, signal);
     }

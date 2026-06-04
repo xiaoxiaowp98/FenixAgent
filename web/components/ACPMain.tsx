@@ -87,7 +87,8 @@ export function ACPMain({
         const response = await client.listSessions();
         if (cancelled) return;
 
-        const latest = [...response.sessions].sort((a, b) => {
+        const sessions = Array.isArray(response?.sessions) ? response.sessions : [];
+        const latest = [...sessions].sort((a, b) => {
           const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
           const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
           return timeB - timeA;

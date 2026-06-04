@@ -15,7 +15,12 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const providerProtocolEnum = pgEnum("provider_protocol", ["openai", "anthropic"]);
-export const resourcePermissionTypeEnum = pgEnum("resource_permission_type", ["provider", "skill", "mcp_server"]);
+export const resourcePermissionTypeEnum = pgEnum("resource_permission_type", [
+  "provider",
+  "skill",
+  "mcp_server",
+  "agent_config",
+]);
 export const resourcePermissionPrincipalEnum = pgEnum("resource_permission_principal", ["all", "organization"]);
 export const resourcePermissionActionEnum = pgEnum("resource_permission_action", ["read"]);
 

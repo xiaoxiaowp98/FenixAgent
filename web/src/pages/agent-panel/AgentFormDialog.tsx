@@ -15,10 +15,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { agentApi, envApi, instanceApi, kbApi, modelApi, registryApi, skillConfigApi } from "@/src/api/sdk";
 import { PermissionTab } from "../../components/PermissionTab";
 import { NS } from "../../i18n";
+import { canManageAgentSharing, getAgentDisplayName, isAgentWritable } from "../../lib/agent-resource-access";
 import {
   buildAgentPayload,
   buildKnowledgeFormState,
@@ -40,6 +42,13 @@ interface AgentFormDialogProps {
   defaultName?: string;
   onSuccess?: () => void;
   agentName?: string;
+}
+
+interface AgentRelatedResourcesView {
+  modelLabel?: string | null;
+  machineLabel?: string | null;
+  skills?: Array<{ id: string; label: string }>;
+  knowledgeBases?: Array<{ id: string; label: string; slug?: string | null }>;
 }
 
 export function mapModelOptions(available: ModelEntry[]): { value: string; label: string }[] {
@@ -81,6 +90,11 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
   const [formPermission, setFormPermission] = useState<Record<string, unknown> | null>(null);
   const [formSkillIds, setFormSkillIds] = useState<string[]>([]);
   const [formMachineId, setFormMachineId] = useState<string>("local");
+  const [formResourceAccess, setFormResourceAccess] = useState<ResourceAccess | undefined>(undefined);
+  const [formPublicReadable, setFormPublicReadable] = useState(false);
+  const [currentAgentId, setCurrentAgentId] = useState<string | null>(null);
+  const [displayAgentName, setDisplayAgentName] = useState("");
+  const [relatedResources, setRelatedResources] = useState<AgentRelatedResourcesView | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<"basic" | "knowledge" | "permission" | "skills" | "more">("basic");
 
   const [loading, setLoading] = useState(false);
@@ -99,6 +113,11 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
     setFormPermission(null);
     setFormSkillIds([]);
     setFormMachineId("local");
+    setFormResourceAccess(undefined);
+    setFormPublicReadable(false);
+    setCurrentAgentId(null);
+    setDisplayAgentName("");
+    setRelatedResources(undefined);
 
     // 加载在线机器列表
     registryApi.list({ status: "online", limit: 100 }).then(({ data, error }) => {
@@ -121,6 +140,8 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
             return;
           }
           const d = agentResult.data as unknown as Record<string, unknown>;
+          setCurrentAgentId((d.id as string) ?? null);
+          setDisplayAgentName(String(d.name ?? agentName ?? ""));
           setFormModel((d.model as string) || "");
           setFormMode((d.mode as string) || DEFAULT_AGENT_MODE);
           setFormSteps(String(d.steps ?? 50));
@@ -133,6 +154,9 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
           setFormHidden(Boolean(d.hidden));
           setFormDisable(Boolean(d.disable));
           setFormMachineId((d.machineId as string) || "local");
+          setFormResourceAccess(d.resourceAccess as ResourceAccess | undefined);
+          setFormPublicReadable(Boolean((d.resourceAccess as ResourceAccess | undefined)?.publicReadable));
+          setRelatedResources((d.relatedResources as AgentRelatedResourcesView | undefined) ?? undefined);
 
           const knowledgeState = buildKnowledgeFormState(d as Parameters<typeof buildKnowledgeFormState>[0]);
           setFormKnowledgeBaseIds(knowledgeState.knowledgeBaseIds);
@@ -181,6 +205,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
       setFormColor("");
       setFormHidden(false);
       setFormDisable(false);
+      setFormPublicReadable(false);
 
       modelApi.get().then(({ data, error }) => {
         if (error) return;
@@ -243,7 +268,61 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
     return true;
   }, [isEdit, formName, formSteps, formTemperature, formTopP, formKnowledgeMaxResults, t]);
 
+  const agentIdentityName = agentName ?? formName ?? "agent";
+  const readOnlyAgent = isEdit && !isAgentWritable({ name: agentIdentityName, resourceAccess: formResourceAccess });
+  const agentNameForDisplay = isEdit ? displayAgentName || agentName || "" : formName;
+  const effectiveModelOptions =
+    formModel && relatedResources?.modelLabel && !modelOptions.some((option) => option.value === formModel)
+      ? [...modelOptions, { value: formModel, label: relatedResources.modelLabel }]
+      : modelOptions;
+  const effectiveMachineOptions =
+    formMachineId &&
+    formMachineId !== "local" &&
+    relatedResources?.machineLabel &&
+    !machineOptions.some((option) => option.id === formMachineId)
+      ? [...machineOptions, { id: formMachineId, agentName: relatedResources.machineLabel, hostname: "" }]
+      : machineOptions;
+  const effectiveKnowledgeOptions =
+    relatedResources?.knowledgeBases && relatedResources.knowledgeBases.length > 0
+      ? [
+          ...knowledgeOptions,
+          ...relatedResources.knowledgeBases
+            .filter((item) => !knowledgeOptions.some((option) => option.id === item.id))
+            .map((item) => ({
+              id: item.id,
+              name: item.label,
+              slug: item.slug ?? item.label,
+              description: null,
+              provider: "shared",
+              remoteId: null,
+              status: "ready",
+              lastError: null,
+              bindingsCount: 0,
+              resourcesCount: 0,
+              createdAt: 0,
+              updatedAt: 0,
+            })),
+        ]
+      : knowledgeOptions;
+  const effectiveSkillOptions =
+    relatedResources?.skills && relatedResources.skills.length > 0
+      ? [
+          ...skillOptions,
+          ...relatedResources.skills
+            .filter((item) => !skillOptions.some((option) => option.id === item.id || option.key === item.id))
+            .map((item) => ({
+              id: item.id,
+              key: item.id,
+              name: item.label,
+              label: item.label,
+              description: "",
+              resourceAccess: undefined,
+            })),
+        ]
+      : skillOptions;
+
   const handleSave = useCallback(async () => {
+    if (readOnlyAgent) return;
     if (!validateForm()) return;
     setFormSaving(true);
     try {
@@ -280,6 +359,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
           }),
           skillIds: formSkillIds,
           machineId: formMachineId === "local" ? null : formMachineId,
+          publicReadable: formPublicReadable,
         };
         const { error } = await agentApi.set(agentName!, data);
         if (error) {
@@ -313,6 +393,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
           }),
           skillIds: formSkillIds,
           machineId: formMachineId === "local" ? null : formMachineId,
+          publicReadable: formPublicReadable,
         });
         if (error) {
           console.error(t("save.errorGeneric", { message: "" }), error);
@@ -356,15 +437,22 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
     onOpenChange,
     onSuccess,
     t,
+    readOnlyAgent,
+    formPublicReadable,
   ]);
 
   const getRunningInstanceIds = useCallback(async () => {
     if (!agentName) return [];
     try {
       const { data: agentsResult } = await agentApi.list();
-      const rawAgents = (agentsResult as unknown as { agents?: { id: string; name: string }[] } | null)?.agents;
+      const rawAgents = (
+        agentsResult as unknown as { agents?: { id: string; name: string; resourceAccess?: ResourceAccess }[] } | null
+      )?.agents;
       const agents = Array.isArray(rawAgents) ? rawAgents : [];
-      const matchedAgent = agents.find((a) => a.name === agentName);
+      const matchedAgent =
+        agents.find((a) => currentAgentId && a.id === currentAgentId) ??
+        agents.find((a) => a.name === agentName && a.resourceAccess?.resourceKey === formResourceAccess?.resourceKey) ??
+        agents.find((a) => a.name === agentName);
       if (!matchedAgent) return [];
 
       const { data: envsData } = await envApi.list();
@@ -383,7 +471,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
       console.error("Failed to get running instances:", err);
       return [];
     }
-  }, [agentName]);
+  }, [agentName, currentAgentId, formResourceAccess?.resourceKey]);
 
   const handleRestartAfterSave = useCallback(async () => {
     setRestarting(true);
@@ -406,10 +494,10 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
 
   if (!open) return null;
 
-  const title = isEdit ? t("dialog.editTitle") : t("dialog.createTitle");
+  const title = isEdit ? (readOnlyAgent ? t("dialog.detailTitle") : t("dialog.editTitle")) : t("dialog.createTitle");
   const confirmLabel = formSaving ? "..." : isEdit ? t("actions.save") : t("dialog.createConfirm");
   const dialogKey = isEdit ? agentName : "__new__";
-  const selectedModelLabel = modelOptions.find((option) => option.value === formModel)?.label;
+  const selectedModelLabel = effectiveModelOptions.find((option) => option.value === formModel)?.label;
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -432,6 +520,16 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
           </div>
         ) : (
           <>
+            {readOnlyAgent && (
+              <div className="mx-6 mt-6 rounded-lg border border-border-subtle bg-surface-1 px-4 py-3 text-sm text-text-muted">
+                <p className="font-medium text-text-bright">{t("resource.sharedSourceTitle")}</p>
+                <p className="mt-1">
+                  {t("resource.readOnlyAgent", {
+                    source: getAgentDisplayName({ name: agentNameForDisplay, resourceAccess: formResourceAccess }),
+                  })}
+                </p>
+              </div>
+            )}
             {/* Tabs */}
             <div className="flex gap-1 rounded-lg bg-surface-2 p-1 m-6 mb-0 flex-shrink-0">
               {(["basic", "knowledge", "permission", "skills", "more"] as const).map((tab) => (
@@ -453,26 +551,27 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                   <div>
                     <Label>{t("form.name")}</Label>
                     {isEdit ? (
-                      <Input value={agentName} disabled className="mt-1" />
+                      <Input value={agentNameForDisplay} disabled className="mt-1" />
                     ) : (
                       <Input
                         value={formName}
                         onChange={(e) => setFormName(e.target.value)}
                         placeholder={t("form.namePlaceholder")}
                         className="mt-1"
+                        disabled={readOnlyAgent}
                       />
                     )}
                   </div>
                   <div>
                     <Label>{t("form.model")}</Label>
-                    <Select value={formModel} onValueChange={setFormModel}>
+                    <Select value={formModel} onValueChange={setFormModel} disabled={readOnlyAgent}>
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder={t("form.modelPlaceholder")}>
                           {selectedModelLabel ?? formModel}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        {modelOptions.map((m) => (
+                        {effectiveModelOptions.map((m) => (
                           <SelectItem key={m.value} value={m.value}>
                             {m.label}
                           </SelectItem>
@@ -482,13 +581,13 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                   </div>
                   <div>
                     <Label>{t("form.machine")}</Label>
-                    <Select value={formMachineId} onValueChange={setFormMachineId}>
+                    <Select value={formMachineId} onValueChange={setFormMachineId} disabled={readOnlyAgent}>
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder={t("form.machinePlaceholder")} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="local">{t("form.machineLocal")}</SelectItem>
-                        {machineOptions.map((m) => (
+                        {effectiveMachineOptions.map((m) => (
                           <SelectItem key={m.id} value={m.id}>
                             {m.hostname || m.agentName} ({m.id.slice(0, 8)})
                           </SelectItem>
@@ -496,6 +595,26 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                       </SelectContent>
                     </Select>
                   </div>
+                  {(canManageAgentSharing({ name: agentIdentityName, resourceAccess: formResourceAccess }) ||
+                    !isEdit) && (
+                    <label className="flex items-center justify-between gap-3 rounded-md border border-border-subtle px-3 py-2 text-sm">
+                      <div>
+                        <p className="font-medium text-text-bright">{t("resource.sharingTitle")}</p>
+                        <p className="text-xs text-text-muted">
+                          {formPublicReadable ? t("resource.disableSharing") : t("resource.enableSharing")}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={formPublicReadable}
+                        disabled={
+                          readOnlyAgent ||
+                          (isEdit &&
+                            !canManageAgentSharing({ name: agentIdentityName, resourceAccess: formResourceAccess }))
+                        }
+                        onCheckedChange={setFormPublicReadable}
+                      />
+                    </label>
+                  )}
                 </div>
               )}
               {activeTab === "knowledge" && (
@@ -510,10 +629,10 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                       </div>
                     </div>
                     <div className="mt-3 space-y-2">
-                      {knowledgeOptions.length === 0 ? (
+                      {effectiveKnowledgeOptions.length === 0 ? (
                         <p className="text-sm text-text-muted">{t("knowledge.noOptions")}</p>
                       ) : (
-                        knowledgeOptions.map((item) => {
+                        effectiveKnowledgeOptions.map((item) => {
                           const checked = formKnowledgeBaseIds.includes(item.id);
                           return (
                             <label
@@ -527,6 +646,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                               <input
                                 type="checkbox"
                                 checked={checked}
+                                disabled={readOnlyAgent}
                                 onChange={(e) => {
                                   setFormKnowledgeBaseIds((current) =>
                                     e.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id),
@@ -544,6 +664,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                       <input
                         type="checkbox"
                         checked={formKnowledgeSearchFirst}
+                        disabled={readOnlyAgent}
                         onChange={(e) => setFormKnowledgeSearchFirst(e.target.checked)}
                       />
                       {t("knowledge.searchFirst")}
@@ -555,6 +676,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                         min={1}
                         max={20}
                         value={formKnowledgeMaxResults}
+                        disabled={readOnlyAgent}
                         onChange={(e) => setFormKnowledgeMaxResults(e.target.value)}
                       />
                     </div>
@@ -562,12 +684,14 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                 </div>
               )}
               {activeTab === "permission" && (
-                <PermissionTab
-                  key={dialogKey}
-                  agentName={isEdit ? agentName! : formName}
-                  permission={formPermission}
-                  onPermissionChange={setFormPermission}
-                />
+                <div className={readOnlyAgent ? "pointer-events-none opacity-60" : undefined}>
+                  <PermissionTab
+                    key={dialogKey}
+                    agentName={isEdit ? agentName! : formName}
+                    permission={formPermission}
+                    onPermissionChange={setFormPermission}
+                  />
+                </div>
               )}
               {activeTab === "skills" && (
                 <div className="space-y-4">
@@ -581,10 +705,10 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                       </div>
                     </div>
                     <div className="mt-3 space-y-2">
-                      {skillOptions.length === 0 ? (
+                      {effectiveSkillOptions.length === 0 ? (
                         <p className="text-sm text-text-muted">{t("skills.noOptions")}</p>
                       ) : (
-                        skillOptions.map((item) => {
+                        effectiveSkillOptions.map((item) => {
                           const value = getSkillOptionValue(item);
                           const checked = formSkillIds.includes(value);
                           return (
@@ -599,6 +723,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                               <input
                                 type="checkbox"
                                 checked={checked}
+                                disabled={readOnlyAgent}
                                 onChange={(e) => {
                                   setFormSkillIds((current) =>
                                     e.target.checked ? [...current, value] : current.filter((id) => id !== value),
@@ -623,12 +748,13 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                       rows={4}
                       placeholder={t("form.promptPlaceholder")}
                       className="mt-1"
+                      disabled={readOnlyAgent}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>{t("form.mode")}</Label>
-                      <Select value={formMode} onValueChange={setFormMode}>
+                      <Select value={formMode} onValueChange={setFormMode} disabled={readOnlyAgent}>
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
@@ -648,6 +774,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                         min={1}
                         max={200}
                         className="mt-1"
+                        disabled={readOnlyAgent}
                       />
                       <p className="text-xs text-text-muted mt-1">{t("form.stepsHint")}</p>
                     </div>
@@ -660,6 +787,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                         onChange={(e) => setFormDescription(e.target.value)}
                         placeholder={t("form.descriptionPlaceholder")}
                         className="mt-1"
+                        disabled={readOnlyAgent}
                       />
                     </div>
                     <div>
@@ -669,6 +797,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                         onChange={(e) => setFormVariant(e.target.value)}
                         placeholder={t("form.variantPlaceholder")}
                         className="mt-1"
+                        disabled={readOnlyAgent}
                       />
                     </div>
                   </div>
@@ -684,6 +813,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                         step={0.1}
                         placeholder={t("form.temperaturePlaceholder")}
                         className="mt-1"
+                        disabled={readOnlyAgent}
                       />
                     </div>
                     <div>
@@ -697,6 +827,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                         step={0.1}
                         placeholder={t("form.topPPPlaceholder")}
                         className="mt-1"
+                        disabled={readOnlyAgent}
                       />
                     </div>
                   </div>
@@ -708,22 +839,34 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                         value={formColor || "#000000"}
                         onChange={(e) => setFormColor(e.target.value)}
                         className="w-12 h-9 p-1 cursor-pointer"
+                        disabled={readOnlyAgent}
                       />
                       <Input
                         value={formColor}
                         onChange={(e) => setFormColor(e.target.value)}
                         placeholder={t("form.colorPlaceholder")}
                         className="flex-1"
+                        disabled={readOnlyAgent}
                       />
                     </div>
                   </div>
                   <div className="flex items-center gap-6">
                     <label className="flex items-center gap-2 text-sm" title={t("form.hiddenTitle")}>
-                      <input type="checkbox" checked={formHidden} onChange={(e) => setFormHidden(e.target.checked)} />
+                      <input
+                        type="checkbox"
+                        checked={formHidden}
+                        disabled={readOnlyAgent}
+                        onChange={(e) => setFormHidden(e.target.checked)}
+                      />
                       {t("form.hidden")}
                     </label>
                     <label className="flex items-center gap-2 text-sm" title={t("form.disableTitle")}>
-                      <input type="checkbox" checked={formDisable} onChange={(e) => setFormDisable(e.target.checked)} />
+                      <input
+                        type="checkbox"
+                        checked={formDisable}
+                        disabled={readOnlyAgent}
+                        onChange={(e) => setFormDisable(e.target.checked)}
+                      />
                       {t("form.disable")}
                     </label>
                   </div>
@@ -736,8 +879,8 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 {t("dialog.cancel") ?? "Cancel"}
               </Button>
-              <Button onClick={handleSave} disabled={formSaving}>
-                {confirmLabel}
+              <Button onClick={handleSave} disabled={formSaving || readOnlyAgent}>
+                {readOnlyAgent ? t("actions.view") : confirmLabel}
               </Button>
             </div>
           </>

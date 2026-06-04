@@ -29,6 +29,13 @@
       "when": 1780471533931,
       "tag": "0003_resource_permission_nulls_not_distinct",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780505919726,
+      "tag": "0004_agent_config_resource_permission",
+      "breakpoints": true
     }
   ]
 }

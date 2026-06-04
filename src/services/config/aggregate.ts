@@ -1,18 +1,17 @@
-import { and, eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "../../db";
-import { agentConfig, agentConfigSkill, type mcpServer, provider, skill } from "../../db/schema";
+import { agentConfigSkill, mcpServer, provider, skill } from "../../db/schema";
 import type { AuthContext } from "../../plugins/auth";
-import { listMcpServers } from "./mcp-server";
-import { listReadableProviders } from "./provider";
-import { listSkills } from "./skill";
-import type { ResourceAccess } from "./types";
+import { decorateResourceAccess } from "../resource-permission";
+import { getReadableAgentConfigById } from "./agent-config";
+import type { AgentConfigDetailWithAccess, ResourceAccess } from "./types";
 
 // ────────────────────────────────────────────
 // 批量配置读取（spawn 时一次性获取 Agent 完整配置）
 // ────────────────────────────────────────────
 
 export interface AgentFullConfig {
-  agentConfig: typeof agentConfig.$inferSelect | null;
+  agentConfig: AgentConfigDetailWithAccess | null;
   providers: (typeof provider.$inferSelect & { resourceAccess?: ResourceAccess })[];
   skills: (typeof skill.$inferSelect & { resourceAccess?: ResourceAccess })[];
   mcpServers: (typeof mcpServer.$inferSelect)[];
@@ -20,36 +19,48 @@ export interface AgentFullConfig {
 
 export async function getAgentFullConfig(ctx: AuthContext, agentConfigId: string | null): Promise<AgentFullConfig> {
   if (!agentConfigId) {
-    const [providers, mcpServers, skills] = await Promise.all([
-      listReadableProviders(ctx),
-      listMcpServers(ctx).then((rows) => rows.filter((row) => row.enabled === true)),
-      listSkills(ctx),
+    const [providerRows, mcpServerRows] = await Promise.all([
+      db.select().from(provider).where(eq(provider.organizationId, ctx.organizationId)),
+      db.select().from(mcpServer).where(eq(mcpServer.organizationId, ctx.organizationId)),
     ]);
+    const providers = await decorateResourceAccess(ctx, "provider", providerRows);
+    const skills: (typeof skill.$inferSelect & { resourceAccess?: ResourceAccess })[] = [];
+    const mcpServers = mcpServerRows.filter((row) => row.enabled === true);
     return { agentConfig: null, providers, skills, mcpServers };
   }
 
-  const [providers, mcpServers, acRows, skillBindings] = await Promise.all([
-    listReadableProviders(ctx),
-    listMcpServers(ctx).then((rows) => rows.filter((row) => row.enabled === true)),
-    db
-      .select()
-      .from(agentConfig)
-      .where(and(eq(agentConfig.id, agentConfigId), eq(agentConfig.organizationId, ctx.organizationId)))
-      .limit(1),
+  const resolvedAgent = await getReadableAgentConfigById(ctx, agentConfigId);
+  if (!resolvedAgent) {
+    return { agentConfig: null, providers: [], skills: [], mcpServers: [] };
+  }
+
+  const sourceCtx: AuthContext = {
+    ...ctx,
+    organizationId: resolvedAgent.organizationId,
+    userId: resolvedAgent.userId,
+  };
+
+  const [providerRows, mcpServerRows, skillBindings] = await Promise.all([
+    db.select().from(provider).where(eq(provider.organizationId, sourceCtx.organizationId)),
+    db.select().from(mcpServer).where(eq(mcpServer.organizationId, sourceCtx.organizationId)),
     db
       .select({ skillId: agentConfigSkill.skillId })
       .from(agentConfigSkill)
       .where(eq(agentConfigSkill.agentConfigId, agentConfigId)),
   ]);
-
-  const [ac] = acRows;
+  const providers = await decorateResourceAccess(sourceCtx, "provider", providerRows);
 
   let skills: (typeof skill.$inferSelect & { resourceAccess?: ResourceAccess })[] = [];
-  if (ac && skillBindings.length > 0) {
-    const skillIds = skillBindings.map((b) => b.skillId);
-    const readableSkills = await listSkills(ctx);
-    skills = readableSkills.filter((row) => skillIds.includes(row.id));
+  if (skillBindings.length > 0) {
+    const skillIds = skillBindings.map((binding) => binding.skillId);
+    const skillRows = await db.select().from(skill).where(inArray(skill.id, skillIds));
+    skills = await decorateResourceAccess(sourceCtx, "skill", skillRows);
   }
 
-  return { agentConfig: ac ?? null, providers, skills, mcpServers };
+  return {
+    agentConfig: resolvedAgent,
+    providers,
+    skills,
+    mcpServers: mcpServerRows.filter((row) => row.enabled === true),
+  };
 }

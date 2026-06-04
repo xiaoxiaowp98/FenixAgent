@@ -48,13 +48,14 @@ async function buildAvailableList(ctx: AuthContext): Promise<ModelEntry[]> {
     const providerResourceKey = p.resourceAccess?.resourceKey ?? p.resourceKey;
     const pDetail = await configPg.getProvider(ctx, providerResourceKey ?? p.name);
     if (!pDetail?.models) continue;
+    const providerLabel = p.displayName ?? p.name;
     for (const m of pDetail.models) {
       const limit = (m.limitConfig as { context?: number; output?: number } | undefined) ?? undefined;
       const inheritedAccess = m.providerResourceAccess ?? p.resourceAccess;
       models.push({
         id: m.modelId,
-        provider: p.name,
-        fullId: `${p.name}/${m.modelId}`,
+        provider: providerLabel,
+        fullId: `${providerLabel}/${m.modelId}`,
         stableFullId: providerResourceKey ? `${providerResourceKey}/${m.modelId}` : undefined,
         label: m.displayName ?? m.modelId,
         contextLimit: limit?.context ?? null,

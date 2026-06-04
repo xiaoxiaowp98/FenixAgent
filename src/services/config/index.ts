@@ -1,10 +1,13 @@
 export type { AuthContext } from "../../plugins/auth";
 export {
   AGENT_SETTABLE_FIELDS,
+  assertAgentConfigInternalWritable,
   createAgentConfig,
   deleteAgentConfig,
   getAgentConfig,
   getAgentConfigById,
+  getAgentConfigByResourceKey,
+  getReadableAgentConfigById,
   isBuiltInAgent,
   listAgentConfigs,
   normalizeKnowledgeConfig,
@@ -48,6 +51,8 @@ export {
   upsertSkill,
 } from "./skill";
 export type {
+  AgentConfigDetailWithAccess,
+  AgentConfigRowWithAccess,
   AgentConfigUpsertData,
   AgentKnowledgeConfig,
   McpServerConfig,

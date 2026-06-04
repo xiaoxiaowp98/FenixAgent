@@ -57,16 +57,30 @@ export interface StatusOkResponse {
 
 // ── Config ──
 export interface AgentInfo extends Indexable {
+  id: string;
   name: string;
   model?: string;
+  modelLabel?: string | null;
   description?: string;
   builtIn?: boolean;
   enabled?: boolean;
   permissions?: Record<string, string>;
   skills?: string[];
+  skillLabels?: Array<{ id: string; label: string }>;
+  knowledgeBaseCount?: number;
+  resourceAccess?: ResourceAccess;
 }
 export interface AgentDetail extends AgentInfo {
   systemPrompt?: string;
+  prompt?: string | null;
+  skillIds?: string[];
+  machineId?: string | null;
+  relatedResources?: {
+    modelLabel?: string | null;
+    machineLabel?: string | null;
+    skills?: Array<{ id: string; label: string }>;
+    knowledgeBases?: Array<{ id: string; label: string; slug?: string | null }>;
+  };
 }
 export type ConfigAction = "list" | "get" | "set" | "create" | "delete" | "set_default";
 export interface ConfigBody {

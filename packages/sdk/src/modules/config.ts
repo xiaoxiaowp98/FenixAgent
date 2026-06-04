@@ -58,8 +58,8 @@ export class ModelApi extends BaseApi {
 }
 
 export class AgentApi extends BaseApi {
-  async list(): Promise<ApiResult<AgentInfo[]>> {
-    return this.post<AgentInfo[]>("/web/config/agents", { action: "list" });
+  async list(): Promise<ApiResult<{ default_agent: string | null; agents: AgentInfo[] }>> {
+    return this.post<{ default_agent: string | null; agents: AgentInfo[] }>("/web/config/agents", { action: "list" });
   }
   async get(name: string): Promise<ApiResult<AgentDetail>> {
     return this.post<AgentDetail>("/web/config/agents", { action: "get", name });
@@ -73,8 +73,13 @@ export class AgentApi extends BaseApi {
   async delete(name: string): Promise<ApiResult<boolean>> {
     return this.post("/web/config/agents", { action: "delete", name });
   }
-  async setDefault(name: string): Promise<ApiResult<boolean>> {
-    return this.post("/web/config/agents", { action: "set_default", name });
+  async setDefault(
+    name: string,
+  ): Promise<ApiResult<{ default_agent: string; resourceAccess?: AgentDetail["resourceAccess"] }>> {
+    return this.post<{ default_agent: string; resourceAccess?: AgentDetail["resourceAccess"] }>("/web/config/agents", {
+      action: "set_default",
+      name,
+    });
   }
 }
 

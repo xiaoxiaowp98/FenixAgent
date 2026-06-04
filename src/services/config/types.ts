@@ -304,3 +304,33 @@ export interface AgentConfigUpsertData {
   knowledge?: AgentKnowledgeConfig | null;
   skillIds?: string[];
 }
+
+/** Agent config row decorated with resource access metadata. */
+export interface AgentConfigRowWithAccess {
+  id: string;
+  userId: string;
+  organizationId: string;
+  name: string;
+  prompt: string | null;
+  model: string | null;
+  steps: number | null;
+  mode: string | null;
+  permission: PermissionConfig | null;
+  variant: string | null;
+  temperature: number | null;
+  topP: number | null;
+  disable: boolean;
+  hidden: boolean;
+  color: string | null;
+  description: string | null;
+  knowledge: AgentKnowledgeConfig | null;
+  machineId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  resourceAccess: ResourceAccess;
+}
+
+/** Agent config detail returned to the frontend with resolved access metadata. */
+export interface AgentConfigDetailWithAccess extends AgentConfigRowWithAccess {
+  skillIds?: string[];
+}

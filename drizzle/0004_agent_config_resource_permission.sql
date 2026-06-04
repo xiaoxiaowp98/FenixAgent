@@ -1,0 +1,1 @@
+ALTER TYPE "public"."resource_permission_type" ADD VALUE 'agent_config';

@@ -1,4 +1,4 @@
-import { Bot, ChevronDown, ChevronRight, Loader2, Plus, RotateCw, Settings, Square } from "lucide-react";
+import { Bot, ChevronDown, ChevronRight, Eye, Loader2, Plus, RotateCw, Settings, Square } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -16,8 +16,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { agentApi, envApi, instanceApi, modelApi } from "@/src/api/sdk";
 import { useOrg } from "../../contexts/OrgContext";
 import { NS } from "../../i18n";
+import {
+  getAgentAccessBadgeKey,
+  getAgentConfigLookupKey,
+  getAgentDisplayName,
+  isAgentWritable,
+} from "../../lib/agent-resource-access";
 import { useConfigChangeListener } from "../../lib/config-events";
-import type { ModelEntry } from "../../types/config";
+import type { ModelEntry, ResourceAccess } from "../../types/config";
 import type { Environment, EnvironmentInstance } from "../../types/index";
 
 interface AgentConfigItem {
@@ -25,8 +31,10 @@ interface AgentConfigItem {
   name: string;
   builtIn: boolean;
   model: string | null;
+  modelLabel?: string | null;
   description: string | null;
   color: string | null;
+  resourceAccess?: ResourceAccess;
 }
 
 function buildModelLabelMap(available: ModelEntry[]): Map<string, string> {
@@ -354,6 +362,8 @@ export function AgentSidebarTree({
         const isEntering = enteringAgentId === agent.id;
         const runningInstances = getRunningInstances(node);
         const isRestarting = runningInstances.some((inst) => restartingIds.has(inst.id));
+        const writable = isAgentWritable(agent);
+        const displayName = getAgentDisplayName(agent);
 
         return (
           <div key={agent.id} className="group relative mx-2">
@@ -385,12 +395,25 @@ export function AgentSidebarTree({
 
               {/* 名称 + 描述 */}
               <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-semibold text-text-primary truncate">{agent.name}</div>
+                <div className="flex items-center gap-1.5">
+                  <div className="text-[13px] font-semibold text-text-primary truncate">{displayName}</div>
+                  <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+                    {t(getAgentAccessBadgeKey(agent))}
+                  </span>
+                </div>
                 <div className="text-[11px] text-text-dim truncate mt-0.5">
                   {agent.description ||
+                    agent.modelLabel ||
                     (agent.model ? (modelLabelMap.get(agent.model) ?? agent.model) : null) ||
                     t("agentDefaultDesc")}
                 </div>
+                {agent.resourceAccess?.ownership === "external" && (
+                  <div className="text-[10px] text-text-muted mt-0.5">
+                    {t("sharedFrom", {
+                      source: agent.resourceAccess.sourceOrganizationName ?? agent.resourceAccess.sourceOrganizationId,
+                    })}
+                  </div>
+                )}
               </div>
             </button>
 
@@ -426,11 +449,11 @@ export function AgentSidebarTree({
                 className="flex items-center justify-center w-6 h-6 border-none rounded-md bg-surface-2 text-text-dim cursor-pointer hover:bg-surface-hover hover:text-text-primary transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onEditAgent?.(agent.name);
+                  onEditAgent?.(getAgentConfigLookupKey(agent));
                 }}
-                title={t("agentConfig")}
+                title={writable ? t("agentConfig") : t("viewAgentConfig")}
               >
-                <Settings className="w-3.5 h-3.5" />
+                {writable ? <Settings className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
             </div>
 

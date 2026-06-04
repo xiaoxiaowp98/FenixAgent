@@ -8,7 +8,7 @@ import type { EnvironmentRecord } from "../repositories";
 import { environmentRepo } from "../repositories";
 import type { InstanceSupplement } from "../types/store";
 import type { AgentFullConfig } from "./config/index";
-import { getAgentConfigById, getAgentFullConfig } from "./config/index";
+import { getAgentFullConfig, getReadableAgentConfigById } from "./config/index";
 import { getCoreRuntime } from "./core-bootstrap";
 import { globalInstanceRegistry } from "./instance-registry";
 import { buildLaunchSpec } from "./launch-spec-builder";
@@ -111,20 +111,20 @@ export async function spawnInstanceFromEnvironment(
   let agentPrompt: string | null = null;
   let modelRef: string | null = null;
   let fullConfig: AgentFullConfig;
+  let agentMachineId: string | null = null;
 
   if (env.agentConfigId) {
-    const resolvedAgentConfig = await getAgentConfigById(env.agentConfigId);
+    const accessCtx = { organizationId: env.organizationId ?? "", userId, role: "owner" as const };
+    const resolvedAgentConfig = await getReadableAgentConfigById(accessCtx, env.agentConfigId);
     if (!resolvedAgentConfig) {
       throw new NotFoundError(`AgentConfig '${env.agentConfigId}' not found`);
     }
-    fullConfig = await getAgentFullConfig(
-      { organizationId: env.organizationId ?? "", userId: env.userId ?? "", role: "owner" },
-      resolvedAgentConfig.id,
-    );
+    fullConfig = await getAgentFullConfig(accessCtx, resolvedAgentConfig.id);
     const ac = fullConfig.agentConfig as Record<string, unknown> | null;
     agentName = resolvedAgentConfig.name;
     agentPrompt = typeof ac?.prompt === "string" ? ac.prompt : null;
     modelRef = typeof ac?.model === "string" ? ac.model : null;
+    agentMachineId = resolvedAgentConfig.machineId ?? null;
   } else {
     fullConfig = await getAgentFullConfig(
       { organizationId: env.organizationId ?? "", userId: env.userId ?? "", role: "owner" },
@@ -158,11 +158,8 @@ export async function spawnInstanceFromEnvironment(
 
   // 解析目标 node：有 machineId 时走远程，否则走本地
   let nodeId = "local-default";
-  if (env.agentConfigId) {
-    const agentCfg = await getAgentConfigById(env.agentConfigId);
-    if (agentCfg?.machineId) {
-      nodeId = agentCfg.machineId;
-    }
+  if (agentMachineId) {
+    nodeId = agentMachineId;
   }
 
   // 委托 core 执行 launch

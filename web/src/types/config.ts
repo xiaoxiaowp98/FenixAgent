@@ -191,17 +191,22 @@ export interface ModelConfig {
 // --- Agents ---
 
 export interface AgentInfo {
+  id: string;
   name: string;
   builtIn: boolean;
   model: string | null;
+  modelLabel?: string | null;
   mode: string | null;
   description: string | null;
   color: string | null;
   knowledgeBaseCount: number;
+  skillLabels?: Array<{ id: string; label: string }>;
+  resourceAccess?: ResourceAccess;
   enabled?: boolean;
 }
 
 export interface AgentDetail {
+  id?: string;
   name: string;
   builtIn: boolean;
   model: string | null;
@@ -218,6 +223,15 @@ export interface AgentDetail {
   color: string | null;
   description: string | null;
   knowledge: AgentKnowledgeConfig | null;
+  skillIds?: string[];
+  machineId?: string | null;
+  relatedResources?: {
+    modelLabel?: string | null;
+    machineLabel?: string | null;
+    skills?: Array<{ id: string; label: string }>;
+    knowledgeBases?: Array<{ id: string; label: string; slug?: string | null }>;
+  };
+  resourceAccess?: ResourceAccess;
 }
 
 // --- Skills ---

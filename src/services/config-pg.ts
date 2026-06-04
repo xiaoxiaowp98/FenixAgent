@@ -2,6 +2,8 @@
 // 保持此文件以兼容现有 import 路径。
 
 export type {
+  AgentConfigDetailWithAccess,
+  AgentConfigRowWithAccess,
   AgentConfigUpsertData,
   AgentFullConfig,
   AgentKnowledgeConfig,
@@ -29,6 +31,7 @@ export type {
 export {
   AGENT_SETTABLE_FIELDS,
   addModel,
+  assertAgentConfigInternalWritable,
   assertMcpServerInternalWritable,
   assertProviderInternalWritable,
   createAgentConfig,
@@ -39,11 +42,13 @@ export {
   deleteSkill,
   getAgentConfig,
   getAgentConfigById,
+  getAgentConfigByResourceKey,
   getAgentFullConfig,
   getMcpServer,
   getMcpServerByResourceKey,
   getProvider,
   getProviderByResourceKey,
+  getReadableAgentConfigById,
   getSkill,
   getSkillByResourceKey,
   getUserConfig,

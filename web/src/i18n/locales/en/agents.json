@@ -18,6 +18,7 @@
   "actions": {
     "setDefault": "Set Default",
     "edit": "Edit",
+    "view": "View",
     "save": "Save",
     "delete": "Delete"
   },
@@ -28,6 +29,7 @@
   "batchDeleteError": "Batch delete failed: {{message}}",
   "dialog": {
     "editTitle": "Edit Agent",
+    "detailTitle": "View Agent Details",
     "cancel": "Cancel",
     "createTitle": "New Agent",
     "createConfirm": "Create",
@@ -87,12 +89,17 @@
     "noOptions": "No skills available"
   },
   "resource": {
-    "internal": "Internal",
-    "external": "External",
+    "internal": "Private",
+    "external": "Shared",
     "public": "Public",
     "makePublic": "Make public",
     "makePrivate": "Make private",
-    "readOnly": "Read-only"
+    "readOnly": "Read-only",
+    "sharingTitle": "Sharing",
+    "enableSharing": "Allow other teams to read this agent",
+    "disableSharing": "Stop sharing this agent",
+    "sharedSourceTitle": "Shared agent",
+    "readOnlyAgent": "This agent is shared from {{source}} and cannot be edited here."
   },
   "save": {
     "successCreate": "Agent created",

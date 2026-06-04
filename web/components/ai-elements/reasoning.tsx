@@ -73,21 +73,26 @@ export const Reasoning = memo(
       }
     }, [isStreaming, startTime, setDuration]);
 
-    // Auto-open when streaming starts, auto-close when streaming ends (once only)
-    // Respect prefers-reduced-motion: skip animation auto-close
+    // Streaming 开始时自动展开，结束时自动折叠
     const prefersReducedMotion =
       typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     useEffect(() => {
-      if (!prefersReducedMotion && defaultOpen && !isStreaming && isOpen && !hasAutoClosed) {
+      if (prefersReducedMotion) return;
+
+      if (isStreaming && !isOpen) {
+        // Streaming 开始 → 展开
+        setIsOpen(true);
+        setHasAutoClosed(false);
+      } else if (!isStreaming && isOpen && !hasAutoClosed) {
+        // Streaming 结束 → 延迟折叠
         const timer = setTimeout(() => {
           setIsOpen(false);
           setHasAutoClosed(true);
         }, AUTO_CLOSE_DELAY);
-
         return () => clearTimeout(timer);
       }
-    }, [isStreaming, isOpen, defaultOpen, setIsOpen, hasAutoClosed, prefersReducedMotion]);
+    }, [isStreaming, isOpen, setIsOpen, hasAutoClosed, prefersReducedMotion]);
 
     const handleOpenChange = (newOpen: boolean) => {
       setIsOpen(newOpen);

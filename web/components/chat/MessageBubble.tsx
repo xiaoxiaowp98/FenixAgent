@@ -113,7 +113,7 @@ export function AssistantBubble({ entry, isStreaming, envId }: AssistantBubblePr
               const isThoughtStreaming = isStreaming && isLastChunk;
               return (
                 // biome-ignore lint/suspicious/noArrayIndexKey: chunks lack a unique identifier
-                <Reasoning key={i} isStreaming={isThoughtStreaming} defaultOpen={isThoughtStreaming}>
+                <Reasoning key={i} isStreaming={isThoughtStreaming}>
                   <ReasoningTrigger />
                   <ReasoningContent>
                     {isThoughtStreaming ? (

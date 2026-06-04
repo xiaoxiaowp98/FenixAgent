@@ -109,14 +109,12 @@ export function AssistantBubble({ entry, isStreaming, envId }: AssistantBubblePr
           })
           .map((chunk, i) => {
             if (chunk.type === "thought") {
-              const isLastChunk = i === entry.chunks.length - 1;
-              const isThoughtStreaming = isStreaming && isLastChunk;
               return (
                 // biome-ignore lint/suspicious/noArrayIndexKey: chunks lack a unique identifier
-                <Reasoning key={i} isStreaming={isThoughtStreaming}>
+                <Reasoning key={i} isStreaming={isStreaming}>
                   <ReasoningTrigger />
                   <ReasoningContent>
-                    {isThoughtStreaming ? (
+                    {isStreaming ? (
                       <StreamingThoughtView text={chunk.text} />
                     ) : (
                       <div className="text-sm text-text-secondary leading-relaxed">{chunk.text}</div>

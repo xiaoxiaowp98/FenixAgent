@@ -238,7 +238,7 @@ function SidebarSessionList({
     setLoading(true);
     try {
       const response = await client.listSessions();
-      setSessions(response.sessions);
+      setSessions(Array.isArray(response?.sessions) ? response.sessions : []);
     } catch (err) {
       console.warn("[SidebarSessionList] Failed to load:", err);
     } finally {

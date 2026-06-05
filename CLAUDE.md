@@ -186,6 +186,24 @@ react-i18next + i18next，英文默认，中英双语。适用范围：**所有 
 
 元数据在 PostgreSQL `skill` 表，Markdown 内容在文件系统 `{SKILL_DIR}/<name>/SKILL.md`（`SKILL_DIR` 环境变量，默认 `./data/skills`）
 
+### Agent 模板存储路径
+
+预设模板存放在 `.agents/agents/` 目录，每个文件为 **Markdown + YAML frontmatter** 格式（使用 `gray-matter` 库解析，禁止手写正则）。后端通过 `src/services/agent-templates.ts` 的 `loadAgentTemplates()` 加载，带进程级内存缓存。
+
+**文件格式**：
+```markdown
+---
+name: 模板名称
+description: 模板描述
+skills:
+  - skill-name
+---
+正文内容作为 prompt...
+```
+
+**frontmatter 字段**：`name`（必填）、`description`（必填）、`skills`（可选，skill name 数组）
+**文件名**：kebab-case，`.md` 扩展名，去掉扩展名即为模板 `id`
+
 ### Permission 权限系统
 
 `permission` 三态：`"ask"` 询问、`"allow"` 允许、`"deny"` 拒绝。规则型工具（read/edit/bash 等）支持通配符规则，开关型工具（todowrite/question/webfetch 等）仅三态。
@@ -352,6 +370,8 @@ Biome v2.4.15，space indent 2，lineWidth 120。`noExplicitAny: warn`，`noNonN
 ### Git 提交风格
 
 Angular 风格（`feat:` / `fix:` / `refactor:` / `test:` / `chore:` / `docs:`），中文标题。每个提交单一职责，作用域用括号（如 `feat(workflow):`）。AI 辅助提交必须附加 `Co-authored-by`（Claude / GLM / GPT / Gemini）。大分支合并前 squash merge
+
+**提交前必须 precheck**：每次 `git commit` 前，如果本次有代码改动（非纯文档/配置），必须先运行 `bun run precheck` 确保通过后再提交。precheck 会自动修复格式和 import 排序，修复后的变更一并提交
 
 ### React 组件模式
 

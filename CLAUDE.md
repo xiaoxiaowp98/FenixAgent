@@ -154,7 +154,7 @@ bun test web/src/__tests__/config-mcp-page.test.ts  # 前端单个文件
 
 **路由规则**（file-based，`web/src/routes/`）：`_` 前缀不贡献 URL 段、`$` 前缀是动态参数、`routeTree.gen.ts` 严禁手动编辑、新增页面在 `web/src/routes/agent/_panel/` 下创建
 
-**导航**：`<Link to>` 或 `useNavigate()`，**禁止** `window.history.pushState` / `window.location.href`
+**导航**：`<Link to>` 或 `useNavigate()`，**禁止** `window.history.pushState` / `window.location.href` / `window.location.replace` / `window.location.reload`。页面跳转和刷新一律通过 TanStack Router 的 `navigate()` 或 `router.invalidate()` 完成，`window.location` 仅允许用于读取（`pathname`/`search`/`host`/`protocol`）
 
 **API Client**（`web/src/api/sdk.ts`）：类架构 SDK，通过 `import { envApi, sessionApi } from "@/src/api/sdk"` 使用，`credentials: "include"`
 

@@ -9,8 +9,8 @@
  * - 按需 spawn 实例，自动创建 API key 注入环境变量
  */
 
-import { cpSync, existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { join, relative } from "node:path";
+import { cpSync, existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { log } from "@fenix/logger";
 import { auth } from "../auth/better-auth";
 import type { AuthContext } from "../plugins/auth";

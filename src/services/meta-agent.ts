@@ -9,7 +9,7 @@
  * - 按需 spawn 实例，自动创建 API key 注入环境变量
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { log } from "@fenix/logger";
 import { auth } from "../auth/better-auth";
@@ -19,7 +19,8 @@ import { createAgentConfig, getAgentConfig } from "./config/agent-config";
 import { syncAgentSkills } from "./config/agent-config-skill";
 import { getProvider, listProviders } from "./config/provider";
 import { deleteSkill, getSkill, listSkills } from "./config/skill";
-import { setSkill } from "./skill";
+import { getGlobalSkillsDir, setSkill } from "./skill";
+import { buildSkillArchive, getSkillArchivePath, getSkillSourceDir } from "./skill-fs";
 
 export const META_ENVIRONMENT_NAME = "meta-agent";
 const META_AGENT_CONFIG_NAME = "meta";
@@ -121,6 +122,82 @@ function scanBuiltinSkills(): { name: string; description: string; content: stri
 }
 
 /**
+ * 同步内置 skill 到 PG + 文件系统（`data/skills/`）。
+ *
+ * 服务器启动时对每个组织调用一次，确保 `.agents/skills/` 下的内置 skill
+ * 通过 `setSkill` 正规流程注册到 DB 和文件系统。
+ * 同时清理文件系统中已移除的孤儿 skill。
+ */
+export async function syncBuiltinSkills(ctx: AuthContext): Promise<void> {
+  const builtinSkills = scanBuiltinSkills();
+  if (builtinSkills.length === 0) return;
+
+  const builtinNames = new Set(builtinSkills.map((s) => s.name));
+
+  // 查询 DB 中由 meta agent 注册的 skill，找出需要清理的孤儿
+  const allDbSkills = await listSkills(ctx);
+  const orphans = allDbSkills.filter(
+    (s) =>
+      // 只清理 meta agent 自己注册的（通过 metadata.source 标记识别）
+      // 绝不触碰用户手动创建的 skill
+      isMetaBuiltin(s) && !builtinNames.has(s.name),
+  );
+
+  // 清理孤儿 skill
+  if (orphans.length > 0) {
+    for (const orphan of orphans) {
+      try {
+        await deleteSkill(ctx, orphan.name);
+        log(`[meta-agent] Cleaned up orphan skill: ${orphan.name} (id=${orphan.id})`);
+      } catch (err) {
+        console.error(`[meta-agent] Failed to delete orphan skill ${orphan.name}:`, err);
+      }
+    }
+  }
+
+  // 注册/更新当前文件系统中的内置 skill
+  for (const builtin of builtinSkills) {
+    try {
+      // 检查是否已有同名用户 skill，避免覆写
+      const existing = await getSkill(ctx, builtin.name);
+      if (existing && !isMetaBuiltin(existing)) {
+        log(
+          `[meta-agent] Skipping built-in skill "${builtin.name}": user skill with same name exists (id=${existing.id})`,
+        );
+        continue;
+      }
+
+      const info = await setSkill(ctx, builtin.name, {
+        description: builtin.description,
+        content: builtin.content,
+        metadata: { ...META_BUILTIN_MARKER },
+      });
+
+      // 将 .agents/skills/{name}/ 下的额外文件（references/ 等）同步到 data/skills/{name}/
+      const builtinDir = join(process.cwd(), BUILTIN_SKILLS_DIR, builtin.name);
+      const targetRoot = getGlobalSkillsDir();
+      const targetDir = getSkillSourceDir(targetRoot, builtin.name);
+      const extraEntries = readdirSync(builtinDir).filter((e) => e !== "SKILL.md");
+      for (const extra of extraEntries) {
+        const src = join(builtinDir, extra);
+        const dst = join(targetDir, extra);
+        cpSync(src, dst, { recursive: true, force: true });
+      }
+
+      // 有额外文件时需要重建 archive 以包含 references 等目录
+      if (extraEntries.length > 0) {
+        const archivePath = getSkillArchivePath(targetRoot, builtin.name);
+        await buildSkillArchive(targetDir, archivePath);
+      }
+
+      log(`[meta-agent] Synced built-in skill: ${builtin.name} (id=${info.id})`);
+    } catch (err) {
+      console.error(`[meta-agent] Failed to register skill ${builtin.name}:`, err);
+    }
+  }
+}
+
+/**
  * 确保内置 skill 已注册到 DB + 文件系统，并绑定到 meta AgentConfig。
  * 自动清理文件系统中已移除的孤儿 skill。
  * 返回 meta AgentConfig ID。
@@ -141,57 +218,15 @@ async function ensureMetaConfig(ctx: AuthContext): Promise<string> {
     }
   }
 
-  // 扫描当前文件系统中的内置 skill
-  const builtinSkills = scanBuiltinSkills();
-  const builtinNames = new Set(builtinSkills.map((s) => s.name));
+  // 同步内置 skill（注册 + 清理孤儿）
+  await syncBuiltinSkills(ctx);
 
-  // 查询 DB 中由 meta agent 注册的 skill，找出需要清理的孤儿
-  const allDbSkills = await listSkills(ctx);
-  const orphans = allDbSkills.filter(
-    (s) =>
-      // 只清理 meta agent 自己注册的（通过 metadata.source 标记识别）
-      // 绝不触碰用户手动创建的 skill
-      isMetaBuiltin(s) && !builtinNames.has(s.name),
-  );
-
-  // 清理孤儿 skill：先从 AgentConfig 解绑（syncAgentSkills 会全量覆盖），再删 DB 行
-  if (orphans.length > 0) {
-    for (const orphan of orphans) {
-      try {
-        await deleteSkill(ctx, orphan.name);
-        log(`[meta-agent] Cleaned up orphan skill: ${orphan.name} (id=${orphan.id})`);
-      } catch (err) {
-        console.error(`[meta-agent] Failed to delete orphan skill ${orphan.name}:`, err);
-      }
-    }
-  }
-
-  // 注册/更新当前文件系统中的内置 skill
+  // 收集所有应绑定到 meta AgentConfig 的 skill ID
   const skillIds: string[] = [];
-  for (const builtin of builtinSkills) {
-    try {
-      // 检查是否已有同名用户 skill，避免覆写
-      const existing = await getSkill(ctx, builtin.name);
-      if (existing && !isMetaBuiltin(existing)) {
-        // 同名但属于用户，跳过注册，直接用现有 ID 绑定
-        skillIds.push(existing.id);
-        log(
-          `[meta-agent] Skipping built-in skill "${builtin.name}": user skill with same name exists (id=${existing.id})`,
-        );
-        continue;
-      }
-
-      const info = await setSkill(ctx, builtin.name, {
-        description: builtin.description,
-        content: builtin.content,
-        metadata: { ...META_BUILTIN_MARKER },
-      });
-      if (info.id) {
-        skillIds.push(info.id);
-      }
-      log(`[meta-agent] Registered built-in skill: ${builtin.name} (id=${info.id})`);
-    } catch (err) {
-      console.error(`[meta-agent] Failed to register skill ${builtin.name}:`, err);
+  for (const builtin of scanBuiltinSkills()) {
+    const existing = await getSkill(ctx, builtin.name);
+    if (existing?.id) {
+      skillIds.push(existing.id);
     }
   }
 

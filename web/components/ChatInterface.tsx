@@ -1,3 +1,4 @@
+import { getParentToolUseId } from "acp-link/types";
 import imageCompression from "browser-image-compression";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,10 +15,8 @@ import { useCommands } from "../src/hooks/useCommands";
 import { useModes } from "../src/hooks/useModes";
 import { flushContext, isVisibleContentBlock } from "../src/lib/context-queue";
 import type {
-  AssistantMessageEntry,
   ChatInputMessage,
   PendingPermission,
-  PlanDisplayEntry,
   ThreadEntry,
   ToolCallData,
   ToolCallEntry,
@@ -163,6 +162,160 @@ function findToolCallIndex(entries: ThreadEntry[], toolCallId: string): number {
 }
 
 // =============================================================================
+// 纯函数：将 SessionUpdate 应用到 entries 数组，返回新数组
+// 顶级和子 agent 嵌套复用同一套逻辑
+// =============================================================================
+function applySessionUpdateToEntries(entries: ThreadEntry[], update: SessionUpdate): ThreadEntry[] {
+  // Handle agent message chunk
+  if (update.sessionUpdate === "agent_message_chunk") {
+    const text = update.content.type === "text" && update.content.text ? update.content.text : "";
+    if (!text) return entries;
+
+    const lastEntry = entries[entries.length - 1];
+
+    // If last entry is AssistantMessage, append to it
+    if (lastEntry?.type === "assistant_message") {
+      const lastChunk = lastEntry.chunks[lastEntry.chunks.length - 1];
+      if (lastChunk?.type === "message") {
+        return [
+          ...entries.slice(0, -1),
+          {
+            ...lastEntry,
+            chunks: [...lastEntry.chunks.slice(0, -1), { type: "message", text: lastChunk.text + text }],
+          },
+        ];
+      }
+      return [...entries.slice(0, -1), { ...lastEntry, chunks: [...lastEntry.chunks, { type: "message", text }] }];
+    }
+
+    return [
+      ...entries,
+      { type: "assistant_message", id: `assistant-${Date.now()}`, chunks: [{ type: "message", text }] },
+    ];
+  }
+
+  // Handle agent thought chunk
+  if (update.sessionUpdate === "agent_thought_chunk") {
+    const text = update.content.type === "text" && update.content.text ? update.content.text : "";
+    if (!text) return entries;
+
+    const lastEntry = entries[entries.length - 1];
+
+    if (lastEntry?.type === "assistant_message") {
+      const lastChunk = lastEntry.chunks[lastEntry.chunks.length - 1];
+      if (lastChunk?.type === "thought") {
+        return [
+          ...entries.slice(0, -1),
+          {
+            ...lastEntry,
+            chunks: [...lastEntry.chunks.slice(0, -1), { type: "thought", text: lastChunk.text + text }],
+          },
+        ];
+      }
+      return [...entries.slice(0, -1), { ...lastEntry, chunks: [...lastEntry.chunks, { type: "thought", text }] }];
+    }
+
+    return [
+      ...entries,
+      { type: "assistant_message", id: `assistant-${Date.now()}`, chunks: [{ type: "thought", text }] },
+    ];
+  }
+
+  // Handle user message chunk
+  if (update.sessionUpdate === "user_message_chunk") {
+    const text = update.content.type === "text" && update.content.text ? update.content.text : "";
+    if (!text) return entries;
+    if (!isVisibleContentBlock({ type: "text", text })) return entries;
+
+    const lastEntry = entries[entries.length - 1];
+    if (lastEntry?.type === "user_message") {
+      return [...entries.slice(0, -1), { ...lastEntry, content: lastEntry.content + text }];
+    }
+
+    return [...entries, { type: "user_message", id: `user-${Date.now()}`, content: text }];
+  }
+
+  // Handle tool call (UPSERT)
+  if (update.sessionUpdate === "tool_call") {
+    const toolCallData: ToolCallData = {
+      id: update.toolCallId,
+      title: update.title,
+      status: mapToolStatus(update.status),
+      content: update.content,
+      rawInput: update.rawInput,
+      rawOutput: update.rawOutput,
+    };
+
+    const existingIndex = findToolCallIndex(entries, update.toolCallId);
+    if (existingIndex >= 0) {
+      return entries.map((entry, index) => {
+        if (index !== existingIndex || entry.type !== "tool_call") return entry;
+        if (entry.toolCall.status === "waiting_for_confirmation") return entry;
+        return { type: "tool_call", toolCall: { ...entry.toolCall, ...toolCallData } };
+      });
+    }
+
+    return [...entries, { type: "tool_call", toolCall: toolCallData }];
+  }
+
+  // Handle tool call update (partial update)
+  if (update.sessionUpdate === "tool_call_update") {
+    const existingIndex = findToolCallIndex(entries, update.toolCallId);
+
+    if (existingIndex < 0) {
+      const failedEntry: ToolCallEntry = {
+        type: "tool_call",
+        toolCall: {
+          id: update.toolCallId,
+          title: update.title || "Tool call not found",
+          status: "error",
+          content: [{ type: "content", content: { type: "text", text: "Tool call not found" } }],
+        },
+      };
+      return [...entries, failedEntry];
+    }
+
+    return entries.map((entry, index) => {
+      if (index !== existingIndex || entry.type !== "tool_call") return entry;
+      if (entry.toolCall.status === "waiting_for_confirmation") return entry;
+
+      const newStatus = update.status ? mapToolStatus(update.status) : entry.toolCall.status;
+      const mergedContent = update.content
+        ? [...(entry.toolCall.content || []), ...update.content]
+        : entry.toolCall.content;
+
+      return {
+        type: "tool_call",
+        toolCall: {
+          ...entry.toolCall,
+          status: newStatus,
+          ...(update.title && { title: update.title }),
+          content: mergedContent,
+          ...(update.rawInput && { rawInput: update.rawInput }),
+          ...(update.rawOutput && { rawOutput: update.rawOutput }),
+        },
+      };
+    });
+  }
+
+  // Handle plan update
+  if (update.sessionUpdate === "plan") {
+    if (update.entries.length === 0) {
+      return entries.filter((e) => e.type !== "plan");
+    }
+
+    const lastPlanIndex = entries.reduce((acc, entry, i) => (entry.type === "plan" ? i : acc), -1);
+    if (lastPlanIndex >= 0) {
+      return entries.map((entry, index) => (index === lastPlanIndex ? { ...entry, entries: update.entries } : entry));
+    }
+
+    return [...entries, { type: "plan", id: `plan-${Date.now()}`, entries: update.entries }];
+  }
+
+  return entries;
+}
+
+// =============================================================================
 // ChatInterface Component
 // =============================================================================
 
@@ -178,6 +331,8 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
   // Flat list of entries (like Zed's entries: Vec<AgentThreadEntry>)
   const [entries, setEntries] = useState<ThreadEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // 断连时记住 loading 状态，WS 重连 resume 后恢复
+  const wasLoadingBeforeDisconnect = useRef(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
@@ -202,6 +357,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     setIsLoading(false);
     setSessionReady(false);
     setTodoItems([]);
+    wasLoadingBeforeDisconnect.current = false;
   }, []);
 
   const storageKey = agentId ? `acp_last_session_${agentId}` : null;
@@ -216,6 +372,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
       if (shouldResetEntries) {
         setEntries([]);
         setIsLoading(false);
+        wasLoadingBeforeDisconnect.current = false;
       }
       setActiveSessionId(sessionId);
       setSessionReady(true);
@@ -287,253 +444,83 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
 
   // =============================================================================
   // Session Update Handler (Zed-style: check last entry type)
+  // 支持子 agent 嵌套：带 parentToolUseId 的 update 路由到父工具调用的 subEntries
   // =============================================================================
+
   const handleSessionUpdate = useCallback((sessionId: string, update: SessionUpdate) => {
     if (activeSessionIdRef.current && sessionId !== activeSessionIdRef.current) {
       return;
     }
 
-    // Handle agent message chunk
-    if (update.sessionUpdate === "agent_message_chunk") {
-      const text = update.content.type === "text" && update.content.text ? update.content.text : "";
-      if (!text) return;
-
-      setEntries((prev) => {
-        const lastEntry = prev[prev.length - 1];
-
-        // If last entry is AssistantMessage, append to it
-        if (lastEntry?.type === "assistant_message") {
-          const lastChunk = lastEntry.chunks[lastEntry.chunks.length - 1];
-
-          // If last chunk is same type (message), append text
-          if (lastChunk?.type === "message") {
-            return [
-              ...prev.slice(0, -1),
-              {
-                ...lastEntry,
-                chunks: [...lastEntry.chunks.slice(0, -1), { type: "message", text: lastChunk.text + text }],
-              },
-            ];
-          }
-
-          // Otherwise add new message chunk
-          return [
-            ...prev.slice(0, -1),
-            {
-              ...lastEntry,
-              chunks: [...lastEntry.chunks, { type: "message", text }],
-            },
-          ];
-        }
-
-        // Create new AssistantMessage entry
-        const newEntry: AssistantMessageEntry = {
-          type: "assistant_message",
-          id: `assistant-${Date.now()}`,
-          chunks: [{ type: "message", text }],
-        };
-        return [...prev, newEntry];
-      });
-    }
-    // Handle agent thought chunk (NEW - was missing before)
-    else if (update.sessionUpdate === "agent_thought_chunk") {
-      const text = update.content.type === "text" && update.content.text ? update.content.text : "";
-      if (!text) return;
-
-      setEntries((prev) => {
-        const lastEntry = prev[prev.length - 1];
-
-        // If last entry is AssistantMessage, append to it
-        if (lastEntry?.type === "assistant_message") {
-          const lastChunk = lastEntry.chunks[lastEntry.chunks.length - 1];
-
-          // If last chunk is same type (thought), append text
-          if (lastChunk?.type === "thought") {
-            return [
-              ...prev.slice(0, -1),
-              {
-                ...lastEntry,
-                chunks: [...lastEntry.chunks.slice(0, -1), { type: "thought", text: lastChunk.text + text }],
-              },
-            ];
-          }
-
-          // Otherwise add new thought chunk
-          return [
-            ...prev.slice(0, -1),
-            {
-              ...lastEntry,
-              chunks: [...lastEntry.chunks, { type: "thought", text }],
-            },
-          ];
-        }
-
-        // Create new AssistantMessage entry with thought
-        const newEntry: AssistantMessageEntry = {
-          type: "assistant_message",
-          id: `assistant-${Date.now()}`,
-          chunks: [{ type: "thought", text }],
-        };
-        return [...prev, newEntry];
-      });
-    }
-    // Handle user message chunk (NEW - was missing before)
-    else if (update.sessionUpdate === "user_message_chunk") {
-      const text = update.content.type === "text" && update.content.text ? update.content.text : "";
-      if (!text) return;
-      // 过滤 system-reminder 内容块，不应在聊天界面显示
-      if (!isVisibleContentBlock({ type: "text", text })) return;
-
-      setEntries((prev) => {
-        const lastEntry = prev[prev.length - 1];
-
-        // If last entry is UserMessage, append to it
-        if (lastEntry?.type === "user_message") {
-          return [
-            ...prev.slice(0, -1),
-            {
-              ...lastEntry,
-              content: lastEntry.content + text,
-            },
-          ];
-        }
-
-        // Create new UserMessage entry
-        const newEntry: UserMessageEntry = {
-          type: "user_message",
-          id: `user-${Date.now()}`,
-          content: text,
-        };
-        return [...prev, newEntry];
-      });
-    }
-    // Handle tool call (UPSERT - update if exists, create if not)
-    else if (update.sessionUpdate === "tool_call") {
-      const toolCallData: ToolCallData = {
-        id: update.toolCallId,
-        title: update.title,
-        status: mapToolStatus(update.status),
-        content: update.content,
-        rawInput: update.rawInput,
-        rawOutput: update.rawOutput,
-      };
-
-      // 拦截 todowrite 工具调用 → 更新 Todo 面板
-      if (isTodoWriteToolCall(update.title, update.rawInput)) {
-        const todos = parseTodosFromRawInput(update.rawInput!);
-        if (todos.length > 0) {
-          setTodoItems(todos);
-        }
+    // 拦截 todowrite 工具调用 → 更新 Todo 面板（仅顶层）
+    if (update.sessionUpdate === "tool_call" && isTodoWriteToolCall(update.title, update.rawInput)) {
+      const todos = parseTodosFromRawInput(update.rawInput!);
+      if (todos.length > 0) {
+        setTodoItems(todos);
       }
+    } else if (
+      update.sessionUpdate === "tool_call_update" &&
+      update.rawInput &&
+      isTodoWriteToolCall(update.title || "", update.rawInput)
+    ) {
+      const todos = parseTodosFromRawInput(update.rawInput);
+      if (todos.length > 0) {
+        setTodoItems(todos);
+      }
+    }
 
+    // 检测子 agent 关联 — 有 parentToolUseId 时路由到嵌套处理
+    const parentToolUseId = getParentToolUseId(update);
+    if (parentToolUseId) {
       setEntries((prev) => {
-        // UPSERT: Check if tool call already exists
-        const existingIndex = findToolCallIndex(prev, update.toolCallId);
+        const parentIndex = findToolCallIndex(prev, parentToolUseId);
+        if (parentIndex < 0) {
+          console.warn(`[ChatInterface] Parent tool call not found: ${parentToolUseId}, skipping sub-agent update`);
+          return prev;
+        }
 
-        if (existingIndex >= 0) {
-          // UPDATE existing tool call
-          return prev.map((entry, index) => {
-            if (index !== existingIndex) return entry;
-            if (entry.type !== "tool_call") return entry;
-            // 等待用户确认权限时不覆盖，防止权限弹窗被竞态更新吞掉
-            if (entry.toolCall.status === "waiting_for_confirmation") return entry;
+        const parentEntry = prev[parentIndex];
+        if (parentEntry.type !== "tool_call") return prev;
 
+        const subEntries = parentEntry.toolCall.subEntries ?? [];
+        const newSubEntries = applySessionUpdateToEntries(subEntries, update);
+
+        // 如果父工具调用完成（来自子 agent 的 tool_call_update 匹配 parentToolUseId），更新父状态
+        if (
+          update.sessionUpdate === "tool_call_update" &&
+          "toolCallId" in update &&
+          update.toolCallId === parentToolUseId
+        ) {
+          const newStatus = update.status ? mapToolStatus(update.status) : parentEntry.toolCall.status;
+          return prev.map((entry, i) => {
+            if (i !== parentIndex || entry.type !== "tool_call") return entry;
             return {
-              type: "tool_call",
+              ...entry,
               toolCall: {
                 ...entry.toolCall,
-                ...toolCallData,
+                status: newStatus,
+                subEntries: newSubEntries,
               },
             };
           });
         }
 
-        // CREATE new tool call entry
-        const newEntry: ToolCallEntry = {
-          type: "tool_call",
-          toolCall: toolCallData,
-        };
-        return [...prev, newEntry];
-      });
-    }
-    // Handle tool call update (partial update)
-    else if (update.sessionUpdate === "tool_call_update") {
-      // 拦截 todowrite 更新 → 替换 Todo 面板
-      if (update.rawInput && isTodoWriteToolCall(update.title || "", update.rawInput)) {
-        const todos = parseTodosFromRawInput(update.rawInput);
-        if (todos.length > 0) {
-          setTodoItems(todos);
-        }
-      }
-
-      setEntries((prev) => {
-        const existingIndex = findToolCallIndex(prev, update.toolCallId);
-
-        if (existingIndex < 0) {
-          // Tool call not found - create a failed tool call entry (like Zed)
-          console.warn(`[ChatInterface] Tool call not found for update: ${update.toolCallId}`);
-          const failedEntry: ToolCallEntry = {
-            type: "tool_call",
-            toolCall: {
-              id: update.toolCallId,
-              title: update.title || "Tool call not found",
-              status: "error",
-              content: [{ type: "content", content: { type: "text", text: "Tool call not found" } }],
-            },
-          };
-          return [...prev, failedEntry];
-        }
-
-        return prev.map((entry, index) => {
-          if (index !== existingIndex) return entry;
-          if (entry.type !== "tool_call") return entry;
-          // 等待用户确认权限时不覆盖，防止权限弹窗被竞态更新吞掉
-          if (entry.toolCall.status === "waiting_for_confirmation") return entry;
-
-          const newStatus = update.status ? mapToolStatus(update.status) : entry.toolCall.status;
-          const mergedContent = update.content
-            ? [...(entry.toolCall.content || []), ...update.content]
-            : entry.toolCall.content;
-
+        return prev.map((entry, i) => {
+          if (i !== parentIndex || entry.type !== "tool_call") return entry;
           return {
-            type: "tool_call",
+            ...entry,
             toolCall: {
               ...entry.toolCall,
-              status: newStatus,
-              ...(update.title && { title: update.title }),
-              content: mergedContent,
-              ...(update.rawInput && { rawInput: update.rawInput }),
-              ...(update.rawOutput && { rawOutput: update.rawOutput }),
+              subEntries: newSubEntries,
             },
           };
         });
       });
+      return;
     }
-    // Handle plan update (replace entire plan)
-    else if (update.sessionUpdate === "plan") {
-      setEntries((prev) => {
-        // Empty entries → remove existing plan
-        if (update.entries.length === 0) {
-          return prev.filter((e) => e.type !== "plan");
-        }
 
-        // Find last plan entry
-        const lastPlanIndex = prev.reduce((acc, entry, i) => (entry.type === "plan" ? i : acc), -1);
-
-        if (lastPlanIndex >= 0) {
-          // Update existing plan in place
-          return prev.map((entry, index) => (index === lastPlanIndex ? { ...entry, entries: update.entries } : entry));
-        }
-
-        // Create new plan entry
-        const newPlanEntry: PlanDisplayEntry = {
-          type: "plan",
-          id: `plan-${Date.now()}`,
-          entries: update.entries,
-        };
-        return [...prev, newPlanEntry];
-      });
-    }
+    // 顶级消息 — 正常处理
+    setEntries((prev) => applySessionUpdateToEntries(prev, update));
   }, []);
 
   // =============================================================================
@@ -549,6 +536,12 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
     client.setSessionLoadedHandler((sessionId) => {
       console.log("[ChatInterface] Session loaded/resumed:", sessionId);
       activateSession(sessionId, { resetEntries: false });
+      // WS 重连 resume：恢复断连前的 loading 状态（agent 可能仍在执行）
+      if (wasLoadingBeforeDisconnect.current) {
+        console.log("[ChatInterface] Restoring isLoading=true after reconnect resume");
+        setIsLoading(true);
+        wasLoadingBeforeDisconnect.current = false;
+      }
     });
 
     client.setSessionSwitchingHandler((sessionId) => {
@@ -563,6 +556,7 @@ export const ChatInterface = forwardRef<ChatInterfaceHandle, ChatInterfaceProps>
         setIsLoading((prev) => {
           if (prev) {
             console.log("[ChatInterface] Connection lost while loading, forcing isLoading=false");
+            wasLoadingBeforeDisconnect.current = true;
           }
           return false;
         });

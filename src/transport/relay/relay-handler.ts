@@ -8,6 +8,7 @@ import type { RelayConnectionEntry } from "../../types/store";
 import { findMachineConnectionById, sendToWs, setAgentMachineCache } from "../acp-ws-handler";
 import type { WsConnection } from "../ws-types";
 import { RelayConnectionManager, sendToRelayWs } from "./connection-manager";
+import { filterConnectFromFlush } from "./message-router";
 
 /** OpencodeRelayHandle extends EngineRelayHandle with onMessage/ready */
 type FullRelayHandle = EngineRelayHandle & {
@@ -186,11 +187,14 @@ async function openLocalRelay(
   }
 
   // 5. 回放设置期间缓存的前端消息（connect、new_session 等）
+  //    过滤 connect：relay handle 在 onopen 时已自动发送 connect，
+  //    若不过滤会导致 agent 回传多余的 status，触发前端 resendPending() 重复发请求。
   const pending = pendingRelayMessages.get(relayWsId) ?? [];
   pendingRelayMessages.delete(relayWsId);
-  if (pending.length > 0) {
-    log(`Flushing ${pending.length} pending message(s) for relayWsId=${relayWsId}`);
-    for (const msg of pending) {
+  const filteredPending = filterConnectFromFlush(pending);
+  if (filteredPending.length > 0) {
+    log(`Flushing ${filteredPending.length} pending message(s) for relayWsId=${relayWsId}`);
+    for (const msg of filteredPending) {
       try {
         log("Relay → agent (pending flush)", { relayWsId, agentId, instanceId, msgType: msg.type });
         entry.relayHandle!.send(msg as { type: string; payload?: unknown });
@@ -200,11 +204,11 @@ async function openLocalRelay(
     }
   }
 
-  // 6. 对齐本地路径：补发 connect 触发 agent 回传 status（含 capabilities）
-  //    本地路径中 acp-link server handleConnect 会自动推送 capabilities，
-  //    远程路径依赖 dispatcher.handleTransportMessage("connect") 回传。
-  //    如果前端的 connect 在 agent start 完成前被 flush，dispatcher 未创建，
+  // 6. 补发 connect 触发 agent 回传 status（含 capabilities）
+  //    relay handle 的 onopen 已经发送过 connect，此处仅作安全兜底：
+  //    如果 relay handle 的 connect 在 agent start 之前被处理，dispatcher 未创建，
   //    capabilities 不会回传。这里额外发一次确保前端一定能收到 capabilities。
+  //    注意：仅在 agent 尚未推送过 status 时发送，避免重复 status 触发前端 resendPending。
   try {
     log("Relay → agent connect", { relayWsId, agentId, instanceId });
     entry.relayHandle!.send({ type: "connect" });
@@ -315,15 +319,9 @@ export function handleRelayClose(_ws: WsConnection, relayWsId: string, code?: nu
     `Connection closed: relayWsId=${relayWsId} agentId=${entry.agentId} code=${code ?? "none"} duration=${duration}s`,
   );
 
-  // 关闭 relay handle
+  // 关闭 relay handle — 仅断开事件订阅，不关闭远程 agent 连接
+  // 前端刷新时 relay 断连不应终止远程实例，前端重连后应能复用
   if (entry.relayHandle) {
-    if (entry.instanceId && !manager.hasOtherRelayForInstance(entry.instanceId, relayWsId)) {
-      try {
-        entry.relayHandle.close(1000, "relay disconnected");
-      } catch {
-        /* ignore */
-      }
-    }
     entry.relayUnsub?.();
   }
 

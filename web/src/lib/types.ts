@@ -23,6 +23,8 @@ export interface ToolCallData {
   };
   // 独立权限请求（无匹配工具调用时创建）
   isStandalonePermission?: boolean;
+  // 子 agent 嵌套条目（Task/Agent 工具调用的子 agent 输出）
+  subEntries?: ThreadEntry[];
 }
 
 // 助手消息块 — 普通消息或思考过程

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { ToolCallData, ToolCallEntry } from "../../src/lib/types";
 import { cn } from "../../src/lib/utils";
 import { ToolPermissionButtons } from "../ai-elements/permission-request";
+import { SubAgentPanel } from "./SubAgentPanel";
 
 // =============================================================================
 // 工具调用表格式列表 — 折叠/展开动画 + 状态 pill + 工具图标
@@ -138,6 +139,10 @@ function ToolCallRow({ tool, onPermissionRespond }: ToolCallRowProps) {
   const hasOutput =
     tool.status !== "running" && tool.status !== "waiting_for_confirmation" && (tool.rawOutput || tool.content);
   const description = getDescription(tool);
+  // 子 agent 摘要信息
+  const subToolCount = tool.subEntries?.filter((e) => e.type === "tool_call").length ?? 0;
+  const subMsgCount = tool.subEntries?.filter((e) => e.type === "assistant_message").length ?? 0;
+  const hasSubEntries = tool.subEntries && tool.subEntries.length > 0;
 
   // Measure detail height for animation — use ResizeObserver to track dynamic content
   useEffect(() => {
@@ -182,13 +187,20 @@ function ToolCallRow({ tool, onPermissionRespond }: ToolCallRowProps) {
         <span className="w-20 flex-shrink-0 font-mono text-[11px] text-text-primary truncate">{toolName}</span>
 
         {/* 详情简述 */}
-        <span className="flex-1 min-w-0 text-text-muted truncate text-[11px]">{description}</span>
+        <span className="flex-1 min-w-0 text-text-muted truncate text-[11px]">
+          {description}
+          {hasSubEntries && (
+            <span className="ml-1.5 text-text-dim">
+              ({subToolCount} 工具{subMsgCount > 0 ? `, ${subMsgCount} 消息` : ""})
+            </span>
+          )}
+        </span>
 
         {/* 状态 pill */}
         <span className={cn("tool-status-pill text-[9px]", status.pill)}>{status.label}</span>
 
         {/* 展开指示 — chevron */}
-        {(hasOutput || tool.status === "running") && (
+        {(hasOutput || tool.status === "running" || hasSubEntries) && (
           <ChevronRight
             size={10}
             className={cn("tool-call-chevron flex-shrink-0 text-text-dim", showDetail && "tool-call-chevron-open")}
@@ -235,6 +247,15 @@ function ToolCallRow({ tool, onPermissionRespond }: ToolCallRowProps) {
           </div>
         </div>
       </div>
+
+      {/* 子 agent 嵌套面板 — 始终可见，不受折叠影响 */}
+      {hasSubEntries && (
+        <div className="max-h-64 overflow-y-auto border-t border-border/50">
+          <div className="px-3 py-2 pl-2">
+            <SubAgentPanel entries={tool.subEntries!} />
+          </div>
+        </div>
+      )}
 
       {/* 权限请求按钮 */}
       {tool.status === "waiting_for_confirmation" && tool.permissionRequest && (

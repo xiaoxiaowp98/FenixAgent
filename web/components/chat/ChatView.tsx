@@ -47,13 +47,16 @@ export function ChatView({
         ) : (
           <>
             {grouped.map((item, i) => {
+              const isLastEntry = i === grouped.length - 1;
               if (item.type === "single") {
                 const entryId = item.entry.type === "tool_call" ? item.entry.toolCall.id : item.entry.id;
+                // 只有最后一条 assistant 消息且全局 loading 时才标记 streaming
+                const entryIsStreaming = isLoading && isLastEntry && item.entry.type === "assistant_message";
                 return (
                   <div key={entryId} className={cn(entrySpacing(entries, i))}>
                     <EntryRenderer
                       entry={item.entry}
-                      isLoading={isLoading}
+                      isLoading={entryIsStreaming}
                       onPermissionRespond={onPermissionRespond}
                       sessionId={sessionId}
                       envId={envId}

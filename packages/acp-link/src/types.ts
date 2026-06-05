@@ -246,6 +246,7 @@ export type ContentBlock = TextContent | ImageContent | ResourceLinkContent | { 
 export interface AgentMessageChunkUpdate {
   sessionUpdate: "agent_message_chunk";
   content: ContentBlock;
+  _meta?: Record<string, unknown> | null;
 }
 
 export interface ToolCallContentBlock {
@@ -275,6 +276,8 @@ export interface ToolCallUpdate {
   content?: ToolCallContent[];
   rawInput?: Record<string, unknown>;
   rawOutput?: Record<string, unknown>;
+  kind?: string;
+  _meta?: Record<string, unknown> | null;
 }
 
 export interface ToolCallStatusUpdate {
@@ -285,11 +288,13 @@ export interface ToolCallStatusUpdate {
   content?: ToolCallContent[];
   rawInput?: Record<string, unknown>;
   rawOutput?: Record<string, unknown>;
+  _meta?: Record<string, unknown> | null;
 }
 
 export interface AgentThoughtChunkUpdate {
   sessionUpdate: "agent_thought_chunk";
   content: ContentBlock;
+  _meta?: Record<string, unknown> | null;
 }
 
 export type PlanEntryPriority = "high" | "medium" | "low";
@@ -332,6 +337,30 @@ export type SessionUpdate =
   | PlanUpdate
   | UserMessageChunkUpdate
   | AvailableCommandsUpdate;
+
+// ============================================================================
+// Sub-Agent Helpers
+// ============================================================================
+
+/** 从 SessionUpdate 的 _meta 中提取 parentToolUseId（Claude Code 子 agent 关联） */
+export function getParentToolUseId(update: SessionUpdate): string | undefined {
+  const meta = "_meta" in update ? (update._meta as Record<string, unknown> | null | undefined) : undefined;
+  if (!meta || typeof meta !== "object") return;
+  const claudeCode = meta.claudeCode as Record<string, unknown> | undefined;
+  if (!claudeCode || typeof claudeCode !== "object") return;
+  const id = claudeCode.parentToolUseId;
+  return typeof id === "string" ? id : undefined;
+}
+
+/** 从 SessionUpdate 的 _meta 中提取 Claude Code 子 agent 工具名 */
+export function getSubAgentToolName(update: SessionUpdate): string | undefined {
+  const meta = "_meta" in update ? (update._meta as Record<string, unknown> | null | undefined) : undefined;
+  if (!meta || typeof meta !== "object") return;
+  const claudeCode = meta.claudeCode as Record<string, unknown> | undefined;
+  if (!claudeCode || typeof claudeCode !== "object") return;
+  const name = claudeCode.toolName;
+  return typeof name === "string" ? name : undefined;
+}
 
 // ============================================================================
 // Connection State

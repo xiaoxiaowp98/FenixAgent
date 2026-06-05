@@ -107,20 +107,18 @@ export function AssistantBubble({ entry, isStreaming, envId }: AssistantBubblePr
             if (chunk.type === "thought") return true;
             return isVisibleContentBlock({ type: "text", text: chunk.text });
           })
-          .map((chunk, i) => {
+          .map((chunk, i, filtered) => {
             if (chunk.type === "thought") {
-              const isLastChunk = i === entry.chunks.length - 1;
-              const isThoughtStreaming = isStreaming && isLastChunk;
+              // 只有最后一个 thought chunk 且全局 streaming 时才标记为 streaming
+              const isLastThought =
+                i === filtered.length - 1 || filtered.slice(i + 1).every((c) => c.type !== "thought");
+              const thoughtStreaming = isStreaming && isLastThought;
               return (
                 // biome-ignore lint/suspicious/noArrayIndexKey: chunks lack a unique identifier
-                <Reasoning key={i} isStreaming={isThoughtStreaming} defaultOpen={isThoughtStreaming}>
+                <Reasoning key={i} isStreaming={thoughtStreaming}>
                   <ReasoningTrigger />
                   <ReasoningContent>
-                    {isThoughtStreaming ? (
-                      <StreamingThoughtView text={chunk.text} />
-                    ) : (
-                      <div className="text-sm text-text-secondary leading-relaxed">{chunk.text}</div>
-                    )}
+                    <ThoughtContent text={chunk.text} isStreaming={thoughtStreaming} />
                   </ReasoningContent>
                 </Reasoning>
               );
@@ -162,29 +160,29 @@ function ImageThumbnail({ image }: { image: UserMessageImage }) {
 }
 
 // =============================================================================
-// 流式思考内容 — 固定高度显示最后 4 行，底部渐变遮罩
+// 思考内容 — streaming 时固定高度 + 自动滚底，非 streaming 时也是固定高度
+// 始终使用同一容器，避免 isStreaming 切换时的高度跳变
 // =============================================================================
 
-function StreamingThoughtView({ text }: { text: string }) {
+function ThoughtContent({ text, isStreaming }: { text: string; isStreaming?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: text 变化时滚动到底部
   useEffect(() => {
+    if (!isStreaming) return;
     const el = containerRef.current;
     if (el) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [text]);
+  }, [text, isStreaming]);
 
   return (
-    <div className="relative">
-      <div
-        ref={containerRef}
-        className="text-sm text-text-secondary leading-relaxed overflow-y-auto"
-        style={{ maxHeight: `${THOUGHT_STREAMING_MAX_HEIGHT}px` }}
-      >
-        {text}
-      </div>
+    <div
+      ref={containerRef}
+      className="text-sm text-text-secondary leading-relaxed overflow-y-auto"
+      style={{ maxHeight: `${THOUGHT_STREAMING_MAX_HEIGHT}px` }}
+    >
+      {text}
     </div>
   );
 }

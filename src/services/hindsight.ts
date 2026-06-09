@@ -44,7 +44,7 @@ export const HINDSIGHT_MCP_SERVER_NAME = "hindsight";
  * 解析当前用户在活跃组织中的 member ID，用作 Hindsight bank ID。
  * 从 member 表查询 (organizationId, userId) 唯一行。
  */
-async function resolveMemberId(ctx: AuthContext): Promise<string | null> {
+export async function resolveMemberId(ctx: AuthContext): Promise<string | null> {
   const { db } = await import("../db");
   const { eq, and } = await import("drizzle-orm");
   const rows = await db
@@ -81,4 +81,16 @@ export async function ensureHindsightMcpServer(ctx: AuthContext): Promise<{ ok: 
   }
 
   return { ok: true };
+}
+
+/**
+ * 通用 Hindsight API 转发。构造目标 URL 并转发请求。
+ * 调用方负责传入正确的 path。
+ */
+export async function proxyToHindsight(path: string, options?: RequestInit): Promise<Response> {
+  const config = getHindsightConfig();
+  if (!config) {
+    throw new Error("HINDSIGHT_MCP_URL not configured");
+  }
+  return fetch(`${config.url}${path}`, options);
 }

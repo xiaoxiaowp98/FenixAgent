@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BookOpen,
+  Brain,
   Clock,
   Cpu,
   KeyRound,
@@ -58,6 +59,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "knowledge-bases", labelKey: "agentPanel:knowledgeBases", icon: BookOpen },
       { id: "tasks", labelKey: "agentPanel:tasks", icon: Clock },
+      { id: "memories", labelKey: "agentPanel:memories", icon: Brain },
       { id: "apikeys", labelKey: "agentPanel:apiKeys", icon: KeyRound },
     ],
   },

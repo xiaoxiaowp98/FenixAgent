@@ -66,5 +66,6 @@
   "metaAgentStarting": "Starting Meta Agent...",
   "metaAgentFailed": "Failed to start Meta Agent",
   "cancel": "Cancel",
-  "remoteNode": "Remote"
+  "remoteNode": "Remote",
+  "memories": "Memories"
 }

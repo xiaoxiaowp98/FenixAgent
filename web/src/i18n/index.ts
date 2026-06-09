@@ -10,6 +10,7 @@ import commonEN from "./locales/en/common.json";
 import componentsEN from "./locales/en/components.json";
 import dashboardEN from "./locales/en/dashboard.json";
 import environmentsEN from "./locales/en/environments.json";
+import hindsightEN from "./locales/en/hindsight.json";
 import kanbanEN from "./locales/en/kanban.json";
 import knowledgeEN from "./locales/en/knowledge.json";
 import loginEN from "./locales/en/login.json";
@@ -29,6 +30,7 @@ import commonZH from "./locales/zh/common.json";
 import componentsZH from "./locales/zh/components.json";
 import dashboardZH from "./locales/zh/dashboard.json";
 import environmentsZH from "./locales/zh/environments.json";
+import hindsightZH from "./locales/zh/hindsight.json";
 import kanbanZH from "./locales/zh/kanban.json";
 import knowledgeZH from "./locales/zh/knowledge.json";
 import loginZH from "./locales/zh/login.json";
@@ -61,6 +63,7 @@ export const NS = {
   AGENT_PANEL: "agentPanel",
   COMPONENTS: "components",
   KANBAN: "kanban",
+  HINDSIGHT: "hindsight",
 } as const;
 
 export type Namespace = (typeof NS)[keyof typeof NS];
@@ -90,6 +93,7 @@ i18n
         [NS.COMPONENTS]: componentsEN,
         [NS.WORKFLOWS]: workflowsEN,
         [NS.KANBAN]: kanbanEN,
+        [NS.HINDSIGHT]: hindsightEN,
       },
       zh: {
         [NS.COMMON]: commonZH,
@@ -111,6 +115,7 @@ i18n
         [NS.COMPONENTS]: componentsZH,
         [NS.WORKFLOWS]: workflowsZH,
         [NS.KANBAN]: kanbanZH,
+        [NS.HINDSIGHT]: hindsightZH,
       },
     },
     fallbackLng: "en",
@@ -133,6 +138,7 @@ i18n
       NS.COMPONENTS,
       NS.WORKFLOWS,
       NS.KANBAN,
+      NS.HINDSIGHT,
     ],
     interpolation: { escapeValue: false },
     detection: {

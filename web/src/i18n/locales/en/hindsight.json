@@ -1,0 +1,66 @@
+{
+  "title": "Memories",
+  "description": "Agent memory management powered by Hindsight",
+  "tabs": {
+    "memories": "Memories",
+    "documents": "Documents",
+    "mentalModels": "Mental Models"
+  },
+  "memories": {
+    "worldFacts": "World Facts",
+    "experience": "Experience",
+    "observations": "Observations",
+    "search": "Search memories...",
+    "recall": "Recall",
+    "retain": "Retain",
+    "reflect": "Reflect",
+    "noMemories": "No memories found",
+    "totalCount": "{{count}} memories",
+    "detail": "Memory Detail",
+    "tags": "Tags",
+    "entities": "Entities",
+    "context": "Context",
+    "createdAt": "Created",
+    "factType": "Type",
+    "delete": "Delete",
+    "deleteConfirm": "Are you sure you want to delete this memory?"
+  },
+  "documents": {
+    "upload": "Upload Document",
+    "search": "Search documents...",
+    "noDocuments": "No documents found",
+    "totalCount": "{{count}} documents",
+    "chunks": "Chunks",
+    "reprocess": "Reprocess",
+    "delete": "Delete",
+    "deleteConfirm": "Are you sure you want to delete this document and all its memories?"
+  },
+  "mentalModels": {
+    "title": "Mental Models",
+    "description": "Formed opinions and cognitive structures",
+    "search": "Search mental models...",
+    "noModels": "No mental models found",
+    "totalCount": "{{count}} mental models",
+    "confidence": "Confidence",
+    "content": "Content",
+    "stale": "Stale",
+    "delete": "Delete",
+    "detail": "Mental Model Detail"
+  },
+  "recall": {
+    "query": "Query",
+    "results": "Results",
+    "noResults": "No results found",
+    "searching": "Searching..."
+  },
+  "retain": {
+    "content": "Content",
+    "context": "Context",
+    "tags": "Tags",
+    "submit": "Retain"
+  },
+  "status": {
+    "notConfigured": "Hindsight is not configured. Please set HINDSIGHT_MCP_URL.",
+    "loading": "Loading..."
+  }
+}

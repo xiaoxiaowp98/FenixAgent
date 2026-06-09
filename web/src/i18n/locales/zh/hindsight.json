@@ -1,0 +1,66 @@
+{
+  "title": "记忆",
+  "description": "由 Hindsight 驱动的 Agent 记忆管理",
+  "tabs": {
+    "memories": "记忆",
+    "documents": "文档",
+    "mentalModels": "心理模型"
+  },
+  "memories": {
+    "worldFacts": "世界事实",
+    "experience": "经验",
+    "observations": "观察",
+    "search": "搜索记忆...",
+    "recall": "召回",
+    "retain": "存储",
+    "reflect": "反思",
+    "noMemories": "暂无记忆",
+    "totalCount": "{{count}} 条记忆",
+    "detail": "记忆详情",
+    "tags": "标签",
+    "entities": "实体",
+    "context": "上下文",
+    "createdAt": "创建时间",
+    "factType": "类型",
+    "delete": "删除",
+    "deleteConfirm": "确定要删除这条记忆吗？"
+  },
+  "documents": {
+    "upload": "上传文档",
+    "search": "搜索文档...",
+    "noDocuments": "暂无文档",
+    "totalCount": "{{count}} 个文档",
+    "chunks": "分块",
+    "reprocess": "重新处理",
+    "delete": "删除",
+    "deleteConfirm": "确定要删除此文档及其所有记忆吗？"
+  },
+  "mentalModels": {
+    "title": "心理模型",
+    "description": "已形成的观点和认知结构",
+    "search": "搜索心理模型...",
+    "noModels": "暂无心理模型",
+    "totalCount": "{{count}} 个心理模型",
+    "confidence": "置信度",
+    "content": "内容",
+    "stale": "过期",
+    "delete": "删除",
+    "detail": "心理模型详情"
+  },
+  "recall": {
+    "query": "查询",
+    "results": "结果",
+    "noResults": "未找到结果",
+    "searching": "搜索中..."
+  },
+  "retain": {
+    "content": "内容",
+    "context": "上下文",
+    "tags": "标签",
+    "submit": "存储"
+  },
+  "status": {
+    "notConfigured": "Hindsight 未配置，请设置 HINDSIGHT_MCP_URL。",
+    "loading": "加载中..."
+  }
+}

@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import Elysia from "elysia";
 import { NotFoundError } from "../../errors";
 import { authGuardPlugin } from "../../plugins/auth";
@@ -255,7 +255,7 @@ app.post(
       // 如果有对应的相对路径，保留目录结构；否则直接用文件名
       const relPath = relativePaths[i] || file.name;
       const destPath = join(resolved, relPath);
-      const destDir = destPath.substring(0, destPath.lastIndexOf("/"));
+      const destDir = dirname(destPath);
       await mkdir(destDir, { recursive: true });
       await writeFileAsync(destPath, buffer);
 

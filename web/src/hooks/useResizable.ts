@@ -37,7 +37,7 @@ export function useResizable({
   const externalOffsetRef = useRef({ x: externalOffsetX, y: externalOffsetY });
   externalOffsetRef.current = { x: externalOffsetX, y: externalOffsetY };
 
-  const targetRef = useRef<HTMLElement | null>(null);
+  const targetRef = useRef<HTMLDivElement | null>(null);
   const frameRef = useRef<number | null>(null);
   const pendingRef = useRef<Size | null>(null);
   const dragRef = useRef<{

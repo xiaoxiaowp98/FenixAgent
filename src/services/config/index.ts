@@ -11,10 +11,10 @@ export {
   isBuiltInAgent,
   listAgentConfigs,
   normalizeKnowledgeConfig,
-  toolsToPermission,
   updateAgentConfig,
   validateAgentData,
 } from "./agent-config";
+export { listAgentMcpIds, syncAgentMcps } from "./agent-config-mcp";
 export { listAgentSkillIds, syncAgentSkills } from "./agent-config-skill";
 export { parseJsonb, parseJsonbOr } from "./jsonb";
 export {
@@ -52,6 +52,7 @@ export type {
   AgentConfigDetailWithAccess,
   AgentConfigRowWithAccess,
   AgentConfigUpsertData,
+  AgentExtraConfig,
   AgentKnowledgeConfig,
   McpServerConfig,
   McpServerInfoOutput,

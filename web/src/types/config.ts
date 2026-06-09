@@ -150,7 +150,6 @@ export interface ProviderModel {
   options?: Record<string, unknown>;
   providerResourceAccess?: ResourceAccess;
   providerResourceKey?: string;
-  stableFullId?: string;
 }
 
 export interface ProviderDetail {
@@ -169,14 +168,14 @@ export interface ProviderDetail {
 
 export interface ModelEntry {
   id: string;
+  modelId: string;
+  displayName: string;
   provider: string;
-  fullId: string;
-  label: string;
+  providerDisplayName: string;
   contextLimit: number | null;
   outputLimit: number | null;
   providerResourceAccess?: ResourceAccess;
   providerResourceKey?: string;
-  stableFullId?: string;
 }
 
 export interface ModelConfig {
@@ -195,10 +194,9 @@ export interface AgentInfo {
   name: string;
   builtIn: boolean;
   model: string | null;
+  modelId: string | null;
   modelLabel?: string | null;
-  mode: string | null;
   description: string | null;
-  color: string | null;
   knowledgeBaseCount: number;
   skillLabels?: Array<{ id: string; label: string }>;
   resourceAccess?: ResourceAccess;
@@ -210,25 +208,19 @@ export interface AgentDetail {
   name: string;
   builtIn: boolean;
   model: string | null;
+  modelId: string | null;
   prompt: string | null;
-  tools: Record<string, boolean> | null;
-  steps: number | null;
-  mode: string | null;
-  permission: PermissionConfig | null;
-  variant: string | null;
-  temperature: number | null;
-  top_p: number | null;
-  disable: boolean;
-  hidden: boolean;
-  color: string | null;
   description: string | null;
+  extra?: Record<string, unknown> | null;
   knowledge: AgentKnowledgeConfig | null;
   skillIds?: string[];
+  mcpIds?: string[];
   machineId?: string | null;
   relatedResources?: {
     modelLabel?: string | null;
     machineLabel?: string | null;
     skills?: Array<{ id: string; label: string }>;
+    mcps?: Array<{ id: string; label: string }>;
     knowledgeBases?: Array<{ id: string; label: string; slug?: string | null }>;
   };
   resourceAccess?: ResourceAccess;
@@ -304,6 +296,7 @@ export interface SkillUploadConflictResponse {
 
 /** 用于前端列表展示的 MCP 服务器信息 */
 export interface McpServerInfo {
+  id: string;
   name: string;
   type: "local" | "remote" | "disabled";
   enabled: boolean;
@@ -311,7 +304,6 @@ export interface McpServerInfo {
   timeout?: number;
   toolsCount?: number;
   resourceAccess?: ResourceAccess;
-  resourceKey?: string;
 }
 
 /** MCP 服务器详情（编辑用） */
@@ -321,7 +313,6 @@ export interface McpServerDetail {
   enabled?: boolean;
   summary?: string;
   resourceAccess?: ResourceAccess;
-  resourceKey?: string;
 }
 
 /** MCP Tool 缓存记录 */

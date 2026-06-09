@@ -20,19 +20,17 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { agentApi, envApi, instanceApi, kbApi, mcpApi, modelApi, registryApi, skillConfigApi } from "@/src/api/sdk";
 import type { AgentTemplate } from "../../../../packages/sdk/src/modules/config";
-import { PermissionTab } from "../../components/PermissionTab";
 import { NS } from "../../i18n";
 import { canManageAgentSharing, getAgentDisplayName, isAgentWritable } from "../../lib/agent-resource-access";
 import {
   buildAgentPayload,
   buildKnowledgeFormState,
-  DEFAULT_AGENT_MODE,
   filterKnowledgeBaseIds,
   getDefaultKnowledgeFormState,
   isValidAgentNameInput,
-  isValidStepsInput,
 } from "../../lib/agent-utils";
 import { dispatchConfigChange } from "../../lib/config-events";
+import { getMcpDisplayName, getMcpKey } from "../../lib/mcp-resource-access";
 import { getSkillOptionValue, mapSkillOptions } from "../../lib/skill-resource-access";
 import type { ModelEntry, ResourceAccess } from "../../types/config";
 import type { KnowledgeBaseInfo } from "../../types/knowledge";
@@ -50,14 +48,35 @@ interface AgentRelatedResourcesView {
   modelLabel?: string | null;
   machineLabel?: string | null;
   skills?: Array<{ id: string; label: string }>;
+  mcps?: Array<{ id: string; label: string }>;
   knowledgeBases?: Array<{ id: string; label: string; slug?: string | null }>;
+}
+
+interface AgentMcpOption {
+  id: string;
+  key: string;
+  name: string;
+  label: string;
+  resourceAccess?: ResourceAccess;
+}
+
+function mapMcpOptions(
+  servers: Array<{ id: string; name: string; resourceAccess?: ResourceAccess }>,
+): AgentMcpOption[] {
+  return servers.map((server) => ({
+    id: server.id,
+    key: getMcpKey(server),
+    name: server.name,
+    label: getMcpDisplayName(server),
+    resourceAccess: server.resourceAccess,
+  }));
 }
 
 export function mapModelOptions(available: ModelEntry[]): { value: string; label: string }[] {
   return available.map((model) => {
     const source = model.providerResourceAccess?.sourceOrganizationName;
-    const label = source ? `${source}/${model.fullId}` : model.fullId;
-    return { value: model.stableFullId ?? model.fullId, label };
+    const providerLabel = source ? `${source}/${model.providerDisplayName}` : model.providerDisplayName;
+    return { value: model.id, label: `${providerLabel}/${model.displayName}` };
   });
 }
 
@@ -72,36 +91,30 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
   const [skillOptions, setSkillOptions] = useState<
     { id: string; key: string; name: string; label: string; description: string; resourceAccess?: ResourceAccess }[]
   >([]);
+  const [mcpOptions, setMcpOptions] = useState<AgentMcpOption[]>([]);
   const [machineOptions, setMachineOptions] = useState<{ id: string; agentName: string; hostname: string }[]>([]);
 
   const [formName, setFormName] = useState("");
   const [formModel, setFormModel] = useState("");
-  const [formMode, setFormMode] = useState(DEFAULT_AGENT_MODE);
-  const [formSteps, setFormSteps] = useState("50");
   const [formPrompt, setFormPrompt] = useState("");
-  const [formSaving, setFormSaving] = useState(false);
   const [formDescription, setFormDescription] = useState("");
-  const [formVariant, setFormVariant] = useState("");
-  const [formTemperature, setFormTemperature] = useState("");
-  const [formTopP, setFormTopP] = useState("");
-  const [formColor, setFormColor] = useState("");
-  const [formHidden, setFormHidden] = useState(false);
-  const [formDisable, setFormDisable] = useState(false);
+  const [formSaving, setFormSaving] = useState(false);
   const [formKnowledgeBaseIds, setFormKnowledgeBaseIds] = useState<string[]>([]);
   const [formKnowledgeSearchFirst, setFormKnowledgeSearchFirst] = useState(true);
   const [formKnowledgeMaxResults, setFormKnowledgeMaxResults] = useState("5");
-  const [formPermission, setFormPermission] = useState<Record<string, unknown> | null>(null);
   const [formSkillIds, setFormSkillIds] = useState<string[]>([]);
+  const [formMcpIds, setFormMcpIds] = useState<string[]>([]);
   const [formMachineId, setFormMachineId] = useState<string>("local");
   const [formResourceAccess, setFormResourceAccess] = useState<ResourceAccess | undefined>(undefined);
   const [formPublicReadable, setFormPublicReadable] = useState(false);
   const [currentAgentId, setCurrentAgentId] = useState<string | null>(null);
   const [displayAgentName, setDisplayAgentName] = useState("");
   const [relatedResources, setRelatedResources] = useState<AgentRelatedResourcesView | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<"basic" | "knowledge" | "permission" | "more">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "knowledge">("basic");
   const [templates, setTemplates] = useState<AgentTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [skillsExpanded, setSkillsExpanded] = useState(false);
+  const [mcpsExpanded, setMcpsExpanded] = useState(false);
   const [hindsightEnabled, setHindsightEnabled] = useState(false);
   const [formEnableMemory, setFormEnableMemory] = useState(false);
 
@@ -118,8 +131,8 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
     setFormKnowledgeBaseIds(knowledgeDefaults.knowledgeBaseIds);
     setFormKnowledgeSearchFirst(knowledgeDefaults.searchFirst);
     setFormKnowledgeMaxResults(knowledgeDefaults.maxResults);
-    setFormPermission(null);
     setFormSkillIds([]);
+    setFormMcpIds([]);
     setFormMachineId("local");
     setFormResourceAccess(undefined);
     setFormPublicReadable(false);
@@ -128,6 +141,8 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
     setRelatedResources(undefined);
     setSelectedTemplateId(null);
     setFormEnableMemory(false);
+    setSkillsExpanded(false);
+    setMcpsExpanded(false);
 
     // 加载 Hindsight 记忆 MCP 可用性
     fetch("/web/hindsight/status")
@@ -156,8 +171,8 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
 
     if (isEdit) {
       setLoading(true);
-      Promise.all([agentApi.get(agentName!), modelApi.get(), kbApi.list(), skillConfigApi.list()])
-        .then(([agentResult, modelsResult, kbResult, skillsResult]) => {
+      Promise.all([agentApi.get(agentName!), modelApi.get(), kbApi.list(), skillConfigApi.list(), mcpApi.list()])
+        .then(([agentResult, modelsResult, kbResult, skillsResult, mcpsResult]) => {
           if (agentResult.error) {
             console.error("Failed to load agent config:", agentResult.error);
             toast.error(t("knowledge.loadError", { message: agentResult.error.message }));
@@ -166,17 +181,9 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
           const d = agentResult.data as unknown as Record<string, unknown>;
           setCurrentAgentId((d.id as string) ?? null);
           setDisplayAgentName(String(d.name ?? agentName ?? ""));
-          setFormModel((d.model as string) || "");
-          setFormMode((d.mode as string) || DEFAULT_AGENT_MODE);
-          setFormSteps(String(d.steps ?? 50));
+          setFormModel((d.modelId as string) || "");
           setFormPrompt(String(d.prompt ?? ""));
           setFormDescription(String(d.description ?? ""));
-          setFormVariant(String(d.variant ?? ""));
-          setFormTemperature(d.temperature !== null && d.temperature !== undefined ? String(d.temperature) : "");
-          setFormTopP(d.top_p !== null && d.top_p !== undefined ? String(d.top_p) : "");
-          setFormColor(String(d.color ?? ""));
-          setFormHidden(Boolean(d.hidden));
-          setFormDisable(Boolean(d.disable));
           setFormMachineId((d.machineId as string) || "local");
           setFormResourceAccess(d.resourceAccess as ResourceAccess | undefined);
           setFormPublicReadable(Boolean((d.resourceAccess as ResourceAccess | undefined)?.publicReadable));
@@ -186,15 +193,8 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
           setFormKnowledgeBaseIds(knowledgeState.knowledgeBaseIds);
           setFormKnowledgeSearchFirst(knowledgeState.searchFirst);
           setFormKnowledgeMaxResults(knowledgeState.maxResults);
-
-          setFormPermission(
-            d.permission
-              ? typeof d.permission === "string"
-                ? (d.permission as unknown as Record<string, unknown>)
-                : (d.permission as unknown as Record<string, unknown>)
-              : null,
-          );
           setFormSkillIds(Array.isArray(d.skillIds) ? (d.skillIds as string[]) : []);
+          setFormMcpIds(Array.isArray(d.mcpIds) ? (d.mcpIds as string[]) : []);
 
           // 编辑模式回显：检查是否已关联 hindsight MCP
           mcpApi
@@ -227,6 +227,22 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
               )
             : [];
           setSkillOptions(skills);
+
+          const mcpRaw = mcpsResult.data;
+          const mcpServers = Array.isArray(mcpRaw)
+            ? mcpRaw
+            : mcpRaw && typeof mcpRaw === "object" && Array.isArray((mcpRaw as { servers?: unknown }).servers)
+              ? ((mcpRaw as { servers: Array<{ id?: string; name: string; resourceAccess?: ResourceAccess }> })
+                  .servers ?? [])
+              : [];
+          setMcpOptions(
+            mapMcpOptions(
+              mcpServers.filter(
+                (item): item is { id: string; name: string; resourceAccess?: ResourceAccess } =>
+                  typeof item.id === "string" && item.id.length > 0,
+              ),
+            ),
+          );
         })
         .catch((err) => {
           console.error("Failed to load agent config:", err);
@@ -241,15 +257,8 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
       });
     } else {
       setFormName(defaultName ?? "");
-      setFormSteps("50");
       setFormPrompt("");
       setFormDescription("");
-      setFormVariant("");
-      setFormTemperature("");
-      setFormTopP("");
-      setFormColor("");
-      setFormHidden(false);
-      setFormDisable(false);
       setFormPublicReadable(false);
       setSelectedTemplateId(null);
 
@@ -283,6 +292,24 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
             : [],
         );
       });
+
+      mcpApi.list().then(({ data, error }) => {
+        if (error) return;
+        const servers = Array.isArray(data)
+          ? data
+          : data && typeof data === "object" && Array.isArray((data as { servers?: unknown }).servers)
+            ? ((data as { servers: Array<{ id?: string; name: string; resourceAccess?: ResourceAccess }> }).servers ??
+              [])
+            : [];
+        setMcpOptions(
+          mapMcpOptions(
+            servers.filter(
+              (item): item is { id: string; name: string; resourceAccess?: ResourceAccess } =>
+                typeof item.id === "string" && item.id.length > 0,
+            ),
+          ),
+        );
+      });
     }
   }, [open, isEdit, agentName, defaultName, t]);
 
@@ -294,31 +321,13 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
         return false;
       }
     }
-    if (!isValidStepsInput(formSteps)) {
-      toast.error(t("form.stepsValidationError"));
-      return false;
-    }
-    if (formTemperature !== "") {
-      const tv = parseFloat(formTemperature);
-      if (Number.isNaN(tv) || tv < 0 || tv > 2) {
-        toast.error(t("form.temperatureValidationError"));
-        return false;
-      }
-    }
-    if (formTopP !== "") {
-      const p = parseFloat(formTopP);
-      if (Number.isNaN(p) || p < 0 || p > 1) {
-        toast.error(t("form.topPValidationError"));
-        return false;
-      }
-    }
     const knowledgeMaxResults = parseInt(formKnowledgeMaxResults, 10);
     if (Number.isNaN(knowledgeMaxResults) || knowledgeMaxResults < 1 || knowledgeMaxResults > 20) {
       toast.error(t("knowledge.maxResultsValidationError"));
       return false;
     }
     return true;
-  }, [isEdit, formName, formSteps, formTemperature, formTopP, formKnowledgeMaxResults, t]);
+  }, [isEdit, formName, formKnowledgeMaxResults, t]);
 
   const agentIdentityName = agentName ?? formName ?? "agent";
   const readOnlyAgent = isEdit && !isAgentWritable({ name: agentIdentityName, resourceAccess: formResourceAccess });
@@ -372,6 +381,21 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
             })),
         ]
       : skillOptions;
+  const effectiveMcpOptions =
+    relatedResources?.mcps && relatedResources.mcps.length > 0
+      ? [
+          ...mcpOptions,
+          ...relatedResources.mcps
+            .filter((item) => !mcpOptions.some((option) => option.id === item.id || option.key === item.id))
+            .map((item) => ({
+              id: item.id,
+              key: item.id,
+              name: item.label,
+              label: item.label,
+              resourceAccess: undefined,
+            })),
+        ]
+      : mcpOptions;
 
   const handleSave = useCallback(async () => {
     if (readOnlyAgent) return;
@@ -391,18 +415,9 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
         }
         const data: Record<string, unknown> = {
           ...buildAgentPayload({
-            model: formModel,
-            mode: formMode,
-            steps: formSteps,
+            modelId: formModel,
             prompt: formPrompt,
             description: formDescription,
-            variant: formVariant,
-            temperature: formTemperature,
-            topP: formTopP,
-            color: formColor,
-            hidden: formHidden,
-            disable: formDisable,
-            permission: formPermission,
             knowledge: {
               knowledgeBaseIds: validKnowledgeBaseIds,
               searchFirst: formKnowledgeSearchFirst,
@@ -410,6 +425,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
             },
           }),
           skillIds: formSkillIds,
+          mcpIds: formMcpIds,
           machineId: formMachineId === "local" ? null : formMachineId,
           publicReadable: formPublicReadable,
           ...(formEnableMemory ? { enableMemory: true } : {}),
@@ -427,18 +443,9 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
         const name = formName.trim();
         const { error } = await agentApi.create(name, {
           ...buildAgentPayload({
-            model: formModel,
-            mode: formMode,
-            steps: formSteps,
+            modelId: formModel,
             prompt: formPrompt,
             description: formDescription,
-            variant: formVariant,
-            temperature: formTemperature,
-            topP: formTopP,
-            color: formColor,
-            hidden: formHidden,
-            disable: formDisable,
-            permission: formPermission,
             knowledge: {
               knowledgeBaseIds: formKnowledgeBaseIds,
               searchFirst: formKnowledgeSearchFirst,
@@ -446,6 +453,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
             },
           }),
           skillIds: formSkillIds,
+          mcpIds: formMcpIds,
           machineId: formMachineId === "local" ? null : formMachineId,
           publicReadable: formPublicReadable,
           ...(formEnableMemory ? { enableMemory: true } : {}),
@@ -471,21 +479,13 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
     isEdit,
     formName,
     formModel,
-    formMode,
-    formSteps,
     formPrompt,
     formDescription,
-    formVariant,
-    formTemperature,
-    formTopP,
-    formColor,
-    formHidden,
-    formDisable,
-    formPermission,
     formKnowledgeBaseIds,
     formKnowledgeSearchFirst,
     formKnowledgeMaxResults,
     formSkillIds,
+    formMcpIds,
     formMachineId,
     agentName,
     knowledgeOptions,
@@ -552,7 +552,6 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
 
   const title = isEdit ? (readOnlyAgent ? t("dialog.detailTitle") : t("dialog.editTitle")) : t("dialog.createTitle");
   const confirmLabel = formSaving ? "..." : isEdit ? t("actions.save") : t("dialog.createConfirm");
-  const dialogKey = isEdit ? agentName : "__new__";
   const selectedModelLabel = effectiveModelOptions.find((option) => option.value === formModel)?.label;
 
   return (
@@ -588,7 +587,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
             )}
             {/* Tabs */}
             <div className="flex gap-1 rounded-lg bg-surface-2 p-1 m-6 mb-0 flex-shrink-0">
-              {(["basic", "knowledge", "permission", "more"] as const).map((tab) => (
+              {(["basic", "knowledge"] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
@@ -619,6 +618,16 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                     )}
                   </div>
                   <div>
+                    <Label>{t("form.description")}</Label>
+                    <Input
+                      value={formDescription}
+                      onChange={(e) => setFormDescription(e.target.value)}
+                      placeholder={t("form.descriptionPlaceholder")}
+                      className="mt-1"
+                      disabled={readOnlyAgent}
+                    />
+                  </div>
+                  <div>
                     <Label>{t("form.model")}</Label>
                     <Select value={formModel} onValueChange={setFormModel} disabled={readOnlyAgent}>
                       <SelectTrigger className="mt-1">
@@ -634,6 +643,17 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div>
+                    <Label>{t("form.prompt")}</Label>
+                    <Textarea
+                      value={formPrompt}
+                      onChange={(e) => setFormPrompt(e.target.value)}
+                      rows={4}
+                      placeholder={t("form.promptPlaceholder")}
+                      className="mt-1"
+                      disabled={readOnlyAgent}
+                    />
                   </div>
                   <div>
                     <Label>{t("form.machine")}</Label>
@@ -781,6 +801,80 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                       </div>
                     )}
                   </div>
+                  <div className="rounded-lg border border-border-subtle p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-text-bright">{t("mcps.tabTitle")}</p>
+                        <p className="text-xs text-text-muted">
+                          {t("mcps.selectedCount", { count: formMcpIds.length })}
+                        </p>
+                      </div>
+                      {!readOnlyAgent && (
+                        <button
+                          type="button"
+                          onClick={() => setMcpsExpanded(!mcpsExpanded)}
+                          className="rounded-md p-1 hover:bg-surface-2 text-text-muted hover:text-text-primary transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    {formMcpIds.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {formMcpIds.map((mcpId) => {
+                          const mcp = effectiveMcpOptions.find((item) => item.id === mcpId);
+                          return (
+                            <span
+                              key={mcpId}
+                              className="inline-flex items-center gap-1 rounded bg-primary/10 text-primary text-xs px-2 py-0.5"
+                            >
+                              {mcp?.label ?? mcpId}
+                              {!readOnlyAgent && (
+                                <button
+                                  type="button"
+                                  onClick={() => setFormMcpIds((current) => current.filter((id) => id !== mcpId))}
+                                  className="hover:text-text-bright"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {mcpsExpanded && (
+                      <div className="mt-3 space-y-2 border-t border-border-subtle pt-3">
+                        {effectiveMcpOptions.length === 0 ? (
+                          <p className="text-sm text-text-muted">{t("mcps.noOptions")}</p>
+                        ) : (
+                          effectiveMcpOptions.map((item) => {
+                            const checked = formMcpIds.includes(item.id);
+                            return (
+                              <label
+                                key={item.key}
+                                className="flex items-center justify-between gap-3 rounded-md border border-border-subtle px-3 py-2 text-sm"
+                              >
+                                <div>
+                                  <p className="font-medium text-text-bright">{item.label}</p>
+                                </div>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={readOnlyAgent}
+                                  onChange={(e) => {
+                                    setFormMcpIds((current) =>
+                                      e.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id),
+                                    );
+                                  }}
+                                />
+                              </label>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {hindsightEnabled && (
                     <label className="flex items-center justify-between gap-3 rounded-md border border-border-subtle px-3 py-2 text-sm">
                       <div>
@@ -877,150 +971,6 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                         onChange={(e) => setFormKnowledgeMaxResults(e.target.value)}
                       />
                     </div>
-                  </div>
-                </div>
-              )}
-              {activeTab === "permission" && (
-                <div className={readOnlyAgent ? "pointer-events-none opacity-60" : undefined}>
-                  <PermissionTab
-                    key={dialogKey}
-                    agentName={isEdit ? agentName! : formName}
-                    permission={formPermission}
-                    onPermissionChange={setFormPermission}
-                  />
-                </div>
-              )}
-              {activeTab === "more" && (
-                <div className="space-y-4">
-                  <div>
-                    <Label>{t("form.prompt")}</Label>
-                    <Textarea
-                      value={formPrompt}
-                      onChange={(e) => setFormPrompt(e.target.value)}
-                      rows={4}
-                      placeholder={t("form.promptPlaceholder")}
-                      className="mt-1"
-                      disabled={readOnlyAgent}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>{t("form.mode")}</Label>
-                      <Select value={formMode} onValueChange={setFormMode} disabled={readOnlyAgent}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="primary">primary</SelectItem>
-                          <SelectItem value="subagent">subagent</SelectItem>
-                          <SelectItem value="all">all</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>{t("form.steps")}</Label>
-                      <Input
-                        type="number"
-                        value={formSteps}
-                        onChange={(e) => setFormSteps(e.target.value)}
-                        min={1}
-                        max={200}
-                        className="mt-1"
-                        disabled={readOnlyAgent}
-                      />
-                      <p className="text-xs text-text-muted mt-1">{t("form.stepsHint")}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>{t("form.description")}</Label>
-                      <Input
-                        value={formDescription}
-                        onChange={(e) => setFormDescription(e.target.value)}
-                        placeholder={t("form.descriptionPlaceholder")}
-                        className="mt-1"
-                        disabled={readOnlyAgent}
-                      />
-                    </div>
-                    <div>
-                      <Label>{t("form.variant")}</Label>
-                      <Input
-                        value={formVariant}
-                        onChange={(e) => setFormVariant(e.target.value)}
-                        placeholder={t("form.variantPlaceholder")}
-                        className="mt-1"
-                        disabled={readOnlyAgent}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>{t("form.temperature")}</Label>
-                      <Input
-                        type="number"
-                        value={formTemperature}
-                        onChange={(e) => setFormTemperature(e.target.value)}
-                        min={0}
-                        max={2}
-                        step={0.1}
-                        placeholder={t("form.temperaturePlaceholder")}
-                        className="mt-1"
-                        disabled={readOnlyAgent}
-                      />
-                    </div>
-                    <div>
-                      <Label>{t("form.topP")}</Label>
-                      <Input
-                        type="number"
-                        value={formTopP}
-                        onChange={(e) => setFormTopP(e.target.value)}
-                        min={0}
-                        max={1}
-                        step={0.1}
-                        placeholder={t("form.topPPPlaceholder")}
-                        className="mt-1"
-                        disabled={readOnlyAgent}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>{t("form.color")}</Label>
-                    <div className="flex gap-2 mt-1">
-                      <Input
-                        type="color"
-                        value={formColor || "#000000"}
-                        onChange={(e) => setFormColor(e.target.value)}
-                        className="w-12 h-9 p-1 cursor-pointer"
-                        disabled={readOnlyAgent}
-                      />
-                      <Input
-                        value={formColor}
-                        onChange={(e) => setFormColor(e.target.value)}
-                        placeholder={t("form.colorPlaceholder")}
-                        className="flex-1"
-                        disabled={readOnlyAgent}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <label className="flex items-center gap-2 text-sm" title={t("form.hiddenTitle")}>
-                      <input
-                        type="checkbox"
-                        checked={formHidden}
-                        disabled={readOnlyAgent}
-                        onChange={(e) => setFormHidden(e.target.checked)}
-                      />
-                      {t("form.hidden")}
-                    </label>
-                    <label className="flex items-center gap-2 text-sm" title={t("form.disableTitle")}>
-                      <input
-                        type="checkbox"
-                        checked={formDisable}
-                        disabled={readOnlyAgent}
-                        onChange={(e) => setFormDisable(e.target.checked)}
-                      />
-                      {t("form.disable")}
-                    </label>
                   </div>
                 </div>
               )}

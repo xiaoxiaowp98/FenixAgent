@@ -1,5 +1,5 @@
 import { FolderTree, PanelRightClose, Upload, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -19,19 +19,33 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, envId }: Artifacts
   const { t } = useTranslation(NS.COMPONENTS);
   const { t: tPanel } = useTranslation(NS.AGENT_PANEL);
   const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
-
-  // --- 预览弹窗尺寸 & 拖动 ---
-  const [dialogKey, setDialogKey] = useState(0);
-  const initSizeRef = useRef({
-    width: Math.round(window.innerWidth * 0.66),
-    height: Math.round(window.innerHeight * 0.75),
-  });
-  const { resizeHandle, ref: dialogContentRef } = useResizable({
-    initialWidth: initSizeRef.current.width,
-    initialHeight: initSizeRef.current.height,
-  });
   const [dialogOffset, setDialogOffset] = useState({ x: 0, y: 0 });
+  const initialDialogSize = useMemo(
+    () => ({
+      width: Math.round(window.innerWidth * 0.66),
+      height: Math.round(window.innerHeight * 0.75),
+    }),
+    [],
+  );
+  const {
+    size: dialogSize,
+    resizeHandle,
+    targetRef: dialogResizeRef,
+  } = useResizable({
+    initialWidth: initialDialogSize.width,
+    initialHeight: initialDialogSize.height,
+    externalOffsetX: dialogOffset.x,
+    externalOffsetY: dialogOffset.y,
+  });
   const dragStartRef = useRef({ x: 0, y: 0, ox: 0, oy: 0 });
+
+  const effectiveStyle: React.CSSProperties = {
+    width: dialogSize.width,
+    height: dialogSize.height,
+    transform: `translate(calc(-50% + ${dialogSize.offsetX + dialogOffset.x}px), calc(-50% + ${
+      dialogSize.offsetY + dialogOffset.y
+    }px))`,
+  };
 
   const handleHeaderDragStart = useCallback(
     (e: React.MouseEvent) => {
@@ -58,14 +72,8 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, envId }: Artifacts
   const closePreview = useCallback(() => {
     setPreviewFilePath(null);
     setDialogOffset({ x: 0, y: 0 });
-    initSizeRef.current = {
-      width: Math.round(window.innerWidth * 0.66),
-      height: Math.round(window.innerHeight * 0.75),
-    };
-    setDialogKey((k) => k + 1);
   }, []);
 
-  // --- 拖拽上传 ---
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{
     active: boolean;
@@ -184,7 +192,6 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, envId }: Artifacts
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {/* Toggle button — pinned to the left edge */}
         <button
           className="absolute left-0 -translate-x-full top-1/2 -translate-y-1/2 z-10 w-6 h-12 flex items-center justify-center rounded-l-lg border border-border border-r-0 bg-surface-1 text-text-muted cursor-pointer transition-colors duration-150 hover:bg-surface-2 hover:text-text-primary"
           onClick={onToggleCollapse}
@@ -194,12 +201,9 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, envId }: Artifacts
           <PanelRightClose className="h-3.5 w-3.5" />
         </button>
 
-        {/* Resize handle */}
         <div className="agent-artifacts-resize-handle" style={{ left: 0 }} onMouseDown={handleMouseDown} />
 
-        {/* Panel body */}
         <div className="flex flex-col overflow-hidden" style={{ width }}>
-          {/* Tab bar */}
           <div className="flex items-center px-2 py-1.5 border-b border-border shrink-0">
             <span className="text-xs text-text-primary flex items-center gap-1">
               <FolderTree className="h-3 w-3" />
@@ -207,7 +211,6 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, envId }: Artifacts
             </span>
           </div>
 
-          {/* File tree */}
           <div className="flex-1 min-h-0">
             <FileTreeTab
               ref={fileTreeRef}
@@ -218,7 +221,6 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, envId }: Artifacts
           </div>
         </div>
 
-        {/* 拖拽覆盖层 */}
         {(isDragging || uploadProgress.active) && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-lg bg-background/80 backdrop-blur-sm">
             {uploadProgress.active ? (
@@ -245,7 +247,6 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, envId }: Artifacts
         )}
       </div>
 
-      {/* 文件预览弹窗 */}
       <Dialog
         open={!!previewFilePath}
         onOpenChange={(open) => {
@@ -253,16 +254,9 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, envId }: Artifacts
         }}
       >
         <DialogContent
-          key={dialogKey}
-          ref={(el: unknown) => {
-            dialogContentRef.current = el as HTMLElement | null;
-          }}
-          className="flex flex-col p-0 gap-0 overflow-hidden sm:max-w-none shadow-[0_0_40px_rgba(0,0,0,0.4)] !transition-none"
-          style={{
-            width: initSizeRef.current.width,
-            height: initSizeRef.current.height,
-            transform: `translate(${dialogOffset.x}px, ${dialogOffset.y}px)`,
-          }}
+          ref={dialogResizeRef}
+          className="flex flex-col p-0 gap-0 overflow-hidden sm:max-w-none !translate-x-0 !translate-y-0 shadow-[0_0_40px_rgba(0,0,0,0.4)] !transition-none"
+          style={effectiveStyle}
           showOverlay
           disableOverlayClose
           showCloseButton={false}
@@ -288,7 +282,6 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, envId }: Artifacts
           <div className="flex-1 min-h-0 overflow-auto">
             {previewFilePath && <PreviewTab envId={envId} filePath={previewFilePath} />}
           </div>
-          {/* Resize handles */}
           <div {...resizeHandle("n")} />
           <div {...resizeHandle("s")} />
           <div {...resizeHandle("e")} />

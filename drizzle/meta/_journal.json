@@ -29,6 +29,27 @@
       "when": 1780828274012,
       "tag": "0003_skill-storage-by-org",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780918304424,
+      "tag": "0004_agent-config-optimization",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1780987849936,
+      "tag": "0005_agent-config-mcp-bindings",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780992115461,
+      "tag": "0006_agent-config-extra-cleanup",
+      "breakpoints": true
     }
   ]
 }

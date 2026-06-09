@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { agentConfigSkill, mcpServer, model, provider } from "../db/schema";
+import { agentConfigMcp, agentConfigSkill, mcpServer, model, provider } from "../db/schema";
 import { setListAgentKnowledgeBindingsById } from "../services/agent-knowledge";
 import { buildBasicLaunchSpec, buildLaunchSpec } from "../services/launch-spec-builder";
 import { resetAllStubs, stubDb } from "../test-utils/helpers";
@@ -19,7 +19,8 @@ function createAgentConfig(overrides: Record<string, unknown> = {}) {
     organizationId: "org_current",
     name: "demo",
     prompt: null,
-    model: "org_current/provider_demo/gpt-4o",
+    modelId: "model_demo",
+    model: null,
     steps: 10,
     mode: "primary",
     permission: null,
@@ -135,7 +136,7 @@ describe("launch spec builder errors", () => {
       buildLaunchSpec({
         organizationId: "org_current",
         userId: "user_owner",
-        agentConfig: createAgentConfig({ model: null }),
+        agentConfig: createAgentConfig({ modelId: null }),
         environmentSecret: "secret",
       }),
     ).rejects.toMatchObject({
@@ -185,6 +186,7 @@ describe("launch spec builder errors", () => {
               ]);
             }
             if (table === agentConfigSkill) return queryResult([]);
+            if (table === agentConfigMcp) return queryResult([{ mcpServerId: "mcp_invalid" }]);
             if (table === mcpServer) {
               return queryResult([
                 {

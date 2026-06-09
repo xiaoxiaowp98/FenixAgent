@@ -85,9 +85,10 @@ export const ProviderDetailSchema = z.object({
 
 export const ModelEntrySchema = z.object({
   id: z.string(),
+  modelId: z.string(),
+  displayName: z.string(),
   provider: z.string(),
-  fullId: z.string(),
-  label: z.string(),
+  providerDisplayName: z.string(),
   contextLimit: z.number().nullable(),
   outputLimit: z.number().nullable(),
 });
@@ -107,9 +108,8 @@ export const AgentInfoSchema = z.object({
   name: z.string(),
   builtIn: z.boolean(),
   model: z.string().nullable(),
-  mode: z.string().nullable(),
+  modelId: z.string().nullable(),
   description: z.string().nullable(),
-  color: z.string().nullable(),
   knowledgeBaseCount: z.number(),
 });
 
@@ -117,18 +117,14 @@ export const AgentDetailSchema = z.object({
   name: z.string(),
   builtIn: z.boolean(),
   model: z.string().nullable(),
+  modelId: z.string().nullable(),
   prompt: z.string().nullable(),
-  steps: z.number().nullable(),
-  mode: z.string().nullable(),
-  permission: z.unknown().nullable(),
-  variant: z.string().nullable(),
-  temperature: z.number().nullable(),
-  top_p: z.number().nullable(),
-  disable: z.boolean(),
-  hidden: z.boolean(),
-  color: z.string().nullable(),
   description: z.string().nullable(),
+  extra: z.record(z.string(), z.unknown()).nullable().optional(),
   knowledge: z.unknown().nullable(),
+  skillIds: z.array(z.string()).optional(),
+  mcpIds: z.array(z.string()).optional(),
+  machineId: z.string().nullable().optional(),
 });
 
 // ── Skills ──

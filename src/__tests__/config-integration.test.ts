@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { AppError } from "../errors";
 import { resetTestAuth, setTestAuth } from "../plugins/auth";
+import { setListAgentKnowledgeBindingsById } from "../services/agent-knowledge";
 import { setTestOrgContext } from "../services/org-context";
 import { resetAllStubs, stubConfigPg, stubDb } from "../test-utils/helpers";
 
@@ -13,6 +14,7 @@ function request(path: string, init?: RequestInit) {
 describe("Config Route Integration", () => {
   beforeEach(() => {
     resetAllStubs();
+    setListAgentKnowledgeBindingsById(async () => []);
     stubConfigPg({
       listProviders: async () => [],
       getProvider: async () => null,
@@ -42,7 +44,9 @@ describe("Config Route Integration", () => {
       upsertSkill: async () => "skill-id",
       deleteSkill: async () => true,
       listAgentSkillIds: async () => [],
+      listAgentMcpIds: async () => [],
       syncAgentSkills: async () => {},
+      syncAgentMcps: async () => {},
     });
     setTestAuth({
       user: { id: "test-user", email: "test@test.com", name: "Test" },
@@ -52,6 +56,7 @@ describe("Config Route Integration", () => {
   });
 
   afterEach(() => {
+    setListAgentKnowledgeBindingsById(null);
     resetTestAuth();
     setTestOrgContext(null);
   });
@@ -121,8 +126,11 @@ describe("Config Route Integration", () => {
       listAgentConfigs: async () => [
         {
           id: "agc-external",
+          userId: "user-source",
+          organizationId: "org-source",
           name: "shared-agent",
           model: "provider/model",
+          modelId: null,
           mode: "primary",
           description: "shared",
           color: null,
@@ -139,6 +147,7 @@ describe("Config Route Integration", () => {
         },
       ],
       listAgentSkillIds: async () => ["skill-1"],
+      listAgentMcpIds: async () => [],
     });
 
     const res = await request("/web/config/agents", {
@@ -151,7 +160,8 @@ describe("Config Route Integration", () => {
     expect(json.success).toBe(true);
     expect(json.data.agents[0].resourceAccess.resourceKey).toBe("org-source/agc-external");
     expect(json.data.agents[0].resourceAccess.ownership).toBe("external");
-    expect(json.data.agents[0].modelLabel).toBe("provider/model");
+    expect(json.data.agents[0].model).toBe("provider/model");
+    expect(json.data.agents[0].modelLabel).toBe(null);
     expect(json.data.agents[0].skillLabels).toEqual([{ id: "skill-1", label: "skill-1" }]);
   });
 
@@ -159,8 +169,11 @@ describe("Config Route Integration", () => {
     stubConfigPg({
       getAgentConfig: async () => ({
         id: "agc-external",
+        userId: "user-source",
+        organizationId: "org-source",
         name: "shared-agent",
         model: "provider/model",
+        modelId: null,
         prompt: "shared prompt",
         steps: 20,
         mode: "primary",
@@ -185,6 +198,15 @@ describe("Config Route Integration", () => {
         },
       }),
       listAgentSkillIds: async () => ["skill-1"],
+      listAgentMcpIds: async () => [],
+    });
+    stubDb({
+      select: () => ({
+        from: () => ({
+          where: async () => [],
+          limit: async () => [],
+        }),
+      }),
     });
 
     const res = await request("/web/config/agents", {

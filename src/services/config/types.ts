@@ -79,6 +79,9 @@ export interface AgentKnowledgeConfig {
   policy?: AgentKnowledgePolicy | null;
 }
 
+/** Extensible agent config bag for future UI/runtime metadata. */
+export type AgentExtraConfig = Record<string, unknown>;
+
 // ────────────────────────────────────────────
 // Provider
 // ────────────────────────────────────────────
@@ -287,21 +290,14 @@ export interface UserConfigData {
 
 /** Data shape for creating/updating an agent config */
 export interface AgentConfigUpsertData {
-  model?: string | null;
+  modelId?: string | null;
   prompt?: string | null;
-  steps?: number | null;
-  mode?: string | null;
-  permission?: PermissionConfig | null;
-  variant?: string | null;
-  temperature?: number | null;
-  topP?: number | null;
-  top_p?: number | null;
-  disable?: boolean;
-  hidden?: boolean;
-  color?: string | null;
   description?: string | null;
+  extra?: AgentExtraConfig | null;
   knowledge?: AgentKnowledgeConfig | null;
+  machineId?: string | null;
   skillIds?: string[];
+  mcpIds?: string[];
 }
 
 /** Agent config row decorated with resource access metadata. */
@@ -311,19 +307,11 @@ export interface AgentConfigRowWithAccess {
   organizationId: string;
   name: string;
   prompt: string | null;
+  modelId: string | null;
   model: string | null;
-  steps: number | null;
-  mode: string | null;
-  permission: PermissionConfig | null;
-  variant: string | null;
-  temperature: number | null;
-  topP: number | null;
-  disable: boolean;
-  hidden: boolean;
-  color: string | null;
   description: string | null;
-  knowledge: AgentKnowledgeConfig | null;
   machineId: string | null;
+  extra?: AgentExtraConfig | null;
   createdAt: Date;
   updatedAt: Date;
   resourceAccess: ResourceAccess;
@@ -332,4 +320,5 @@ export interface AgentConfigRowWithAccess {
 /** Agent config detail returned to the frontend with resolved access metadata. */
 export interface AgentConfigDetailWithAccess extends AgentConfigRowWithAccess {
   skillIds?: string[];
+  mcpIds?: string[];
 }

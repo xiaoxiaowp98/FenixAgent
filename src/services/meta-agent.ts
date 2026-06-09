@@ -277,8 +277,7 @@ async function ensureMetaConfig(ctx: AuthContext): Promise<string> {
     await createAgentConfig(ctx, META_AGENT_CONFIG_NAME, {
       description: "Meta Agent — 工作流编排助手",
       model: defaultModelRef,
-      prompt: META_AGENT_PROMPT,
-      steps: null,
+      prompt: null,
     });
     agentConfig = await getAgentConfig(ctx, META_AGENT_CONFIG_NAME);
     if (!agentConfig) {

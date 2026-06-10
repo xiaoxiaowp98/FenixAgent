@@ -66,7 +66,8 @@ ${skillList || "（暂无可用技能）"}
   let parsed: { name?: string; systemPrompt?: string; skills?: string[] };
   try {
     parsed = JSON.parse(content) as { name?: string; systemPrompt?: string; skills?: string[] };
-  } catch {
+  } catch (err) {
+    console.error("[agent-generation] Failed to parse LLM response:", err);
     throw new Error("PARSE_ERROR");
   }
 
@@ -74,7 +75,7 @@ ${skillList || "（暂无可用技能）"}
     throw new Error("PARSE_ERROR");
   }
 
-  // 将 LLM 返回的 skill 名称映射为 { id, name } 对象，前端用 name 展示、id 提交
+  // 将 LLM 返回的 skill 名称映射为 { id, name, description } 对象，前端用 name + description 展示、id 提交
   const skillNameToInfo = new Map(
     skills.map((s) => [s.name.toLowerCase(), { id: s.id, name: s.name, description: s.description ?? "" }]),
   );

@@ -52,7 +52,9 @@ export function AgentHomePage() {
           setTemplates(res.data.templates);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error("[agent-home] Failed to load templates:", err);
+      });
   }, []);
 
   // Enter 提交，调用 AI 生成
@@ -81,7 +83,8 @@ export function AgentHomePage() {
         toast.error(t("generationFailed"));
         setPhase("idle");
       }
-    } catch {
+    } catch (err) {
+      console.error("[agent-home] Generation request failed:", err);
       toast.error(t("generationFailed"));
       setPhase("idle");
     }
@@ -101,7 +104,8 @@ export function AgentHomePage() {
 
       // 1. 创建 agent 配置（已存在也继续）
       const agentRes = await agentApi.create(agentName, { ...payload, modelId: firstModelId });
-      const isAlreadyExists = !agentRes.ok && (agentRes as any).error?.code === "ALREADY_EXISTS";
+      const isAlreadyExists =
+        !agentRes.ok && (agentRes as unknown as { error?: { code?: string } }).error?.code === "ALREADY_EXISTS";
       if (!agentRes.ok && !isAlreadyExists) {
         toast.error(t("createFailed"));
         return;
@@ -150,7 +154,8 @@ export function AgentHomePage() {
           prompt: data.systemPrompt,
           skillIds: data.skills.map((s) => s.id),
         });
-      } catch {
+      } catch (err) {
+        console.error("[agent-home] AI generation create failed:", err);
         toast.error(t("createFailed"));
       } finally {
         setCreating(false);
@@ -168,7 +173,8 @@ export function AgentHomePage() {
           prompt: template.prompt,
           skillIds: template.skills,
         });
-      } catch {
+      } catch (err) {
+        console.error("[agent-home] Template create failed:", err);
         toast.error(t("createFailed"));
       } finally {
         setTemplateCreating(null);

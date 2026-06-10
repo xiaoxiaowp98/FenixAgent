@@ -181,6 +181,12 @@ const app = new Elysia({ name: "acp", prefix: "/acp" })
     params: "acp-relay-params",
     query: "acp-relay-query",
     async open(ws) {
+      // 在任何 await 之前先挂上 relayWsId，避免前端在握手刚完成时抢先发来的
+      // ping/connect 消息进入 message 分支后拿不到 ws 级别的 relay 标识，产生误报日志。
+      const relayWsId = `relay_${uuid().replace(/-/g, "")}`;
+      // biome-ignore lint/suspicious/noExplicitAny: Elysia WS data extension pattern
+      (ws.data as any).__relayWsId = relayWsId;
+
       // Authenticate via better-auth session
       const session = await auth.api.getSession({ headers: ws.data.request.headers });
       if (!session?.user) {
@@ -208,10 +214,6 @@ const app = new Elysia({ name: "acp", prefix: "/acp" })
         adaptWs(ws).close(4003, "unauthorized");
         return;
       }
-
-      const relayWsId = `relay_${uuid().replace(/-/g, "")}`;
-      // biome-ignore lint/suspicious/noExplicitAny: Elysia WS data extension pattern
-      (ws.data as any).__relayWsId = relayWsId;
 
       log(`[ACP-Relay] Upgrade accepted: relayWsId=${relayWsId} agentId=${agentId}`);
       handleRelayOpen(adaptWs(ws), relayWsId, agentId, userId, sessionId);

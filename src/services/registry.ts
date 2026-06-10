@@ -121,6 +121,7 @@ export async function listEvents(
 }
 
 export async function registerMachine(params: {
+  name: string | null;
   agentName: string;
   machineInfo: Record<string, unknown> | null;
   labels: string[];
@@ -155,6 +156,7 @@ export async function registerMachine(params: {
         status: "online",
         machineInfo: params.machineInfo,
         labels: params.labels,
+        name: params.name,
         heartbeatIntervalMs: params.heartbeatIntervalMs,
         lastHeartbeatAt: now,
         updatedAt: now,
@@ -177,6 +179,7 @@ export async function registerMachine(params: {
     organizationId: params.tenantId ?? null,
     userId: params.userId ?? null,
     agentName: params.agentName,
+    name: params.name,
     status: "online",
     machineInfo: params.machineInfo,
     labels: params.labels,

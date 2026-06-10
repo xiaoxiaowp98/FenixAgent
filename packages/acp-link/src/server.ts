@@ -63,6 +63,8 @@ export interface ServerConfig {
   labels?: string[];
   /** Agent 类型：opencode（默认）或 ccb（Claude Code） */
   agentType?: AgentType;
+  /** 用户指定的机器显示名称，可选 */
+  name?: string;
 }
 
 export interface AcpServerHandle {
@@ -140,6 +142,7 @@ export function buildRegisterMessage(config: ServerConfig): object {
   return {
     type: "register",
     agent_name: config.command,
+    name: config.name ?? null,
     max_sessions: 5,
     capabilities: { streaming: true },
     machine_info: {

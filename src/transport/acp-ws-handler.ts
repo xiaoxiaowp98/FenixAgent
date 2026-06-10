@@ -123,6 +123,7 @@ async function handleMachineRegister(wsId: string, msg: Record<string, unknown>)
   }
 
   const agentName = (msg.agent_name as string) || "unknown";
+  const name = (msg.name as string) || null;
   const machineInfo = msg.machine_info as Record<string, unknown> | undefined;
   const labels = Array.isArray(msg.labels) ? (msg.labels as string[]) : [];
   const heartbeatIntervalMs = typeof msg.heartbeat_interval_ms === "number" ? msg.heartbeat_interval_ms : 30000;
@@ -131,6 +132,7 @@ async function handleMachineRegister(wsId: string, msg: Record<string, unknown>)
 
   try {
     const result = await registerMachine({
+      name,
       agentName,
       machineInfo: machineInfo ?? null,
       labels,

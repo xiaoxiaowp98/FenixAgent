@@ -895,6 +895,7 @@ export const machine = pgTable(
     organizationId: text("organization_id"),
     userId: text("user_id"),
     agentName: varchar("agent_name").notNull(),
+    name: varchar("name"),
     status: varchar("status").default("online").notNull(),
     machineInfo: jsonb("machine_info"),
     labels: jsonb("labels"),

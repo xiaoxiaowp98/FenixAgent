@@ -17,6 +17,7 @@ services:
             RCS_SECRET: 340b6908-031d-47de-9cfb-26f75818f969
             # 用于远程注册机器的 id
             RCS_TENANT_ID: sbFAPs2nyyL0ZNxTE8CSqXUu6AIPULfL
+            RCS_MACHINE_NAME: sandbox-01
             AGENT_TYPE: opencode
         volumes:
             - sandbox-workspaces:/app/workspaces

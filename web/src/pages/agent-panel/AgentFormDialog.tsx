@@ -92,7 +92,9 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
     { id: string; key: string; name: string; label: string; description: string; resourceAccess?: ResourceAccess }[]
   >([]);
   const [mcpOptions, setMcpOptions] = useState<AgentMcpOption[]>([]);
-  const [machineOptions, setMachineOptions] = useState<{ id: string; agentName: string; hostname: string }[]>([]);
+  const [machineOptions, setMachineOptions] = useState<
+    { id: string; agentName: string; hostname: string; name: string | null }[]
+  >([]);
 
   const [formName, setFormName] = useState("");
   const [formModel, setFormModel] = useState("");
@@ -162,10 +164,18 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
     registryApi.list({ status: "online", limit: 100 }).then(({ data, error }) => {
       if (error) return;
       const machines =
-        (data as { data?: { id: string; agentName: string; machineInfo: { hostname?: string } | null }[] } | null)
-          ?.data ?? [];
+        (
+          data as {
+            data?: { id: string; agentName: string; name: string | null; machineInfo: { hostname?: string } | null }[];
+          } | null
+        )?.data ?? [];
       setMachineOptions(
-        machines.map((m) => ({ id: m.id, agentName: m.agentName, hostname: m.machineInfo?.hostname ?? "" })),
+        machines.map((m) => ({
+          id: m.id,
+          agentName: m.agentName,
+          hostname: m.machineInfo?.hostname ?? "",
+          name: m.name,
+        })),
       );
     });
 
@@ -341,7 +351,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
     formMachineId !== "local" &&
     relatedResources?.machineLabel &&
     !machineOptions.some((option) => option.id === formMachineId)
-      ? [...machineOptions, { id: formMachineId, agentName: relatedResources.machineLabel, hostname: "" }]
+      ? [...machineOptions, { id: formMachineId, agentName: relatedResources.machineLabel, hostname: "", name: null }]
       : machineOptions;
   const effectiveKnowledgeOptions =
     relatedResources?.knowledgeBases && relatedResources.knowledgeBases.length > 0
@@ -665,7 +675,7 @@ export function AgentFormDialog({ open, onOpenChange, mode, defaultName, onSucce
                         <SelectItem value="local">{t("form.machineLocal")}</SelectItem>
                         {effectiveMachineOptions.map((m) => (
                           <SelectItem key={m.id} value={m.id}>
-                            {m.hostname || m.agentName} ({m.id.slice(0, 8)})
+                            {m.name || m.hostname || m.agentName} ({m.id.slice(0, 8)})
                           </SelectItem>
                         ))}
                       </SelectContent>

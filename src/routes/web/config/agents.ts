@@ -97,7 +97,7 @@ async function buildAgentRelatedResourceView(
     let machineLabel: string | null = null;
     if (agent.machineId) {
       const machineRows = await db
-        .select({ id: machine.id, agentName: machine.agentName, machineInfo: machine.machineInfo })
+        .select({ id: machine.id, agentName: machine.agentName, name: machine.name, machineInfo: machine.machineInfo })
         .from(machine)
         .where(eq(machine.id, agent.machineId))
         .limit(1);
@@ -107,7 +107,7 @@ async function buildAgentRelatedResourceView(
           machineRow.machineInfo && typeof machineRow.machineInfo === "object"
             ? ((machineRow.machineInfo as { hostname?: string }).hostname ?? "")
             : "";
-        machineLabel = hostname || machineRow.agentName;
+        machineLabel = machineRow.name || hostname || machineRow.agentName;
       } else {
         machineLabel = agent.machineId;
       }

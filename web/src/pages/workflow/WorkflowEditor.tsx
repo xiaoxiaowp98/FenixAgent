@@ -779,18 +779,13 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
 
         {/* 右下角按钮组 */}
         <div className="wf-bottom-actions">
-          {/* 版本指示器（最左侧） */}
-          <VersionIndicator
-            workflowId={workflowId}
-            latestVersion={wfData?.latestVersion ?? null}
-            previewVersion={previewVersion}
-            onPreview={handlePreviewVersion}
-            onBackToDraft={handleBackToDraft}
-            onViewAll={() => {
-              setVersionsSheetOpen(true);
-              setRunSheetOpen(false);
-              setTriggersSheetOpen(false);
-            }}
+          {/* 工作流元数据 Popover（齿轮） */}
+          <WorkflowMetaPopover
+            open={metaPopoverOpen}
+            onOpenChange={setMetaPopoverOpen}
+            readOnly={effectiveReadOnly}
+            meta={meta}
+            updateMeta={updateMeta}
           />
 
           {/* 运行日志 Popover */}
@@ -852,13 +847,18 @@ function WorkflowEditorInner({ workflowId, runId }: WorkflowEditorProps) {
             </PopoverContent>
           </Popover>
 
-          {/* 工作流元数据 Popover（齿轮） */}
-          <WorkflowMetaPopover
-            open={metaPopoverOpen}
-            onOpenChange={setMetaPopoverOpen}
-            readOnly={effectiveReadOnly}
-            meta={meta}
-            updateMeta={updateMeta}
+          {/* 版本指示器（最右侧） */}
+          <VersionIndicator
+            workflowId={workflowId}
+            latestVersion={wfData?.latestVersion ?? null}
+            previewVersion={previewVersion}
+            onPreview={handlePreviewVersion}
+            onBackToDraft={handleBackToDraft}
+            onViewAll={() => {
+              setVersionsSheetOpen(true);
+              setRunSheetOpen(false);
+              setTriggersSheetOpen(false);
+            }}
           />
         </div>
       </div>

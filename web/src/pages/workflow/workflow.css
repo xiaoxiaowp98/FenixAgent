@@ -450,11 +450,11 @@
   padding: 4px 0;
 }
 
-/* ── Bottom-left Actions Group ── */
+/* ── Bottom-right Actions Group ── */
 .wf-bottom-actions {
   position: absolute;
   bottom: 12px;
-  left: 12px;
+  right: 12px;
   z-index: 5;
   display: flex;
   gap: 8px;

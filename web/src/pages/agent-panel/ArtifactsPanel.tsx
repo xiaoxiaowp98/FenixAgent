@@ -10,6 +10,7 @@ import { PreviewTab } from "../../components/agent-panel/PreviewTab";
 import { useResizable } from "../../hooks/useResizable";
 import { NS } from "../../i18n";
 import type { ChangedFile } from "../../lib/extract-changed-files";
+import type { ThreadEntry, ToolCallEntry } from "../../lib/types";
 
 interface ArtifactsPanelProps {
   collapsed: boolean;
@@ -86,6 +87,45 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, envId, changedFile
   }>({ active: false, percent: 0, fileName: "" });
   const dragCounterRef = useRef(0);
   const fileTreeRef = useRef<FileTreeTabHandle>(null);
+
+  // 监听 chat:stats，检测 write/edit/bash 工具完成后自动刷新文件树
+  const prevToolStatusRef = useRef<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { entries } = (e as CustomEvent<{ entries: ThreadEntry[] }>).detail;
+      if (!entries) return;
+
+      const toolEntries = entries.filter((entry): entry is ToolCallEntry => entry.type === "tool_call");
+
+      // 检测文件相关工具：write、edit、bash（可能创建/删除文件）
+      const FILE_TOOL_PREFIXES = ["write", "edit", "bash"];
+      const prevMap = prevToolStatusRef.current;
+      const nextMap = new Map<string, string>();
+
+      for (const tool of toolEntries) {
+        const { id, title, status } = tool.toolCall;
+        const name = title.toLowerCase();
+        const isFileTool = FILE_TOOL_PREFIXES.some((p) => name.startsWith(p));
+        if (!isFileTool) continue;
+
+        nextMap.set(id, status);
+
+        // 从 running → complete/error：工具执行完毕，延迟刷新文件树
+        const prev = prevMap.get(id);
+        if (prev === "running" && (status === "complete" || status === "error")) {
+          setTimeout(() => {
+            fileTreeRef.current?.refresh();
+          }, 500);
+        }
+      }
+
+      prevToolStatusRef.current = nextMap;
+    };
+
+    window.addEventListener("chat:stats", handler);
+    return () => window.removeEventListener("chat:stats", handler);
+  }, []);
 
   const [width, setWidth] = useState(() => {
     const saved = localStorage.getItem("agent-panel:artifacts-width");

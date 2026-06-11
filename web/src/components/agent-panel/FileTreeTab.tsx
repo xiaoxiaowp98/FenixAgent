@@ -70,6 +70,7 @@ function parsedToTreeNodeData(node: ParsedNode): TreeNodeData {
 
 export interface FileTreeTabHandle {
   uploadFiles: (files: File[], onProgress?: (percent: number) => void) => Promise<void>;
+  refresh: () => void;
 }
 
 export const FileTreeTab = forwardRef<FileTreeTabHandle, FileTreeTabProps>(function FileTreeTab(
@@ -149,6 +150,9 @@ export const FileTreeTab = forwardRef<FileTreeTabHandle, FileTreeTabProps>(funct
         });
 
         await loadTree();
+      },
+      refresh: () => {
+        loadTree();
       },
     }),
     [envId, selectedDir, loadTree],

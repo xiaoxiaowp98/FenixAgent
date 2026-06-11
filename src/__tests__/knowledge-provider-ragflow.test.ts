@@ -300,7 +300,7 @@ describe("RagFlowKnowledgeProvider", () => {
       remoteUserId: "user1",
     });
 
-    const url = fetchSpy.mock.calls[0][0] as string;
+    const url = (fetchSpy as unknown as { mock: { calls: string[][] } }).mock.calls[0][0];
     expect(url).toContain("/api/v1/datasets/ds_abc123/documents/doc_xyz");
   });
 
@@ -358,7 +358,7 @@ describe("RagFlowKnowledgeProvider", () => {
       remoteUserId: "user1",
     });
 
-    const url = fetchSpy.mock.calls[0][0] as string;
+    const url = (fetchSpy as unknown as { mock: { calls: string[][] } }).mock.calls[0][0];
     expect(url).toContain("/api/v1/datasets/ds_abc123/documents/doc_xyz/chunks");
     expect(result.content).toBe("first chunk\n\nsecond chunk");
     expect(result.title).toBe("test.pdf");

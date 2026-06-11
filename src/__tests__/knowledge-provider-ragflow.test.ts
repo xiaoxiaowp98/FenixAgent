@@ -165,12 +165,13 @@ describe("RagFlowKnowledgeProvider", () => {
   });
 
   test("addResource 解析 FAIL 抛出异常", async () => {
-    const fetchSpy = mock(async (url: string) => {
+    const fetchSpy = mock(async (url: string, init?: RequestInit) => {
       const urlStr = String(url);
       if (urlStr.includes("/chunks")) {
         return { ok: true, json: async () => ({ code: 0 }) };
       }
-      if (urlStr.includes("/documents") && !urlStr.includes("/chunks")) {
+      // 区分轮询 GET 与上传 POST：两者都命中文档接口
+      if (urlStr.includes("/documents") && !urlStr.includes("/chunks") && init?.method !== "POST") {
         return {
           ok: true,
           json: async () => ({

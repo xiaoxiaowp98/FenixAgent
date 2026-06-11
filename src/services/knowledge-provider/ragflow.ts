@@ -364,3 +364,26 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
     };
   }
 }
+
+/** Verify RagFlow connectivity. Called at RCS startup. */
+export async function checkRagFlowHealth(): Promise<{ ok: boolean; message: string }> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(`${config.ragflowApiUrl}/api/v1/version`, {
+      signal: controller.signal,
+      headers: { Authorization: `Bearer ${config.ragflowApiKey}` },
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      return { ok: false, message: `RagFlow returned status ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { ok: true, message: `RagFlow v${data.data?.version || "unknown"} connected` };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, message: `Cannot reach RagFlow: ${message}` };
+  }
+}

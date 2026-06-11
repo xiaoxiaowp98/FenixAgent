@@ -34,6 +34,7 @@ import { getCoreRuntime } from "./services/core-bootstrap";
 import { runDataMigrations } from "./services/data-migrate";
 import { getHermesClient, initHermesClient } from "./services/hermes-client";
 import { findRunningInstanceByEnvironment, spawnInstanceFromEnvironment, stopAllInstances } from "./services/instance";
+import { checkRagFlowHealth } from "./services/knowledge-provider/ragflow";
 import { startScheduler, stopScheduler } from "./services/scheduler";
 import { syncBuiltin } from "./services/sync-builtin";
 import { ensureSystemAdmin } from "./services/system-admin";
@@ -80,6 +81,14 @@ try {
 const hermesUrl = process.env.HERMES_URL ?? (config as any).channels?.hermesUrl;
 if (hermesUrl) {
   initHermesClient(hermesUrl);
+}
+
+// Verify RagFlow connectivity (non-blocking — logs warning on failure)
+const ragflowHealth = await checkRagFlowHealth();
+if (ragflowHealth.ok) {
+  console.log(`[startup] ${ragflowHealth.message}`);
+} else {
+  console.warn(`[startup] RagFlow health check failed: ${ragflowHealth.message}`);
 }
 
 // Kill stale acp-link processes from previous runs

@@ -8,7 +8,7 @@ import type { NodeState, TreeNodeData } from "@/components/ui/tree";
 import { Tree } from "@/components/ui/tree";
 import { fileApi, userFileApi } from "@/src/api/sdk";
 import { NS } from "../../i18n";
-import { buildPreviewUrl, encodePathSegment } from "./preview/utils";
+import { buildPreviewUrl, classifyFile, encodePathSegment } from "./preview/utils";
 
 interface FileTreeTabProps {
   envId: string | null;
@@ -214,7 +214,7 @@ export const FileTreeTab = forwardRef<FileTreeTabHandle, FileTreeTabProps>(funct
     [findChildren],
   );
 
-  /** 单击：目录选中，文件直接预览 */
+  /** 单击：目录选中，可预览文件触发预览，二进制文件忽略 */
   const handleSelect = useCallback(
     (nodeId: string | null, _node: TreeNodeData) => {
       if (!nodeId) return;
@@ -226,7 +226,10 @@ export const FileTreeTab = forwardRef<FileTreeTabHandle, FileTreeTabProps>(funct
       } else {
         const parentDir = nodeId.substring(0, nodeId.lastIndexOf("/"));
         setSelectedDir(parentDir || null);
-        onPreviewFile(nodeId);
+        // binary 类型（.pyc .zip .tar.gz 等）无法预览，跳过
+        if (classifyFile(nodeId) !== "binary") {
+          onPreviewFile(nodeId);
+        }
       }
     },
     [onPreviewFile],
@@ -444,29 +447,39 @@ export const FileTreeTab = forwardRef<FileTreeTabHandle, FileTreeTabProps>(funct
     [uploadFiles],
   );
 
-  // 下载：文件直接下载，目录打包为 zip（per-item 回调）
+  // 下载：文件直接下载，目录打包为 zip
+  // 使用 fetch + Blob 确保携带认证 cookie；<a download> 无法保证 credentials
   const handleDownload = useCallback(
     async (nodePath: string, isDir: boolean) => {
       if (!envId) return;
       try {
+        let url: string;
+        let fileName: string;
+
         if (isDir) {
-          const url = `/web/environments/${envId}/user-file/download-zip?path=${encodePathSegment(nodePath)}`;
-          const a = document.createElement("a");
-          a.href = url;
           const dirName = nodePath.split("/").filter(Boolean).pop() || "download";
-          a.download = `${dirName}.zip`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+          // tree 返回的路径可能缺少 user/ 前缀，后端 isUserPath 校验要求必须有
+          const withUserPrefix = nodePath.startsWith("user/") ? nodePath : `user/${nodePath}`;
+          url = `/web/environments/${envId}/user-file/download-zip?path=${encodePathSegment(withUserPrefix)}`;
+          fileName = `${dirName}.zip`;
         } else {
-          const url = buildPreviewUrl(envId, nodePath);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = nodePath.split("/").pop() || "file";
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+          url = buildPreviewUrl(envId, nodePath);
+          fileName = nodePath.split("/").pop() || "file";
         }
+
+        const res = await fetch(url, { credentials: "include" });
+        if (!res.ok) {
+          throw new Error(`Download failed: ${res.status}`);
+        }
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
       } catch {
         toast.error(t("fileTree.downloadFailed"));
       }

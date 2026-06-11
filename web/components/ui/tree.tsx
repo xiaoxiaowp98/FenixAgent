@@ -428,12 +428,12 @@ export function TreeItem({
           data.isDisabled && "opacity-50 pointer-events-none",
           className,
         )}
-        style={{ paddingLeft: `${depth * 6}px` }}
+        style={{ paddingLeft: `${depth * 12}px` }}
         onClick={handleRowClick}
       >
         {/* Chevron */}
         <span
-          className={cn("flex items-center justify-center", showChevron ? "flex-shrink-0 w-4 h-4" : "w-0")}
+          className={cn("flex items-center justify-center flex-shrink-0 w-4 h-4")}
           onClick={showChevron ? handleChevronClick : undefined}
         >
           {state.loading ? (
@@ -451,12 +451,13 @@ export function TreeItem({
           ) : null}
         </span>
 
-        {/* Icon */}
-        {data.icon ? (
-          <data.icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-        ) : (
-          <span className="w-4 flex-shrink-0" />
-        )}
+        {/* Icon — renderLabel 自带图标时跳过，避免重复间距 */}
+        {!renderLabel &&
+          (data.icon ? (
+            <data.icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+          ) : (
+            <span className="w-4 flex-shrink-0" />
+          ))}
 
         {/* Label area — 鼠标悬停时跟随光标显示全名浮窗 */}
         <TreeLabelTip label={data.label}>
@@ -589,7 +590,7 @@ function ShowMoreButton({ remaining, onClick, depth }: ShowMoreButtonProps) {
     <button
       type="button"
       className="flex items-center gap-1 h-7 px-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50 rounded-sm cursor-pointer w-full"
-      style={{ paddingLeft: `${(depth + 1) * 6}px` }}
+      style={{ paddingLeft: `${(depth + 1) * 12}px` }}
       onClick={onClick}
     >
       {t("tree.showMore", { count: remaining })}

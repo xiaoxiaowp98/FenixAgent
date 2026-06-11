@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { resetConfig, setConfig } from "../config";
 
 setConfig({
-  knowledgeApiKey: "test-key",
-  knowledgeBaseUrl: "http://openviking.test",
-  knowledgeRequestTimeoutMs: 15000,
+  ragflowApiKey: "test-key",
+  ragflowApiUrl: "http://openviking.test",
+  ragflowRequestTimeoutMs: 15000,
 });
 
 const { OpenVikingKnowledgeProvider } = await import("../services/knowledge-provider/openviking");
@@ -15,9 +15,9 @@ describe("OpenVikingKnowledgeProvider", () => {
   beforeEach(() => {
     globalThis.fetch = originalFetch;
     setConfig({
-      knowledgeApiKey: "test-key",
-      knowledgeBaseUrl: "http://openviking.test",
-      knowledgeRequestTimeoutMs: 15000,
+      ragflowApiKey: "test-key",
+      ragflowApiUrl: "http://openviking.test",
+      ragflowRequestTimeoutMs: 15000,
     });
   });
 

@@ -24,6 +24,8 @@ services:
         container_name: fenix
         restart: unless-stopped
         depends_on:
+            ragflow:
+                condition: service_healthy
             postgres:
                 condition: service_healthy
             rcs-migrate:
@@ -40,6 +42,8 @@ services:
             RCS_KNOWLEDGE_PROVIDER: ${RCS_KNOWLEDGE_PROVIDER:-}
             RCS_KNOWLEDGE_BASE_URL: ${RCS_KNOWLEDGE_BASE_URL:-}
             RCS_KNOWLEDGE_API_KEY: ${RCS_KNOWLEDGE_API_KEY:-}
+            RAGFLOW_API_URL: "http://ragflow:9380"
+            RAGFLOW_API_KEY: "${RAGFLOW_API_KEY:-}"
             APP_BRAND_NAME: ${APP_BRAND_NAME:-Fenix}
             APP_LOGO_PATH: ${APP_LOGO_PATH:-}
             OPENCODE_DISABLE_AUTOUPDATE: "1"

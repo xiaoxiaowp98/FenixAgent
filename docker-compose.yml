@@ -4,7 +4,7 @@
 services:
     # RagFlow 知识库引擎 — 与 RCS 同机部署
     ragflow:
-        image: infiniflow/ragflow:${RAGFLOW_VERSION:-v0.15.0}
+        image: infiniflow/ragflow:${RAGFLOW_VERSION:-v0.26.0}
         ports:
             - "127.0.0.1:9380:9380"
         environment:

@@ -71,7 +71,7 @@ export function PreviewTab({ envId, filePath }: PreviewTabProps) {
       setFileName(normalized.split("/").pop() || normalized);
     }
     setLoading(false);
-  }, [envId, filePath, t]);
+  }, [envId, filePath]);
 
   useEffect(() => {
     loadFile();

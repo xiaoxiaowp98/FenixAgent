@@ -33,7 +33,7 @@ services:
             ragflow-redis:
                 condition: service_healthy
             infinity:
-                condition: service_healthy
+                condition: service_started
         restart: unless-stopped
         healthcheck:
             test: ["CMD-SHELL", "wget -q -O- http://localhost:9380/api/v1/version || exit 1"]
@@ -62,7 +62,7 @@ services:
             retries: 12
             start_period: 20s
 
-    # RagFlow 依赖：Infinity 向量数据库
+    # RagFlow 依赖：Infinity 向量数据库（Thrift 协议，无 HTTP 接口）
     infinity:
         image: infiniflow/infinity:v0.5.0
         container_name: fenix-ragflow-infinity
@@ -71,12 +71,6 @@ services:
             - "127.0.0.1:23817:23817"
         volumes:
             - ragflow_infinity_data:/var/infinity
-        healthcheck:
-            test: ["CMD-SHELL", "wget -q -O- http://localhost:23817 || exit 1"]
-            interval: 10s
-            timeout: 5s
-            retries: 12
-            start_period: 20s
 
     # RagFlow 依赖：Redis 7（缓存与任务队列）
     ragflow-redis:

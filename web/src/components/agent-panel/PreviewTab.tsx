@@ -14,9 +14,10 @@ import { classifyFile } from "./preview/utils";
 interface PreviewTabProps {
   envId: string | null;
   filePath: string | null;
+  refreshKey?: number;
 }
 
-export function PreviewTab({ envId, filePath }: PreviewTabProps) {
+export function PreviewTab({ envId, filePath, refreshKey }: PreviewTabProps) {
   const { t } = useTranslation(NS.COMPONENTS);
   const [content, setContent] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState<number | undefined>(undefined);
@@ -27,6 +28,7 @@ export function PreviewTab({ envId, filePath }: PreviewTabProps) {
   const category = filePath ? classifyFile(filePath) : null;
 
   const loadFile = useCallback(async () => {
+    void refreshKey; // used as useEffect trigger
     if (!envId || !filePath) {
       setContent(null);
       setFileName(null);
@@ -68,7 +70,7 @@ export function PreviewTab({ envId, filePath }: PreviewTabProps) {
       setFileName(normalized.split("/").pop() || normalized);
     }
     setLoading(false);
-  }, [envId, filePath, t]);
+  }, [envId, filePath, t, refreshKey]);
 
   useEffect(() => {
     loadFile();

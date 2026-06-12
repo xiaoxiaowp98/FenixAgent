@@ -10,7 +10,7 @@ import { PreviewTab } from "../../components/agent-panel/PreviewTab";
 import { useResizable } from "../../hooks/useResizable";
 import { NS } from "../../i18n";
 import type { ChangedFile } from "../../lib/extract-changed-files";
-import type { ThreadEntry, ToolCallEntry } from "../../lib/types";
+import type { ThreadEntry } from "../../lib/types";
 
 interface ArtifactsPanelProps {
   collapsed: boolean;
@@ -74,6 +74,9 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, envId, changedFile
     [dialogOffset],
   );
 
+  // 文件写入计数器：Agent 写完文件后递增，触发预览刷新
+  const [fileWriteCount, setFileWriteCount] = useState(0);
+
   const closePreview = useCallback(() => {
     setPreviewFilePath(null);
     setDialogOffset({ x: 0, y: 0 });
@@ -88,39 +91,37 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, envId, changedFile
   const dragCounterRef = useRef(0);
   const fileTreeRef = useRef<FileTreeTabHandle>(null);
 
-  // 监听 chat:stats，检测 write/edit/bash 工具完成后自动刷新文件树
-  const prevToolStatusRef = useRef<Map<string, string>>(new Map());
+  // 监听 chat:stats：文件工具（write/edit/bash）完成时刷新文件树和预览
+  const processedToolRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const handler = (e: Event) => {
       const { entries } = (e as CustomEvent<{ entries: ThreadEntry[] }>).detail;
       if (!entries) return;
 
-      const toolEntries = entries.filter((entry): entry is ToolCallEntry => entry.type === "tool_call");
-
-      // 检测文件相关工具：write、edit、bash（可能创建/删除文件）
       const FILE_TOOL_PREFIXES = ["write", "edit", "bash"];
-      const prevMap = prevToolStatusRef.current;
-      const nextMap = new Map<string, string>();
+      let needsRefresh = false;
 
-      for (const tool of toolEntries) {
-        const { id, title, status } = tool.toolCall;
+      for (const entry of entries) {
+        if (entry.type !== "tool_call") continue;
+        const { id, title, status } = entry.toolCall;
         const name = title.toLowerCase();
         const isFileTool = FILE_TOOL_PREFIXES.some((p) => name.startsWith(p));
         if (!isFileTool) continue;
 
-        nextMap.set(id, status);
-
-        // 从 running → complete/error：工具执行完毕，延迟刷新文件树
-        const prev = prevMap.get(id);
-        if (prev === "running" && (status === "complete" || status === "error")) {
-          setTimeout(() => {
-            fileTreeRef.current?.refresh();
-          }, 500);
+        // 工具完成且未处理过 → 触发刷新
+        if ((status === "complete" || status === "error") && !processedToolRef.current.has(id)) {
+          processedToolRef.current.add(id);
+          needsRefresh = true;
         }
       }
 
-      prevToolStatusRef.current = nextMap;
+      if (needsRefresh) {
+        setTimeout(() => {
+          fileTreeRef.current?.refresh();
+          setFileWriteCount((c) => c + 1);
+        }, 500);
+      }
     };
 
     window.addEventListener("chat:stats", handler);
@@ -327,7 +328,7 @@ export function ArtifactsPanel({ collapsed, onToggleCollapse, envId, changedFile
             </div>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-auto">
-            {previewFilePath && <PreviewTab envId={envId} filePath={previewFilePath} />}
+            {previewFilePath && <PreviewTab envId={envId} filePath={previewFilePath} refreshKey={fileWriteCount} />}
           </div>
           <div {...resizeHandle("n")} />
           <div {...resizeHandle("s")} />

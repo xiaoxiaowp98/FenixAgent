@@ -63,8 +63,8 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
       const url = `${config.ragflowApiUrl}${path}`;
       const headers = new Headers(init?.headers);
       headers.set("Authorization", `Bearer ${config.ragflowApiKey}`);
-      // Content-Type 由调用方设置（文件上传时不设置以让 fetch 自动生成 multipart boundary）
-      if (!headers.has("Content-Type")) {
+      // 默认 JSON，文件上传时不设置以让 fetch 自动生成 multipart boundary
+      if (!headers.has("Content-Type") && typeof init?.body === "string") {
         headers.set("Content-Type", "application/json");
       }
 

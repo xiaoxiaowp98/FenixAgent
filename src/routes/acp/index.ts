@@ -1,9 +1,9 @@
 import { log, error as logError } from "@fenix/logger";
 import Elysia from "elysia";
 import { v4 as uuid } from "uuid";
-import { auth } from "../../auth/better-auth";
 import { validateEnv } from "../../env";
 import { AppError } from "../../errors";
+import type { RequestAuthResult } from "../../plugins/auth";
 import { authenticateRequest, authGuardPlugin } from "../../plugins/auth";
 import { environmentRepo } from "../../repositories";
 import {
@@ -188,7 +188,7 @@ const app = new Elysia({ name: "acp", prefix: "/acp" })
       // biome-ignore lint/suspicious/noExplicitAny: Elysia WS data extension pattern
       (ws.data as any).__relayWsId = relayWsId;
 
-      let authResult;
+      let authResult: RequestAuthResult | null = null;
       try {
         authResult = await authenticateRequest(ws.data.request);
       } catch (err) {

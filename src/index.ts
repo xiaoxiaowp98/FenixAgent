@@ -53,20 +53,20 @@ const WEB_OPENAPI_SPEC_PATH = `${WEB_OPENAPI_PATH}/json`;
 
 const EXTERNAL_OPENAPI_TAGS = [
   {
-    name: "External AgentConfig",
-    description: "面向外部系统的 Agent 配置 CRUD 接口。",
+    name: "External Model",
+    description: "面向外部系统的 Provider 与 Model 配置管理接口。",
   },
   {
     name: "External Skill",
     description: "面向外部系统的 Skill 管理接口。",
   },
   {
-    name: "External Model",
-    description: "面向外部系统的 Provider 与 Model 配置管理接口。",
-  },
-  {
     name: "External MCP",
     description: "面向外部系统的 MCP Server 配置管理接口。",
+  },
+  {
+    name: "External AgentConfig",
+    description: "面向外部系统的 Agent 配置 CRUD 接口。",
   },
   {
     name: "External Instance",

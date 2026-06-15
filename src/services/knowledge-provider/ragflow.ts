@@ -41,6 +41,11 @@ interface RagFlowResponse<T = unknown> {
   data?: T;
 }
 
+/** 判断 RagFlow 返回体是否是业务响应对象。 */
+function isRagFlowResponse(value: unknown): value is RagFlowResponse {
+  return typeof value === "object" && value !== null && "code" in value;
+}
+
 /**
  * RagFlow 知识库 Provider
  * 通过 RagFlow REST API 管理知识库生命周期
@@ -73,15 +78,40 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
         signal: controller.signal,
       });
 
-      const payload = await response.json();
+      let payload: unknown = null;
+      if (typeof response.text === "function") {
+        const rawText = await response.text();
+        if (rawText.trim().length > 0) {
+          try {
+            payload = JSON.parse(rawText);
+          } catch (err) {
+            console.error(err);
+            throw new Error(`RagFlow returned non-JSON response: HTTP ${response.status}`);
+          }
+        }
+      } else {
+        // 兼容测试里的轻量 fetch stub；真实 Response 始终提供 text()。
+        payload = await response.json();
+      }
 
       if (!response.ok) {
-        const message = (payload as RagFlowResponse).message ?? `HTTP ${response.status}`;
+        const message = isRagFlowResponse(payload)
+          ? (payload.message ?? `HTTP ${response.status}`)
+          : `HTTP ${response.status}`;
         throw new Error(message);
       }
 
-      if ((payload as RagFlowResponse).code !== 0) {
-        const { code, message } = payload as RagFlowResponse;
+      // DELETE 类接口有些 RagFlow 部署返回 204/空响应，视作 HTTP 层成功。
+      if (payload === null && response.status === 204) {
+        return { code: 0 } as T;
+      }
+
+      if (!isRagFlowResponse(payload)) {
+        throw new Error("RagFlow returned unexpected response");
+      }
+
+      if (payload.code !== 0) {
+        const { code, message } = payload;
         throw new Error(`code=${code}: ${message}`);
       }
 
@@ -120,9 +150,25 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
     remoteAccountId: string;
     remoteUserId: string;
   }): Promise<void> {
-    await this.request(`/api/v1/datasets/${input.knowledgeBaseRemoteId}`, {
-      method: "DELETE",
-    });
+    try {
+      await this.request(`/api/v1/datasets/${input.knowledgeBaseRemoteId}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : String(err);
+      if (!message.includes("MethodNotAllowed") && !message.includes("405")) {
+        throw err;
+      }
+
+      // RagFlow v0.26 的 dataset 删除接口使用集合端点 + ids body，
+      // 保留上面的旧路径优先尝试以兼容已经部署过的旧版本。
+      await this.request("/api/v1/datasets", {
+        method: "DELETE",
+        body: JSON.stringify({ ids: [input.knowledgeBaseRemoteId] }),
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   }
 
   async addResource(input: {
@@ -318,9 +364,24 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
     remoteUserId: string;
     recursive?: boolean;
   }): Promise<void> {
-    await this.request(`/api/v1/datasets/${input.knowledgeBaseRemoteId}/documents/${input.resourceRemoteId}`, {
-      method: "DELETE",
-    });
+    try {
+      await this.request(`/api/v1/datasets/${input.knowledgeBaseRemoteId}/documents/${input.resourceRemoteId}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : String(err);
+      if (!message.includes("MethodNotAllowed") && !message.includes("405")) {
+        throw err;
+      }
+
+      // RagFlow v0.26 的 document 删除接口使用集合端点 + ids body。
+      await this.request(`/api/v1/datasets/${input.knowledgeBaseRemoteId}/documents`, {
+        method: "DELETE",
+        body: JSON.stringify({ ids: [input.resourceRemoteId] }),
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   }
 
   async search(input: {

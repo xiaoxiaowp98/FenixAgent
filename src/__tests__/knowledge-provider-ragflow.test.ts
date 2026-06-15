@@ -43,6 +43,7 @@ describe("RagFlowKnowledgeProvider", () => {
     const fetchSpy = mock(async () => ({
       ok: true,
       json: async () => ({ code: 0 }),
+      text: async () => JSON.stringify({ code: 0 }),
     }));
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
@@ -57,10 +58,59 @@ describe("RagFlowKnowledgeProvider", () => {
     expect(url).toContain("/api/v1/datasets/ds_abc123");
   });
 
+  test("deleteKnowledgeBase 遇到旧路径 405 时回退到集合端点删除 dataset", async () => {
+    const fetchSpy = mock(async (_url: string, init?: RequestInit) => {
+      if (init?.body) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({ code: 0 }),
+        };
+      }
+      return {
+        ok: false,
+        status: 405,
+        text: async () => JSON.stringify({ code: 100, message: "<MethodNotAllowed '405: Method Not Allowed'>" }),
+      };
+    });
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    const provider = new RagFlowKnowledgeProvider();
+    await provider.deleteKnowledgeBase({
+      knowledgeBaseRemoteId: "ds_abc123",
+      remoteAccountId: "user1",
+      remoteUserId: "user1",
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const fallbackUrl = (fetchSpy as ReturnType<typeof mock>).mock.calls[1][0] as string;
+    const fallbackInit = (fetchSpy as ReturnType<typeof mock>).mock.calls[1][1] as RequestInit;
+    expect(fallbackUrl).toBe("http://ragflow.test/api/v1/datasets");
+    expect(fallbackInit.method).toBe("DELETE");
+    expect(JSON.parse(fallbackInit.body as string)).toEqual({ ids: ["ds_abc123"] });
+  });
+
+  test("deleteKnowledgeBase 接受 204 空响应作为删除成功", async () => {
+    globalThis.fetch = mock(async () => ({
+      ok: true,
+      status: 204,
+      text: async () => "",
+    })) as unknown as typeof fetch;
+
+    const provider = new RagFlowKnowledgeProvider();
+    await expect(
+      provider.deleteKnowledgeBase({
+        knowledgeBaseRemoteId: "ds_abc123",
+        remoteAccountId: "user1",
+        remoteUserId: "user1",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   test("deleteKnowledgeBase API 返回非 0 code 时抛出异常", async () => {
     globalThis.fetch = mock(async () => ({
       ok: true,
-      json: async () => ({ code: 102, message: "Dataset not found" }),
+      text: async () => JSON.stringify({ code: 102, message: "Dataset not found" }),
     })) as unknown as typeof fetch;
 
     const provider = new RagFlowKnowledgeProvider();
@@ -301,6 +351,7 @@ describe("RagFlowKnowledgeProvider", () => {
     const fetchSpy = mock(async () => ({
       ok: true,
       json: async () => ({ code: 0 }),
+      text: async () => JSON.stringify({ code: 0 }),
     }));
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
@@ -314,6 +365,39 @@ describe("RagFlowKnowledgeProvider", () => {
 
     const url = (fetchSpy as unknown as { mock: { calls: string[][] } }).mock.calls[0][0];
     expect(url).toContain("/api/v1/datasets/ds_abc123/documents/doc_xyz");
+  });
+
+  test("deleteResource 遇到旧路径 405 时回退到集合端点删除 document", async () => {
+    const fetchSpy = mock(async (_url: string, init?: RequestInit) => {
+      if (init?.body) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({ code: 0 }),
+        };
+      }
+      return {
+        ok: false,
+        status: 405,
+        text: async () => JSON.stringify({ code: 100, message: "<MethodNotAllowed '405: Method Not Allowed'>" }),
+      };
+    });
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    const provider = new RagFlowKnowledgeProvider();
+    await provider.deleteResource({
+      resourceRemoteId: "doc_xyz",
+      knowledgeBaseRemoteId: "ds_abc123",
+      remoteAccountId: "user1",
+      remoteUserId: "user1",
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const fallbackUrl = (fetchSpy as ReturnType<typeof mock>).mock.calls[1][0] as string;
+    const fallbackInit = (fetchSpy as ReturnType<typeof mock>).mock.calls[1][1] as RequestInit;
+    expect(fallbackUrl).toBe("http://ragflow.test/api/v1/datasets/ds_abc123/documents");
+    expect(fallbackInit.method).toBe("DELETE");
+    expect(JSON.parse(fallbackInit.body as string)).toEqual({ ids: ["doc_xyz"] });
   });
 
   test("search 结果中 resourceId 使用 document_id（非 chunk_id）", async () => {

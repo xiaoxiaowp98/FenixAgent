@@ -1,4 +1,4 @@
-import { ChevronDown, Search, Share2, Sparkles, Upload } from "lucide-react";
+import { Search, Share2, Sparkles, Upload } from "lucide-react";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -6,12 +6,6 @@ import { ConfirmDialog } from "@/components/config/ConfirmDialog";
 import { FormDialog } from "@/components/config/FormDialog";
 import { MetaAgentPanel } from "@/components/MetaAgentPanel";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -36,6 +30,8 @@ import type {
   SkillUploadConflictStrategy,
   UploadSkillSummary,
 } from "../../../types/config";
+
+import { AgentPageHeader } from "../shared/AgentPageHeader";
 
 type SkillInfo = { id: string; name: string; description: string; resourceAccess?: ResourceAccess };
 type CreateMode = "text" | "upload";
@@ -320,9 +316,12 @@ export function AgentSkillsPage() {
               <Skeleton className="h-[22px] w-28 rounded-md" />
               <Skeleton className="mt-1.5 h-3 w-56 rounded-md" />
             </div>
-            <Skeleton className="h-10 w-28 rounded-lg" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-10 w-28 rounded-lg" />
+              <Skeleton className="h-10 w-32 rounded-lg" />
+            </div>
           </div>
-          <div className="mb-7 h-px bg-[#e8edf4]" />
+          <div className="mb-3.5 h-px bg-[#e8edf4]" />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholders
@@ -415,55 +414,29 @@ export function AgentSkillsPage() {
   return (
     <div className="flex min-h-0 flex-1 bg-[#f4f7fb]">
       <div className="min-h-0 flex-1 overflow-auto bg-[#f4f7fb] px-8 py-7 text-[#14213d]">
-        {/* 标题行 */}
-        <div className="mb-3 flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[22px] font-bold tracking-tight text-[#1a2944]">{t("title")}</h1>
-            <p className="mt-0.5 text-[12px] text-[#94a3b8]">{t("subtitle")}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="h-10 shrink-0 gap-2 rounded-lg px-4 text-[13px] font-semibold"
-              onClick={() => handleOpenCreate("upload")}
-            >
-              <Upload className="h-4 w-4" />
-              {t("btn.uploadSkill")}
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-[#1677ff] px-[22px] text-[13px] font-semibold text-white shadow-[0_4px_14px_rgba(22,119,255,0.18)] transition hover:bg-[#0f67df]"
-                >
-                  {t("btn.createSkill")}
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                sideOffset={8}
-                className="w-[180px] rounded-none border-[#e5e7eb] bg-white p-0 text-[#374151] shadow-[0_10px_24px_rgba(15,23,42,0.14)]"
+        <AgentPageHeader
+          title={t("title")}
+          subtitle={t("subtitle")}
+          actions={
+            <>
+              <Button
+                variant="outline"
+                className="h-10 shrink-0 gap-2 rounded-lg px-4 text-[13px] font-semibold"
+                onClick={() => handleOpenCreate("upload")}
               >
-                <DropdownMenuItem
-                  className="h-14 justify-center rounded-none text-[14px] text-[#3f4655] focus:bg-[#f7f9fc] focus:text-[#1677ff]"
-                  onClick={() => setChatOpen(true)}
-                >
-                  对话创建
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="h-14 justify-center rounded-none border-t border-[#eef1f5] text-[14px] text-[#3f4655] focus:bg-[#f7f9fc] focus:text-[#1677ff]"
-                  onClick={() => handleOpenCreate("text")}
-                >
-                  markdown创建
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        {/* 分隔线 */}
-        <div className="mb-3.5 h-px bg-[#e8edf4]" />
+                <Upload className="h-4 w-4" />
+                {t("btn.uploadSkill")}
+              </Button>
+              <Button
+                className="h-10 shrink-0 gap-2 rounded-lg px-4 text-[13px] font-semibold"
+                onClick={() => setChatOpen(true)}
+              >
+                <Sparkles className="h-4 w-4" />
+                对话创建
+              </Button>
+            </>
+          }
+        />
 
         {/* 搜索框 */}
         <div className="mb-7 flex items-center gap-2">

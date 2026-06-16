@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
 import { FormDialog } from "@/components/config/FormDialog";
-import { ModelConfigDialog, mergeModelConfigUpdate } from "@/components/config/ModelConfigDialog";
 import { ModelIcon } from "@/components/model-icon/ModelIcon";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,11 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { modelApi, providerApi } from "@/src/api/sdk";
+import { providerApi } from "@/src/api/sdk";
 import { NS } from "../../../i18n";
 import { dispatchConfigChange } from "../../../lib/config-events";
-import type { ModelConfig, ProviderInfo, ProviderModel } from "../../../types/config";
+import type { ProviderInfo, ProviderModel } from "../../../types/config";
 import { AgentCardList } from "../shared/AgentCardList";
+import { AgentPageHeader } from "../shared/AgentPageHeader";
 
 type TestDialogError = {
   code: string;
@@ -72,7 +72,6 @@ export function AgentModelsPage() {
   const [formProtocol, setFormProtocol] = useState<"openai" | "anthropic">("openai");
   const [formDisplayName, setFormDisplayName] = useState("");
   const [formSaving, setFormSaving] = useState(false);
-  const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null);
   const editingReadOnly = editingProvider ? !canWriteProvider(editingProvider) : false;
 
   // 表单内模型获取相关状态
@@ -141,32 +140,25 @@ export function AgentModelsPage() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [providersResult, modelConfigResult] = await Promise.all([
-        (async () => {
-          const { data: listResult, error: listErr } = await providerApi.list();
-          if (listErr) throw new Error(listErr.message);
-          const data = Array.isArray(listResult)
-            ? (listResult as unknown as ProviderInfo[])
-            : (((listResult as unknown as Record<string, unknown>)?.providers ?? []) as unknown as ProviderInfo[]);
-          const modelsMap: Record<string, ProviderModel[]> = {};
-          await Promise.all(
-            data.map(async (p) => {
-              const providerKey = getProviderKey(p);
-              try {
-                const { data: detail } = await providerApi.get(providerKey);
-                modelsMap[providerKey] = (detail as unknown as { models?: ProviderModel[] }).models ?? [];
-              } catch {
-                modelsMap[providerKey] = [];
-              }
-            }),
-          );
-          return { providers: data, providerModels: modelsMap };
-        })(),
-        modelApi.get(),
-      ]);
-      setProviders(providersResult.providers);
-      setProviderModels(providersResult.providerModels);
-      if (modelConfigResult.data) setModelConfig(modelConfigResult.data as unknown as ModelConfig);
+      const { data: listResult, error: listErr } = await providerApi.list();
+      if (listErr) throw new Error(listErr.message);
+      const data = Array.isArray(listResult)
+        ? (listResult as unknown as ProviderInfo[])
+        : (((listResult as unknown as Record<string, unknown>)?.providers ?? []) as unknown as ProviderInfo[]);
+      const modelsMap: Record<string, ProviderModel[]> = {};
+      await Promise.all(
+        data.map(async (p) => {
+          const providerKey = getProviderKey(p);
+          try {
+            const { data: detail } = await providerApi.get(providerKey);
+            modelsMap[providerKey] = (detail as unknown as { models?: ProviderModel[] }).models ?? [];
+          } catch {
+            modelsMap[providerKey] = [];
+          }
+        }),
+      );
+      setProviders(data);
+      setProviderModels(modelsMap);
     } catch (e) {
       console.error(t("loadModelsError"), e);
       toast.error(t("loadError", { message: e instanceof Error ? e.message : t("unknownError") }));
@@ -589,21 +581,10 @@ export function AgentModelsPage() {
 
   return (
     <div className="min-h-full overflow-auto bg-[#f4f7fb] px-8 py-7 text-[#14213d]">
-      {/* 标题行 */}
-      <div className="mb-3 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight text-[#1a2944]">{t("title")}</h1>
-          <p className="mt-0.5 text-[12px] text-[#94a3b8]">{t("subtitle")}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <ModelConfigDialog
-            currentModel={modelConfig?.current.model ?? null}
-            currentSmallModel={modelConfig?.current.small_model ?? null}
-            available={modelConfig?.available ?? []}
-            onConfigChange={(update) =>
-              setModelConfig((current) => (current ? mergeModelConfigUpdate(current, update) : current))
-            }
-          />
+      <AgentPageHeader
+        title={t("title")}
+        subtitle={t("subtitle")}
+        actions={
           <button
             type="button"
             onClick={handleOpenCreate}
@@ -612,11 +593,8 @@ export function AgentModelsPage() {
             <Plus className="h-4 w-4" />
             {t("createButton")}
           </button>
-        </div>
-      </div>
-
-      {/* 分隔线 */}
-      <div className="mb-3.5 h-px bg-[#e8edf4]" />
+        }
+      />
 
       {/* 搜索栏 */}
       <div className="mb-7 flex flex-wrap items-center gap-2">

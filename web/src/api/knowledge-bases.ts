@@ -72,4 +72,12 @@ export const kbApi = {
       method: "DELETE",
       params,
     }),
+
+  /** 构造资源文件的预览/下载 URL（upload 类型资源） */
+  getFileUrl: (params: { kbId: string; resourceId: string }) =>
+    `/web/knowledgeBases/${encodeURIComponent(params.kbId)}/resources/${encodeURIComponent(params.resourceId)}/file`,
+
+  /** 构造 Office 资源 PDF 转换预览 URL */
+  getPdfUrl: (params: { kbId: string; resourceId: string }) =>
+    `/web/knowledgeBases/${encodeURIComponent(params.kbId)}/resources/${encodeURIComponent(params.resourceId)}/pdf`,
 };

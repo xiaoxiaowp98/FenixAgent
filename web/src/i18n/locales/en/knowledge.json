@@ -105,5 +105,15 @@
     "deleteDescription": "Are you sure you want to delete knowledge base \"{{name}}\"?",
     "title": "Confirm Delete Knowledge Base",
     "description": "Are you sure you want to delete knowledge base \"{{name}}\"?"
+  },
+  "preview": {
+    "title": "Preview: {{name}}",
+    "loading": "Loading preview...",
+    "loadError": "Failed to load preview content",
+    "unsupported": "Preview not supported for this file type",
+    "converting": "Converting Office document to PDF...",
+    "download": "Download",
+    "close": "Close",
+    "btn": "Preview"
   }
 }

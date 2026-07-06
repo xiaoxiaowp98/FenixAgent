@@ -1,9 +1,11 @@
 import { useRequest } from "ahooks";
+import { File, FileCode, FileImage, FileSpreadsheet, FileText, Presentation, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
 import { FormDialog } from "@/components/config/FormDialog";
+import { ResourcePreviewDialog } from "@/components/knowledge/ResourcePreviewDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +23,37 @@ function formatTimestamp(timestamp: number | null | undefined): string {
   return new Date(timestamp * 1000).toLocaleString();
 }
 
+/** 根据文件扩展名返回对应的 lucide 图标组件 */
+function getFileIcon(filename: string) {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico"].includes(ext))
+    return <FileImage className="h-4 w-4 text-blue-500" />;
+  if (["pdf"].includes(ext)) return <FileText className="h-4 w-4 text-red-500" />;
+  if (["docx", "doc"].includes(ext)) return <FileText className="h-4 w-4 text-blue-600" />;
+  if (["xlsx", "xls", "csv"].includes(ext)) return <FileSpreadsheet className="h-4 w-4 text-green-600" />;
+  if (["pptx", "ppt"].includes(ext)) return <Presentation className="h-4 w-4 text-orange-500" />;
+  if (["md", "markdown", "txt", "json", "xml", "yaml", "yml", "log", "env"].includes(ext))
+    return <FileCode className="h-4 w-4 text-gray-500" />;
+  if (["html", "htm", "js", "ts", "tsx", "jsx", "css", "py", "go", "rs", "sh", "sql"].includes(ext))
+    return <FileCode className="h-4 w-4 text-purple-500" />;
+  return <File className="h-4 w-4 text-text-muted" />;
+}
+
+/** 资源状态 → 语义色 badge 样式 */
+function getStatusBadge(status: string) {
+  switch (status) {
+    case "ready":
+      return "bg-emerald-50 text-emerald-700";
+    case "processing":
+    case "pending":
+      return "bg-amber-50 text-amber-700";
+    case "error":
+      return "bg-red-50 text-red-700";
+    default:
+      return "bg-surface-2 text-text-muted";
+  }
+}
+
 export function AgentKnowledgeBasesPage() {
   const { t } = useTranslation(NS.KNOWLEDGE);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,6 +64,7 @@ export function AgentKnowledgeBasesPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeBaseInfo | null>(null);
   const [deletingResourceId, setDeletingResourceId] = useState<string | null>(null);
+  const [previewResource, setPreviewResource] = useState<KnowledgeResourceInfo | null>(null);
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [editingItem, setEditingItem] = useState<KnowledgeBaseInfo | null>(null);
@@ -192,7 +226,7 @@ export function AgentKnowledgeBasesPage() {
       />
       <div className="flex flex-1 min-h-0">
         {/* Left: KB list */}
-        <div className="w-[280px] border-r border-border-subtle flex flex-col">
+        <div className="w-[280px] border-r border-border-subtle flex flex-col pr-6">
           <AgentCardList
             items={items}
             cardKey={(item) => item.id}
@@ -208,15 +242,36 @@ export function AgentKnowledgeBasesPage() {
                   setSelectedId(kb.id);
                   runLoadDetail(kb.id);
                 }}
-                className={`w-full text-left rounded-lg border px-4 py-3 transition-colors ${
+                className={`w-full text-left rounded-lg border px-4 py-3 transition-all ${
                   kb.id === selectedId
-                    ? "border-brand bg-brand-subtle"
-                    : "border-border-light bg-surface-1 hover:border-border"
+                    ? "border-brand bg-brand-subtle shadow-sm"
+                    : "border-border-light bg-surface-1 hover:border-border-active hover:shadow-sm"
                 }`}
               >
-                <p className="text-sm font-medium text-text-bright truncate">{kb.name}</p>
-                <p className="text-xs text-text-muted">{kb.slug}</p>
-                {kb.description && <p className="text-xs text-text-secondary mt-1 line-clamp-1">{kb.description}</p>}
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-semibold text-text-bright truncate flex-1 min-w-0">{kb.name}</p>
+                  {kb.resourcesCount > 0 && (
+                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-text-muted">
+                      {kb.resourcesCount}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-text-muted mt-0.5">{kb.slug}</p>
+                {kb.description && (
+                  <p className="text-xs text-text-secondary mt-1.5 line-clamp-2 leading-relaxed">{kb.description}</p>
+                )}
+                <div className="flex items-center gap-2 mt-2">
+                  <span
+                    className={`inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium ${getStatusBadge(kb.status)}`}
+                  >
+                    {kb.status}
+                  </span>
+                  {kb.bindingsCount > 0 && (
+                    <span className="text-[10px] text-text-muted">
+                      {kb.bindingsCount} agent{kb.bindingsCount > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
               </button>
             )}
           />
@@ -229,49 +284,68 @@ export function AgentKnowledgeBasesPage() {
             </div>
           )}
           {!detailLoading && !selectedDetail && (
-            <div className="flex flex-col items-center justify-center h-64 text-text-muted">
+            <div className="flex flex-col items-center justify-center h-64 text-text-muted gap-2">
+              <File className="h-10 w-10 opacity-20" />
               <p className="text-sm">{t("selectHint")}</p>
             </div>
           )}
           {!detailLoading && selectedDetail && (
-            <div className="max-w-[720px] mx-auto space-y-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-text-bright">{selectedDetail.name}</h2>
-                  <p className="text-sm text-text-muted">{selectedDetail.slug}</p>
-                  {selectedDetail.description && (
-                    <p className="text-sm text-text-secondary mt-1">{selectedDetail.description}</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingItem(items.find((i) => i.id === selectedId) ?? null);
-                      setFormName(selectedDetail.name);
-                      setFormDescription(selectedDetail.description ?? "");
-                      setDialogOpen(true);
-                    }}
-                  >
-                    {t("btn.edit")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => {
-                      setDeleteTarget(items.find((i) => i.id === selectedId) ?? null);
-                      setConfirmOpen(true);
-                    }}
-                  >
-                    {t("btn.delete")}
-                  </Button>
+            <div className="max-w-[800px] mx-auto space-y-5">
+              {/* 详情头部卡片 */}
+              <div className="rounded-xl border border-border-light bg-surface-1 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-lg font-bold text-text-bright">{selectedDetail.name}</h2>
+                    <p className="text-sm text-text-muted mt-0.5">{selectedDetail.slug}</p>
+                    {selectedDetail.description && (
+                      <p className="text-sm text-text-secondary mt-2 leading-relaxed">{selectedDetail.description}</p>
+                    )}
+                    <div className="flex items-center gap-3 mt-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${getStatusBadge(selectedDetail.status)}`}
+                      >
+                        {selectedDetail.status}
+                      </span>
+                      <span className="text-xs text-text-muted">
+                        {t("resources.title", { count: selectedDetail.resourcesCount })}
+                      </span>
+                      {selectedDetail.bindingsCount > 0 && (
+                        <span className="text-xs text-text-muted">
+                          {selectedDetail.bindingsCount} agent{selectedDetail.bindingsCount > 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditingItem(items.find((i) => i.id === selectedId) ?? null);
+                        setFormName(selectedDetail.name);
+                        setFormDescription(selectedDetail.description ?? "");
+                        setDialogOpen(true);
+                      }}
+                    >
+                      {t("btn.edit")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        setDeleteTarget(items.find((i) => i.id === selectedId) ?? null);
+                        setConfirmOpen(true);
+                      }}
+                    >
+                      {t("btn.delete")}
+                    </Button>
+                  </div>
                 </div>
               </div>
 
-              {/* Resources */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
+              {/* 资源列表卡片 */}
+              <div className="rounded-xl border border-border-light bg-surface-1 overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-border-subtle">
                   <h3 className="text-sm font-semibold text-text-primary">
                     {t("resources.title", { count: resources.length })}
                   </h3>
@@ -291,42 +365,63 @@ export function AgentKnowledgeBasesPage() {
                       }}
                       className="hidden"
                     />
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      disabled={uploading}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
+                    <Button size="xs" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
+                      <Upload className="h-3.5 w-3.5 mr-1" />
                       {uploading ? t("btn.uploading") : t("btn.upload")}
                     </Button>
                   </div>
                 </div>
-                <div className="grid gap-2">
+                <div className="divide-y divide-border-subtle">
                   {resources.map((r) => (
                     <div
                       key={r.id}
-                      className="group flex items-center gap-3 rounded-lg border border-border-light bg-surface-1 px-4 py-2.5"
+                      className="group flex items-center gap-3 px-5 py-3 hover:bg-surface-2/50 transition-colors"
                     >
+                      <div className="shrink-0">{getFileIcon(r.sourceName)}</div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-text-bright">{r.sourceName}</p>
-                        <p className="text-xs text-text-muted">{formatTimestamp(r.createdAt)}</p>
+                        <p className="text-[13px] font-medium text-text-bright truncate">{r.sourceName}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {r.status !== "ready" && (
+                            <span
+                              className={`inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium ${getStatusBadge(r.status)}`}
+                            >
+                              {r.status}
+                            </span>
+                          )}
+                          <span className="text-[11px] text-text-muted">{formatTimestamp(r.createdAt)}</span>
+                        </div>
                       </div>
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-destructive"
-                        disabled={deletingResourceId === r.id}
-                        onClick={() => {
-                          setDeletingResourceId(r.id);
-                          runDeleteResource(selectedId!, r.id);
-                        }}
-                      >
-                        {t("btn.delete")}
-                      </Button>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {r.status === "ready" && r.sourceType === "upload" && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            className="h-7 text-xs text-text-muted hover:text-brand"
+                            onClick={() => setPreviewResource(r)}
+                          >
+                            {t("preview.btn")}
+                          </Button>
+                        )}
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          className="h-7 text-xs text-text-muted hover:text-destructive"
+                          disabled={deletingResourceId === r.id}
+                          onClick={() => {
+                            setDeletingResourceId(r.id);
+                            runDeleteResource(selectedId!, r.id);
+                          }}
+                        >
+                          {t("btn.delete")}
+                        </Button>
+                      </div>
                     </div>
                   ))}
                   {resources.length === 0 && (
-                    <p className="text-sm text-text-muted text-center py-4">{t("resources.empty")}</p>
+                    <div className="flex flex-col items-center justify-center py-10 text-text-muted">
+                      <File className="h-8 w-8 mb-2 opacity-30" />
+                      <p className="text-sm">{t("resources.empty")}</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -382,6 +477,17 @@ export function AgentKnowledgeBasesPage() {
           if (deleteTarget) runDelete(deleteTarget.id);
         }}
       />
+
+      {previewResource && selectedId && (
+        <ResourcePreviewDialog
+          open={previewResource !== null}
+          onOpenChange={(open) => {
+            if (!open) setPreviewResource(null);
+          }}
+          resource={previewResource}
+          kbId={selectedId}
+        />
+      )}
     </div>
   );
 }

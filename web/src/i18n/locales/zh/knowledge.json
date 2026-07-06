@@ -105,5 +105,15 @@
     "deleteDescription": "确定删除知识库 \"{{name}}\" 吗？",
     "title": "确认删除知识库",
     "description": "确定删除知识库 \"{{name}}\" 吗？"
+  },
+  "preview": {
+    "title": "预览：{{name}}",
+    "loading": "加载预览中...",
+    "loadError": "加载预览内容失败",
+    "unsupported": "该文件类型暂不支持预览",
+    "converting": "正在转换 Office 文档为 PDF...",
+    "download": "下载",
+    "close": "关闭",
+    "btn": "预览"
   }
 }

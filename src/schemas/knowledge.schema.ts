@@ -18,6 +18,13 @@ export const KnowledgeResourceItemSchema = z.object({
   remoteId: z.string().nullable().optional().describe("远端资源 ID；未同步时为 null。"),
   status: KnowledgeResourceStatusSchema,
   lastError: z.string().nullable().describe("最近一次错误信息；无错误时为 null。"),
+  enabled: z.boolean().nullable().optional().describe("远端是否启用；未从远端同步时为 null。"),
+  chunkCount: z.number().nullable().optional().describe("分块数。"),
+  metaFields: z.record(z.string(), z.unknown()).nullable().optional().describe("元数据字段。"),
+  parseProgress: z.number().nullable().optional().describe("解析进度百分比(0-100)。"),
+  runStatus: z.string().nullable().optional().describe("远端运行状态：UNSTART/RUNNING/DONE/FAIL。"),
+  chunkMethod: z.string().nullable().optional().describe("分块方法标识。"),
+  fileSize: z.number().nullable().optional().describe("文件大小(字节)。"),
   createdAt: z.number().describe("资源创建时间戳，单位为秒。"),
   updatedAt: z.number().describe("资源更新时间戳，单位为秒。"),
 });

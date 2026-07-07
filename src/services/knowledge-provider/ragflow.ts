@@ -482,6 +482,12 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
             source_url?: string;
             run?: string;
             progress_msg?: string;
+            progress?: number;
+            chunk_count?: number;
+            status?: string;
+            meta_fields?: Record<string, unknown>;
+            chunk_method?: string;
+            size?: number;
           }>;
         }>
       >(`/api/v1/datasets/${datasetId}/documents?page=${page}&page_size=${pageSize}`);
@@ -493,14 +499,25 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
       }
 
       for (const doc of docs) {
+        // RAGFlow 文件上传未显式指定 name 时会以 "内部ID, 原始文件名" 格式存储，
+        // 使用正则剥离逗号前的数字前缀
+        const rawName = doc.name ?? doc.id;
+        const cleanName = rawName.replace(/^\d+,\s*/, "");
         allDocs.push({
           remoteId: doc.id,
           knowledgeBaseRemoteId: datasetId,
-          sourceName: doc.name ?? doc.id,
+          sourceName: cleanName,
           sourceType: doc.type ?? "unknown",
           status: mapRunStatus(doc.run),
           source: doc.source_url ?? null,
           lastError: doc.progress_msg ?? null,
+          enabled: doc.status === "1" ? true : doc.status === "0" ? false : true,
+          chunkCount: doc.chunk_count ?? null,
+          metaFields: doc.meta_fields ?? null,
+          parseProgress: doc.progress ?? null,
+          runStatus: doc.run ?? null,
+          chunkMethod: doc.chunk_method ?? null,
+          fileSize: doc.size ?? null,
         });
       }
 
@@ -540,6 +557,21 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
         headers: { "Content-Type": "application/json" },
       });
     }
+  }
+
+  async setResourceEnabled(input: {
+    resourceRemoteId: string;
+    knowledgeBaseRemoteId: string;
+    enabled: boolean;
+  }): Promise<void> {
+    await this.request(`/api/v1/datasets/${input.knowledgeBaseRemoteId}/documents/batch-update-status`, {
+      method: "POST",
+      body: JSON.stringify({
+        doc_ids: [input.resourceRemoteId],
+        status: input.enabled ? 1 : 0,
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   async search(input: {

@@ -7,6 +7,13 @@ export interface KnowledgeResourceInfo {
   remoteId: string | null;
   status: string;
   lastError: string | null;
+  enabled?: boolean | null;
+  chunkCount?: number | null;
+  metaFields?: Record<string, unknown> | null;
+  parseProgress?: number | null;
+  runStatus?: string | null;
+  chunkMethod?: string | null;
+  fileSize?: number | null;
   createdAt: number;
   updatedAt: number;
 }

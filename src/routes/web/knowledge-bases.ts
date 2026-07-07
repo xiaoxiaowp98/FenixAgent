@@ -5,7 +5,7 @@ import { extname, join } from "node:path";
 import Elysia from "elysia";
 import * as z from "zod/v4";
 import { authGuardPlugin } from "../../plugins/auth";
-import { knowledgeResourceRepo } from "../../repositories/knowledge-base";
+import { knowledgeBaseRepo, knowledgeResourceRepo } from "../../repositories/knowledge-base";
 import { WebErrSchema, WebOkSchema } from "../../schemas/common.schema";
 import {
   CreateKnowledgeBaseRequestSchema,
@@ -29,10 +29,11 @@ import {
   listKnowledgeFormOptions,
   updateKnowledgeBase,
 } from "../../services/knowledge-base";
+import { getKnowledgeProvider } from "../../services/knowledge-provider/registry";
 import {
   deleteKnowledgeResource,
   importKnowledgeResourceFromUrl,
-  listKnowledgeResources,
+  refreshKnowledgeResourceStatus,
   uploadKnowledgeResource,
 } from "../../services/knowledge-upload";
 
@@ -479,7 +480,7 @@ app.get(
   async ({ store, params, error }: any) => {
     const authCtx = store.authContext!;
     const id = params.id;
-    const items = await listKnowledgeResources(authCtx.organizationId, id);
+    const items = await refreshKnowledgeResourceStatus(authCtx.organizationId, id);
     if (!items) {
       return error(404, { success: false, error: { code: "NOT_FOUND", message: "知识库不存在" } });
     }
@@ -620,6 +621,52 @@ app.get(
       tags: ["Knowledge"],
       summary: "将 Office 资源转换为 PDF",
       description: "将 Word/Excel/PPT 等 Office 文档转换为 PDF 并返回，用于前端预览。需要服务端安装 LibreOffice。",
+    },
+  },
+);
+
+app.patch(
+  "/knowledgeBases/:id/resources/:resourceId/enabled",
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation with sessionAuth
+  async ({ store, params, body, error }: any) => {
+    const authCtx = store.authContext!;
+    const id = params.id;
+    const resourceId = params.resourceId;
+    const enabled = body?.enabled === true || body?.enabled === "true" || body?.enabled === 1;
+    try {
+      const resource = await knowledgeResourceRepo.getById(resourceId);
+      if (!resource || resource.knowledgeBaseId !== id) {
+        return error(404, { success: false, error: { code: "NOT_FOUND", message: "资源不存在" } });
+      }
+      const kb = await knowledgeBaseRepo.getByOrgAndId(authCtx.organizationId, id);
+      if (!kb) {
+        return error(404, { success: false, error: { code: "NOT_FOUND", message: "知识库不存在" } });
+      }
+      const provider = getKnowledgeProvider();
+      // 调用 RAGFlow 切换远程文档启用/禁用状态
+      await provider.setResourceEnabled({
+        resourceRemoteId: resource.remoteId!,
+        knowledgeBaseRemoteId: kb.remoteId!,
+        remoteAccountId: kb.remoteAccountId ?? authCtx.userId,
+        remoteUserId: kb.remoteUserId ?? authCtx.userId,
+        enabled,
+      });
+      return { success: true as const, data: { enabled } };
+    } catch (err) {
+      console.error(err);
+      return error(400, {
+        success: false,
+        error: { code: "TOGGLE_FAILED", message: err instanceof Error ? err.message : "更新资源状态失败" },
+      });
+    }
+  },
+  {
+    sessionAuth: true,
+    response: { 200: WebOkSchema(z.object({ enabled: z.boolean() })), 400: WebErrSchema, 404: WebErrSchema },
+    detail: {
+      tags: ["Knowledge"],
+      summary: "启用/禁用知识资源",
+      description: "切换单个文档的启用状态。",
     },
   },
 );

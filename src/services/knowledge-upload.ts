@@ -280,6 +280,26 @@ export async function refreshKnowledgeResourceStatus(userId: string, knowledgeBa
     });
   }
   await upsertKnowledgeBaseStatusFromResources(knowledgeBaseId);
-  const rows = await listKnowledgeResources(userId, knowledgeBaseId);
-  return rows ?? [];
+
+  // 合并本地行与远端额外字段返回
+  const rows = await knowledgeResourceRepo.listByKnowledgeBase(knowledgeBaseId);
+  const remoteById = new Map(remoteResources.map((r) => [r.remoteId, r]));
+  return rows.map((row) => {
+    const base = sanitizeResource(row);
+    const remote = row.remoteId ? remoteById.get(row.remoteId) : undefined;
+    if (!remote) return base;
+    return {
+      ...base,
+      sourceName: remote.sourceName,
+      sourceType: remote.sourceType,
+      status: remote.status,
+      enabled: remote.enabled,
+      chunkCount: remote.chunkCount,
+      metaFields: remote.metaFields,
+      parseProgress: remote.parseProgress,
+      runStatus: remote.runStatus,
+      chunkMethod: remote.chunkMethod,
+      fileSize: remote.fileSize,
+    };
+  });
 }

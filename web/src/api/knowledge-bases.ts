@@ -86,6 +86,14 @@ export const kbApi = {
       params,
     }),
 
+  /** 切换资源的启用/禁用状态 */
+  toggleResourceEnabled: (params: { kbId: string; resourceId: string }, body: { enabled: boolean }) =>
+    request<{ enabled: boolean }>("/web/knowledgeBases/:kbId/resources/:resourceId/enabled", {
+      method: "PATCH",
+      params,
+      body,
+    }),
+
   /** 构造资源文件的预览/下载 URL（upload 类型资源） */
   getFileUrl: (params: { kbId: string; resourceId: string }) =>
     `/web/knowledgeBases/${encodeURIComponent(params.kbId)}/resources/${encodeURIComponent(params.resourceId)}/file`,

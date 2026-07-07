@@ -4,6 +4,11 @@
   "loadError": "Failed to load knowledge bases",
   "loadDetailError": "Failed to load knowledge base details",
   "searchPlaceholder": "Search knowledge bases...",
+  "emptyTitle": "No knowledge bases yet",
+  "emptyDescription": "Knowledge bases store and manage documents, providing contextual retrieval capabilities for Agents.",
+  "emptyCreateBtn": "Create your first knowledge base",
+  "emptySearchMessage": "No results found for \"{{query}}\"",
+  "emptyClearSearch": "Clear search",
   "emptyMessage": "No knowledge bases",
   "selectHint": "Select a knowledge base on the left to view details",
   "newKnowledgeBase": "New Knowledge Base",
@@ -49,7 +54,11 @@
   },
   "resources": {
     "title": "Resources ({{count}})",
-    "empty": "No resources"
+    "empty": "No resources",
+    "colStatus": "Status",
+    "colChunks": "Chunks",
+    "colEnabled": "Enabled",
+    "colActions": "Actions"
   },
   "dialog": {
     "editTitle": "Edit Knowledge Base",
@@ -114,7 +123,11 @@
     "pipelinePlaceholder": "Select a pipeline",
     "noEmbeddingModels": "No embedding models available (using RagFlow default)",
     "noPipelines": "No pipelines available",
-    "configLockedAfterCreate": "These settings are locked after creation."
+    "configLockedAfterCreate": "These settings are locked after creation. Please choose carefully.",
+    "nameHint": "Give your knowledge base a recognizable name.",
+    "descriptionHint": "Briefly describe the purpose and scope of this knowledge base (optional).",
+    "pipelineHint": "Select a Dataflow Canvas to use as the document parsing pipeline.",
+    "noPipelinesHint": "Create a Dataflow Canvas in RagFlow first to use pipeline parsing."
   },
   "chunkMethods": {
     "naive": "General",

@@ -59,6 +59,20 @@ export interface KnowledgeResourceSnapshot {
   status: KnowledgeResourceStatus;
   source?: string | null;
   lastError?: string | null;
+  /** RAGFlow 文档启用状态: 1=启用, 0=禁用 */
+  enabled?: boolean | null;
+  /** 已解析分块数 */
+  chunkCount?: number | null;
+  /** 元数据字段 */
+  metaFields?: Record<string, unknown> | null;
+  /** 解析进度 0-100 */
+  parseProgress?: number | null;
+  /** RAGFlow run 状态原文 */
+  runStatus?: string | null;
+  /** 解析方法（chunk_method 或 pipeline） */
+  chunkMethod?: string | null;
+  /** 文件大小（字节） */
+  fileSize?: number | null;
 }
 
 export interface KnowledgeSearchResult {
@@ -124,6 +138,14 @@ export interface KnowledgeProvider {
     remoteAccountId: string;
     remoteUserId: string;
   }): Promise<KnowledgeResourceSnapshot[]>;
+  /** 启用/禁用文档（RAGFlow batch-update-status） */
+  setResourceEnabled(input: {
+    resourceRemoteId: string;
+    knowledgeBaseRemoteId: string;
+    remoteAccountId: string;
+    remoteUserId: string;
+    enabled: boolean;
+  }): Promise<void>;
   deleteResource(input: {
     resourceRemoteId: string;
     knowledgeBaseRemoteId: string;

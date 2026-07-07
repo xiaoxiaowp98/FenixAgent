@@ -1,12 +1,54 @@
 export type KnowledgeBaseStatus = "empty" | "indexing" | "ready" | "error";
 export type KnowledgeResourceStatus = "pending" | "processing" | "ready" | "error";
 
+/** 知识库解析方法：内置分块器或自定义 pipeline */
+export type KnowledgeParseMethod = "builtin" | "pipeline";
+
+/** 创建表单可选的嵌入模型选项 */
+export interface EmbeddingModelOption {
+  /** RagFlow 模型标识，透传给 dataset 的 embedding_model 字段（name@instance@provider） */
+  name: string;
+  /** 展示名 */
+  label: string;
+  /** 厂商名，用于分组展示 */
+  provider: string;
+  /** 实例名，用于分组展示 */
+  instance: string;
+}
+
+/** 创建表单可选的分块方法选项（RagFlow v0.26 chunk_method 枚举） */
+export interface ChunkMethodOption {
+  /** RagFlow chunk_method，如 naive/book/paper */
+  value: string;
+  /** RagFlow parser_ids 原生展示名，如 General/Book/Paper */
+  label: string;
+  /** @deprecated 保留 labelKey 向后兼容，新代码优先用 label */
+  labelKey?: string;
+}
+
+/** 创建表单可选的 pipeline 选项（远端自定义解析流水线） */
+export interface KnowledgePipelineOption {
+  id: string;
+  name: string;
+}
+
+/** 知识库创建表单所需的全部可选项 */
+export interface KnowledgeFormOptions {
+  embeddingModels: EmbeddingModelOption[];
+  chunkMethods: ChunkMethodOption[];
+  pipelines: KnowledgePipelineOption[];
+}
+
 export interface KnowledgeBaseSnapshot {
   remoteId: string | null;
   name: string;
   status: KnowledgeBaseStatus;
   description?: string | null;
   lastError?: string | null;
+  /** 创建时选定的嵌入模型（透传给 RagFlow） */
+  embeddingModel?: string | null;
+  /** 创建时选定的分块方法 chunk_method */
+  chunkMethod?: string | null;
 }
 
 export interface KnowledgeResourceSnapshot {
@@ -42,7 +84,25 @@ export interface KnowledgeProvider {
     slug: string;
     name: string;
     description?: string;
+    /** 嵌入模型名；缺省时由 RagFlow 使用租户默认模型 */
+    embeddingModel?: string | null;
+    /** 解析方法：1=内置分块器(BuiltIn) / 2=自定义pipeline(Pipeline) */
+    parseType?: number | null;
+    /** 自定义解析 pipeline ID（仅 parseType=2 时生效） */
+    pipelineId?: string | null;
+    /** 分块方法 chunk_method；缺省时 RagFlow 使用 naive */
+    chunkMethod?: string | null;
   }): Promise<KnowledgeBaseSnapshot>;
+  /**
+   * 列出上游可用的嵌入模型，供创建知识库表单选择。
+   * 实现应在上游不可用时返回空数组，避免阻断表单渲染。
+   */
+  listEmbeddingModels(): Promise<EmbeddingModelOption[]>;
+  /**
+   * 列出上游可用的自定义解析 pipeline（best-effort）。
+   * 不支持 pipeline 的上游或调用失败时返回空数组。
+   */
+  listPipelines(): Promise<KnowledgePipelineOption[]>;
   /** 删除整个知识库；RagFlow 不同版本可能使用单资源路径或集合端点。 */
   deleteKnowledgeBase(input: {
     knowledgeBaseRemoteId: string;

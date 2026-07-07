@@ -8,6 +8,8 @@
 import type {
   KnowledgeBaseDetail,
   KnowledgeBaseInfo,
+  KnowledgeFormOptions,
+  KnowledgeParseMethod,
   KnowledgeResourceInfo,
   KnowledgeUploadResponse,
 } from "../types/knowledge";
@@ -18,6 +20,14 @@ export interface KnowledgeBaseCreateBody {
   name: string;
   slug?: string;
   description?: string;
+  /** 嵌入模型名；创建后不可改 */
+  embeddingModel?: string | null;
+  /** 解析方法；创建后不可改 */
+  parseMethod?: KnowledgeParseMethod | null;
+  /** 自定义解析 pipeline ID；仅 parseMethod=pipeline 时生效 */
+  pipelineId?: string | null;
+  /** 内置分块方法 parser_id；仅 parseMethod=builtin 时生效 */
+  chunkMethod?: string | null;
 }
 
 /** 更新知识库请求体（部分字段可选） */
@@ -34,6 +44,9 @@ export const kbApi = {
   /** 创建新的知识库 */
   create: (body: KnowledgeBaseCreateBody) =>
     request<KnowledgeBaseInfo>("/web/knowledgeBases", { method: "POST", body }),
+
+  /** 获取创建知识库表单所需的可选项（嵌入模型、分块方法、pipeline） */
+  getFormOptions: () => request<KnowledgeFormOptions>("/web/knowledgeBases/form-options", { method: "GET" }),
 
   /** 更新已有知识库 */
   update: (params: { id: string }, body: KnowledgeBaseUpdateBody) =>

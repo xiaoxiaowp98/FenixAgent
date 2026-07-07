@@ -152,6 +152,7 @@ export function ResourcePreviewDialog({ open, onOpenChange, resource, kbId }: Re
   }, [runOfficeCheck]);
 
   // 对话框打开/关闭/资源变化时触发加载
+  // biome-ignore lint/correctness/useExhaustiveDependencies: resource.id 故意保留——同类型资源切换时 needsFetch/needsOfficeCheck 不变，必须依赖 resource.id 才会重新拉取预览，否则预览内容会停留在上一个资源
   useEffect(() => {
     if (!open) {
       setFetchedContent(null);
@@ -282,7 +283,10 @@ export function ResourcePreviewDialog({ open, onOpenChange, resource, kbId }: Re
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[1000px] max-w-[1000px] h-[90vh] flex flex-col p-0 gap-0" showCloseButton={false}>
+      <DialogContent
+        className="sm:max-w-[1000px] max-w-[1000px] h-[90vh] flex flex-col p-0 gap-0"
+        showCloseButton={false}
+      >
         {/* Header：标题 + 下载 + 关闭 */}
         <DialogHeader className="flex-row items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <DialogTitle className="truncate flex-1 min-w-0">

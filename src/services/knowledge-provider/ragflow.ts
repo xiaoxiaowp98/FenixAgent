@@ -1,6 +1,8 @@
 import { config } from "../../config";
 import type {
+  EmbeddingModelOption,
   KnowledgeBaseSnapshot,
+  KnowledgePipelineOption,
   KnowledgeProvider,
   KnowledgeResourceContent,
   KnowledgeResourceSnapshot,
@@ -137,15 +139,45 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
     slug: string;
     name: string;
     description?: string;
+    embeddingModel?: string | null;
+    parseType?: number | null;
+    pipelineId?: string | null;
+    chunkMethod?: string | null;
   }): Promise<KnowledgeBaseSnapshot> {
     const displayName = `[org_${input.organizationId}] ${input.name}`;
 
+    // 仅在调用方显式指定时透传，否则让 RagFlow 使用租户默认配置
+    const datasetBody: Record<string, unknown> = {
+      name: displayName,
+      description: input.description ?? "",
+    };
+    if (input.embeddingModel?.trim()) {
+      const model = input.embeddingModel.trim();
+      // RagFlow v0.26 要求 <model_name>@<provider> 格式，
+      // 用户手动输入或旧数据可能不带 @provider，提前拦截给出明确提示
+      if (!model.includes("@")) {
+        throw new Error(
+          `嵌入模型格式错误："${model}"，RagFlow v0.26 要求 <模型名>@<实例名>@<厂商名> 三段式格式，` +
+            ` 例如 text-embedding-v3@qwen@Tongyi-Qianwen。请从下拉列表选择。`,
+        );
+      }
+      datasetBody.embedding_model = model;
+    }
+    // RagFlow parse_type: 1=内置分块器 / 2=自定义 pipeline
+    if (input.parseType != null) {
+      datasetBody.parse_type = input.parseType;
+    }
+    // pipeline_id 仅 parseType=2 时生效
+    if (input.pipelineId?.trim()) {
+      datasetBody.pipeline_id = input.pipelineId.trim();
+    }
+    if (input.chunkMethod?.trim()) {
+      datasetBody.chunk_method = input.chunkMethod.trim();
+    }
+
     const payload = await this.request<RagFlowResponse<{ id: string; name: string }>>("/api/v1/datasets", {
       method: "POST",
-      body: JSON.stringify({
-        name: displayName,
-        description: input.description ?? "",
-      }),
+      body: JSON.stringify(datasetBody),
       headers: { "Content-Type": "application/json" },
     });
 
@@ -153,7 +185,122 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
       remoteId: payload.data!.id,
       name: input.name,
       status: "empty",
+      embeddingModel: input.embeddingModel?.trim() || null,
+      chunkMethod: input.chunkMethod?.trim() || null,
     };
+  }
+
+  /**
+   * 拉取 RagFlow 租户下已配置的嵌入模型列表。
+   * v0.26+ 使用 GET /api/v1/models（Go API）；旧版使用 /api/v1/llm/list 作降级。
+   * 上游不可用或返回异常时返回空数组，避免阻断创建表单。
+   */
+  async listEmbeddingModels(): Promise<EmbeddingModelOption[]> {
+    let items: unknown[] = [];
+
+    // v0.26 标准端点
+    try {
+      const payload = await this.request<RagFlowResponse<unknown[]>>("/api/v1/models");
+      if (Array.isArray(payload.data)) {
+        console.log("[ragflow] listEmbeddingModels v0.26: got", payload.data.length, "models");
+        items = payload.data;
+      }
+    } catch (_err) {
+      // 尝试旧版端点
+      try {
+        const payload =
+          await this.request<
+            RagFlowResponse<Array<{ llm_name?: string; name?: string; model_type?: string; fid?: string }>>
+          >("/api/v1/llm/list");
+        if (Array.isArray(payload.data)) {
+          console.log("[ragflow] listEmbeddingModels legacy: got", payload.data.length, "models");
+          items = payload.data;
+        }
+      } catch (err) {
+        console.error("[ragflow] listEmbeddingModels both endpoints failed", err);
+        return [];
+      }
+    }
+
+    return items
+      .filter((item) => {
+        if (typeof item !== "object" || item === null) return false;
+        const record = item as Record<string, unknown>;
+        // v0.26: model_type 是 string[]，精确匹配 "embedding"
+        // 枚举值来自 RagFlow Go API: chat / embedding / image2text / rerank / speech2text / tts
+        const types = record.model_type;
+        if (Array.isArray(types)) {
+          return types.some((t) => String(t).toLowerCase() === "embedding");
+        }
+        // 旧版兼容: model_type 是 string
+        return String(types ?? "").toLowerCase() === "embedding";
+      })
+      .map((item) => {
+        const r = item as Record<string, unknown>;
+        const modelName = String(r.name ?? "");
+        const provider = String(r.provider_name ?? "");
+        const instanceName = String(r.instance_name ?? "");
+        // 旧版兼容: llm_name(模型) + name(厂商)
+        const llmName = String(r.llm_name ?? "");
+        const legacyProvider = String(r.name ?? "");
+
+        if (llmName && legacyProvider && !provider) {
+          // 旧版格式: 两段式
+          return {
+            name: `${llmName}@${legacyProvider}`,
+            label: `${legacyProvider} · ${llmName}`,
+            provider: legacyProvider,
+            instance: "",
+          };
+        }
+        // v0.26 格式: 三段式 name@instance_name@provider_name
+        const fullId =
+          instanceName && provider
+            ? `${modelName}@${instanceName}@${provider}`
+            : provider
+              ? `${modelName}@${provider}`
+              : modelName;
+        const label = provider ? `${instanceName} › ${modelName}` : modelName;
+        return { name: fullId, label, provider, instance: instanceName };
+      })
+      .filter((item) => item.name.length > 0);
+  }
+
+  /**
+   * 拉取 RagFlow 可用的解析 pipeline 列表（best-effort）。
+   * pipeline 在 RagFlow 中对应"dataflow canvas"（canvas_category=dataflow_canvas），
+   * 通过 GET /api/v1/agents 接口按类别筛选获取。
+   * 旧端点 /api/v1/pipelines 和 /api/v1/agents/templates 均不是正确的数据来源。
+   * 任何失败都视为无可用 pipeline。
+   */
+  async listPipelines(): Promise<KnowledgePipelineOption[]> {
+    try {
+      const payload = await this.request<
+        RagFlowResponse<{
+          canvas: Array<{ id?: string; title?: string; description?: string | Record<string, string> }>;
+          total: number;
+        }>
+      >("/api/v1/agents?canvas_category=dataflow_canvas");
+
+      const items = Array.isArray(payload.data?.canvas) ? payload.data.canvas : [];
+      return items
+        .map((item) => {
+          // IFlow.title 是 string，但为防御性编程仍处理多语言对象的情况
+          const title = item.title;
+          const label =
+            typeof title === "object" && title !== null
+              ? String((title as Record<string, string>).en ?? (title as Record<string, string>).zh ?? "")
+              : String(title ?? "");
+          return {
+            id: String(item.id ?? ""),
+            name: label,
+          };
+        })
+        .filter((item) => item.id.length > 0);
+    } catch (_err) {
+      console.error("[ragflow] listPipelines failed:", _err);
+      return [];
+    }
   }
 
   async deleteKnowledgeBase(input: {

@@ -60,6 +60,131 @@ describe("RagFlowKnowledgeProvider", () => {
     expect(result.status).toBe("empty");
   });
 
+  test("createKnowledgeBase 指定 embeddingModel/chunkMethod 时透传给 RagFlow", async () => {
+    const fetchSpy = mock(async () => ({
+      ok: true,
+      text: async () => JSON.stringify({ code: 0, data: { id: "ds_cfg" } }),
+    }));
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    const provider = new RagFlowKnowledgeProvider();
+    await provider.createKnowledgeBase({
+      organizationId: "org1",
+      userId: "user1",
+      slug: "test-kb",
+      name: "Test KB",
+      embeddingModel: "BAAI/bge-large-zh-v1.5@BAAI",
+      chunkMethod: "naive",
+    });
+
+    const init = (fetchSpy as ReturnType<typeof mock>).mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(init.body as string);
+    expect(body.embedding_model).toBe("BAAI/bge-large-zh-v1.5@BAAI");
+    expect(body.chunk_method).toBe("naive");
+  });
+
+  test("createKnowledgeBase 未指定 embeddingModel/chunkMethod 时不传对应字段（兼容旧行为）", async () => {
+    const fetchSpy = mock(async () => ({
+      ok: true,
+      text: async () => JSON.stringify({ code: 0, data: { id: "ds_plain" } }),
+    }));
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    const provider = new RagFlowKnowledgeProvider();
+    await provider.createKnowledgeBase({
+      organizationId: "org1",
+      userId: "user1",
+      slug: "test-kb",
+      name: "Test KB",
+    });
+
+    const body = JSON.parse((fetchSpy as ReturnType<typeof mock>).mock.calls[0][1].body as string);
+    expect(body.embedding_model).toBeUndefined();
+    expect(body.chunk_method).toBeUndefined();
+  });
+
+  test("listEmbeddingModels v0.26 格式: 三段式 name@instance@provider", async () => {
+    globalThis.fetch = mock(async () => ({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          code: 0,
+          data: [
+            {
+              name: "text-embedding-v3",
+              instance_name: "qwen",
+              provider_name: "Tongyi-Qianwen",
+              model_type: ["embedding"],
+            },
+            { name: "gpt-4o", instance_name: "openai", provider_name: "OpenAI", model_type: ["chat"] },
+            {
+              name: "text-embedding-v4",
+              instance_name: "qwen2",
+              provider_name: "Tongyi-Qianwen",
+              model_type: ["embedding"],
+            },
+          ],
+        }),
+    })) as unknown as typeof fetch;
+
+    const provider = new RagFlowKnowledgeProvider();
+    const models = await provider.listEmbeddingModels();
+
+    expect(models).toHaveLength(2);
+    expect(models[0].name).toBe("text-embedding-v3@qwen@Tongyi-Qianwen");
+    expect(models[0].label).toBe("qwen › text-embedding-v3");
+    expect(models[0].provider).toBe("Tongyi-Qianwen");
+    expect(models[0].instance).toBe("qwen");
+    expect(models[1].name).toBe("text-embedding-v4@qwen2@Tongyi-Qianwen");
+  });
+
+  test("listEmbeddingModels 旧版格式兼容: llm_name + name", async () => {
+    globalThis.fetch = mock(async () => ({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          code: 0,
+          data: [
+            { llm_name: "bge-large-zh", name: "BAAI", model_type: "embedding" },
+            { llm_name: "gpt-4o", name: "OpenAI", model_type: "chat" },
+          ],
+        }),
+    })) as unknown as typeof fetch;
+
+    const provider = new RagFlowKnowledgeProvider();
+    const models = await provider.listEmbeddingModels();
+
+    expect(models).toHaveLength(1);
+    expect(models[0].name).toBe("bge-large-zh@BAAI");
+    expect(models[0].label).toBe("BAAI · bge-large-zh");
+    expect(models[0].provider).toBe("BAAI");
+    expect(models[0].instance).toBe("");
+  });
+
+  test("listEmbeddingModels 上游失败时返回空数组（不阻断表单）", async () => {
+    globalThis.fetch = mock(async () => ({
+      ok: false,
+      status: 500,
+      text: async () => "Internal Server Error",
+    })) as unknown as typeof fetch;
+
+    const provider = new RagFlowKnowledgeProvider();
+    const models = await provider.listEmbeddingModels();
+    expect(models).toEqual([]);
+  });
+
+  test("listPipelines 端点不可用时返回空数组（best-effort）", async () => {
+    globalThis.fetch = mock(async () => ({
+      ok: false,
+      status: 404,
+      text: async () => JSON.stringify({ code: 404, message: "Not Found" }),
+    })) as unknown as typeof fetch;
+
+    const provider = new RagFlowKnowledgeProvider();
+    const pipelines = await provider.listPipelines();
+    expect(pipelines).toEqual([]);
+  });
+
   test("deleteKnowledgeBase 调用 DELETE /api/v1/datasets/{id} 删除整个 dataset", async () => {
     const fetchSpy = mock(async () => ({
       ok: true,

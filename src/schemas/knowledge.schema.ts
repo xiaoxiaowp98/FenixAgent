@@ -22,6 +22,39 @@ export const KnowledgeResourceItemSchema = z.object({
   updatedAt: z.number().describe("资源更新时间戳，单位为秒。"),
 });
 
+/** 知识库解析方法：内置分块器或自定义 pipeline */
+export const KnowledgeParseMethodSchema = z
+  .enum(["builtin", "pipeline"])
+  .describe("解析方法：builtin=内置分块器，pipeline=自定义解析流水线。");
+
+/** 嵌入模型选项（创建表单下拉） */
+export const EmbeddingModelOptionSchema = z.object({
+  name: z.string().describe("RagFlow 模型标识，透传给 dataset 的 embedding_model 字段。"),
+  label: z.string().describe("展示名。"),
+  provider: z.string().describe("厂商名，用于前端分组展示。"),
+  instance: z.string().describe("实例名，用于前端分组展示。"),
+});
+
+/** 分块方法选项（创建表单下拉，对应 RagFlow v0.26 chunk_method） */
+export const ChunkMethodOptionSchema = z.object({
+  value: z.string().describe("RagFlow chunk_method，如 naive/book/paper。"),
+  label: z.string().describe("RagFlow parser_ids 原生展示名，如 General/Book/Paper。"),
+  labelKey: z.string().optional().describe("@deprecated 前端 i18n 查表用的本地化键（向后兼容）。"),
+});
+
+/** pipeline 选项（创建表单下拉，best-effort） */
+export const KnowledgePipelineOptionSchema = z.object({
+  id: z.string().describe("pipeline 标识。"),
+  name: z.string().describe("pipeline 展示名。"),
+});
+
+/** 创建知识库表单所需的全部可选项 */
+export const KnowledgeFormOptionsSchema = z.object({
+  embeddingModels: EmbeddingModelOptionSchema.array().describe("可用的嵌入模型列表。"),
+  chunkMethods: ChunkMethodOptionSchema.array().describe("内置分块方法列表。"),
+  pipelines: KnowledgePipelineOptionSchema.array().describe("可用的解析 pipeline 列表。"),
+});
+
 /** 知识库信息 */
 export const KnowledgeBaseInfoSchema = z.object({
   id: z.string().describe("知识库 ID。"),
@@ -37,6 +70,9 @@ export const KnowledgeBaseInfoSchema = z.object({
   bindingsCount: z.number().describe("绑定到 Agent 的数量。"),
   resourcesCount: z.number().describe("知识资源数量。"),
   recentResources: KnowledgeResourceItemSchema.array().describe("最近的知识资源列表。"),
+  embeddingModel: z.string().nullable().describe("创建时选定的嵌入模型；未指定时为 null。创建后不可修改。"),
+  parseMethod: KnowledgeParseMethodSchema.nullable().describe("创建时选定的解析方法；未指定时为 null。"),
+  chunkMethod: z.string().nullable().describe("创建时选定的分块方法 chunk_method；未指定时为 null。"),
   createdAt: z.number().describe("创建时间戳，单位为秒。"),
   updatedAt: z.number().describe("更新时间戳，单位为秒。"),
 });
@@ -46,6 +82,16 @@ export const CreateKnowledgeBaseRequestSchema = z.object({
   name: z.string().min(1).describe("知识库名称。"),
   slug: z.string().min(1).optional().describe("可选的知识库 slug；未传时由服务端自动生成。"),
   description: z.string().optional().describe("知识库描述。"),
+  embeddingModel: z.string().optional().describe("嵌入模型名；未传时由 RagFlow 使用租户默认模型。创建后不可修改。"),
+  parseMethod: KnowledgeParseMethodSchema.optional().describe("解析方法；未传时不记录。创建后不可修改。"),
+  pipelineId: z
+    .string()
+    .optional()
+    .describe("自定义解析 pipeline ID（dataflow canvas ID）；仅 parseMethod=pipeline 时生效。"),
+  chunkMethod: z
+    .string()
+    .optional()
+    .describe("内置分块方法 chunk_method；仅 parseMethod=builtin 时生效。创建后不可修改。"),
 });
 
 /** 更新知识库请求体 */
@@ -88,6 +134,11 @@ export const ImportKnowledgeUrlResponseSchema = WebOkSchema(
   KnowledgeResourceItemSchema.describe("URL 导入后的知识资源。"),
 ).describe("URL 导入响应。");
 
+/** GET /web/knowledgeBases/form-options — 创建表单可选项响应 */
+export const KnowledgeFormOptionsResponseSchema = WebOkSchema(
+  KnowledgeFormOptionsSchema.describe("创建知识库表单所需的全部可选项。"),
+).describe("创建表单可选项响应。");
+
 export type KnowledgeBaseInfo = z.infer<typeof KnowledgeBaseInfoSchema>;
 export type KnowledgeResourceItem = z.infer<typeof KnowledgeResourceItemSchema>;
 export type CreateKnowledgeBaseRequest = z.infer<typeof CreateKnowledgeBaseRequestSchema>;
@@ -97,3 +148,8 @@ export type KnowledgeBaseDetailResponse = z.infer<typeof KnowledgeBaseDetailResp
 export type KnowledgeResourceListResponse = z.infer<typeof KnowledgeResourceListResponseSchema>;
 export type UploadKnowledgeResourcesResponse = z.infer<typeof UploadKnowledgeResourcesResponseSchema>;
 export type ImportKnowledgeUrlResponse = z.infer<typeof ImportKnowledgeUrlResponseSchema>;
+export type KnowledgeFormOptions = z.infer<typeof KnowledgeFormOptionsSchema>;
+export type EmbeddingModelOption = z.infer<typeof EmbeddingModelOptionSchema>;
+export type ChunkMethodOption = z.infer<typeof ChunkMethodOptionSchema>;
+export type KnowledgePipelineOption = z.infer<typeof KnowledgePipelineOptionSchema>;
+export type KnowledgeParseMethod = z.infer<typeof KnowledgeParseMethodSchema>;

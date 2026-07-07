@@ -33,7 +33,8 @@
     "uploading": "Uploading..."
   },
   "validation": {
-    "nameRequired": "Name is required"
+    "nameRequired": "Name is required",
+    "embeddingModelFormat": "Embedding model format error: please select from the dropdown (format: <model>@<instance>@<provider>)"
   },
   "toast": {
     "updated": "Knowledge base updated",
@@ -98,7 +99,49 @@
     "slug": "Slug",
     "slugPlaceholder": "e.g. project-docs",
     "description": "Description",
-    "descriptionPlaceholder": "Optional, briefly describe the knowledge base purpose"
+    "descriptionPlaceholder": "Optional, briefly describe the knowledge base purpose",
+    "embeddingModel": "Embedding Model",
+    "embeddingModelPlaceholder": "Select an embedding model",
+    "embeddingModelHint": "Used by RagFlow to vectorize documents. Cannot be changed after creation.",
+    "parseMethod": "Parsing Method",
+    "parseMethodHint": "How uploaded documents are chunked and parsed.",
+    "parseMethodBuiltin": "Built-in",
+    "parseMethodPipeline": "Select Pipeline",
+    "chunkMethod": "Built-in",
+    "chunkMethodPlaceholder": "Select a chunking method",
+    "chunkMethodHint": "Chunking strategy applied to documents.",
+    "pipeline": "Pipeline",
+    "pipelinePlaceholder": "Select a pipeline",
+    "noEmbeddingModels": "No embedding models available (using RagFlow default)",
+    "noPipelines": "No pipelines available",
+    "configLockedAfterCreate": "These settings are locked after creation."
+  },
+  "chunkMethods": {
+    "naive": "General",
+    "book": "Book / Manual",
+    "email": "Email",
+    "laws": "Legal",
+    "manual": "Manual",
+    "one": "One Block",
+    "paper": "Paper",
+    "picture": "Picture",
+    "presentation": "Presentation",
+    "qa": "Q&A",
+    "table": "Table",
+    "tag": "Tag"
+  },
+  "card": {
+    "resourcesUnit": "{{count}} resources",
+    "lastUpdated": "Updated {{time}}",
+    "noResources": "No resources"
+  },
+  "detailConfig": {
+    "embeddingModel": "Embedding Model",
+    "parseMethod": "Parsing Method",
+    "parseMethodBuiltin": "Built-in",
+    "parseMethodPipeline": "Pipeline",
+    "chunkMethod": "Chunking Method",
+    "notSet": "Default"
   },
   "confirm": {
     "deleteTitle": "Confirm Delete Knowledge Base",

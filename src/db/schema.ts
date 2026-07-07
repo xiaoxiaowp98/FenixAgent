@@ -278,6 +278,10 @@ export const knowledgeBase = pgTable(
     remoteUserId: varchar("remote_user_id"),
     status: varchar("status", { length: 50 }).notNull().default("empty"),
     lastError: text("last_error"),
+    // 创建知识库时选定的 RagFlow 配置；RagFlow 中创建后修改需重建索引，故仅在创建时写入
+    embeddingModel: varchar("embedding_model"),
+    parseMethod: varchar("parse_method", { length: 20 }),
+    chunkMethod: varchar("chunk_method", { length: 40 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

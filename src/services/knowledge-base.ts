@@ -2,12 +2,37 @@ import { randomBytes } from "node:crypto";
 import type { KnowledgeBaseRow } from "../repositories/knowledge-base";
 import { agentKnowledgeBindingRepo, knowledgeBaseRepo, knowledgeResourceRepo } from "../repositories/knowledge-base";
 import { getKnowledgeProvider } from "./knowledge-provider/registry";
-import type { KnowledgeBaseStatus, KnowledgeResourceStatus } from "./knowledge-provider/types";
+import type {
+  ChunkMethodOption,
+  KnowledgeBaseStatus,
+  KnowledgeFormOptions,
+  KnowledgeResourceStatus,
+} from "./knowledge-provider/types";
 
 export interface KnowledgeTenantIdentity {
   remoteAccountId: string;
   remoteUserId: string;
 }
+
+/**
+ * RagFlow v0.26 原生分块方法（chunk_method）枚举，对齐 RagFlow parser_ids 展示名。
+ */
+export const KNOWLEDGE_CHUNK_METHODS: ChunkMethodOption[] = [
+  { value: "naive", label: "General" },
+  { value: "book", label: "Book" },
+  { value: "email", label: "Email" },
+  { value: "laws", label: "Laws" },
+  { value: "manual", label: "Manual" },
+  { value: "one", label: "One" },
+  { value: "paper", label: "Paper" },
+  { value: "picture", label: "Picture" },
+  { value: "presentation", label: "Presentation" },
+  { value: "qa", label: "Q&A" },
+  { value: "table", label: "Table" },
+  { value: "tag", label: "Tag" },
+  { value: "resume", label: "Resume" },
+  { value: "audio", label: "Audio" },
+];
 
 function _generateKnowledgeBaseId(): string {
   return `kb_${randomBytes(8).toString("hex")}`;
@@ -102,6 +127,10 @@ function sanitizeKnowledgeBase(
     remoteUserId: row.remoteUserId ?? null,
     status: row.status as KnowledgeBaseStatus,
     lastError: row.lastError ?? null,
+    // 创建时选定的 RagFlow 配置，回显给列表/详情（创建后不可改）
+    embeddingModel: row.embeddingModel ?? null,
+    parseMethod: (row.parseMethod as "builtin" | "pipeline" | null) ?? null,
+    chunkMethod: row.chunkMethod ?? null,
     bindingsCount: extras?.bindingsCount ?? 0,
     resourcesCount: extras?.resourcesCount ?? 0,
     recentResources: extras?.recentResources ?? [],
@@ -184,7 +213,15 @@ export async function getKnowledgeBaseDetail(organizationId: string, knowledgeBa
 
 export async function createKnowledgeBaseRecord(
   organizationId: string,
-  input: { name: string; slug?: string; description?: string | null },
+  input: {
+    name: string;
+    slug?: string;
+    description?: string | null;
+    embeddingModel?: string | null;
+    parseMethod?: "builtin" | "pipeline" | null;
+    pipelineId?: string | null;
+    chunkMethod?: string | null;
+  },
   userId?: string,
 ) {
   const nameError = validateName(input.name);
@@ -210,12 +247,24 @@ export async function createKnowledgeBaseRecord(
     remoteAccountId: effectiveUserId,
     remoteUserId: effectiveUserId,
   });
+  // 仅在解析方法为内置且指定了分块方法时透传 chunk_method；
+  // pipeline 模式下分块由远端流水线决定，不传 chunk_method。
+  const effectiveChunkMethod = input.parseMethod === "builtin" ? input.chunkMethod?.trim() || null : null;
+  // RagFlow parse_type: 1=内置分块器(BuiltIn) / 2=自定义pipeline(Pipeline)
+  const effectiveParseType = input.parseMethod === "pipeline" ? 2 : input.parseMethod === "builtin" ? 1 : null;
+  // pipelineId 仅 pipeline 模式有效，且需满足 RagFlow min_length=32 校验
+  const effectivePipelineId =
+    input.parseMethod === "pipeline" && input.pipelineId?.trim() ? input.pipelineId.trim() : null;
   const remote = await provider.createKnowledgeBase({
     organizationId,
     userId: effectiveUserId,
     slug: normalizeSlug(resolvedSlug),
     name: input.name.trim(),
     description: input.description?.trim() || undefined,
+    embeddingModel: input.embeddingModel?.trim() || null,
+    parseType: effectiveParseType,
+    pipelineId: effectivePipelineId,
+    chunkMethod: effectiveChunkMethod,
   });
 
   const now = new Date();
@@ -236,11 +285,40 @@ export async function createKnowledgeBaseRecord(
     remoteUserId: tenantIdentity.remoteUserId,
     status: remote.status,
     lastError: remote.lastError ?? null,
+    // 持久化创建时选定的配置，便于详情回显与后续诊断
+    embeddingModel: input.embeddingModel?.trim() || null,
+    parseMethod: input.parseMethod ?? null,
+    chunkMethod: effectiveChunkMethod,
     createdAt: now,
     updatedAt: now,
   });
 
   return { success: true as const, data: sanitizeKnowledgeBase(row) };
+}
+
+/**
+ * 聚合创建知识库表单所需的全部可选项：
+ * - 嵌入模型：动态拉取自 RagFlow（失败兜底空数组）
+ * - 分块方法：RagFlow v0.26 chunk_method 静态枚举
+ * - pipeline：动态拉取自 RagFlow（best-effort）
+ */
+export async function listKnowledgeFormOptions(): Promise<KnowledgeFormOptions> {
+  const provider = getKnowledgeProvider();
+  const [embeddingModels, pipelines] = await Promise.all([
+    provider.listEmbeddingModels().catch((err) => {
+      console.error("[knowledge] listEmbeddingModels failed", err);
+      return [];
+    }),
+    provider.listPipelines().catch((err) => {
+      console.error("[knowledge] listPipelines failed", err);
+      return [];
+    }),
+  ]);
+  return {
+    embeddingModels,
+    chunkMethods: KNOWLEDGE_CHUNK_METHODS,
+    pipelines,
+  };
 }
 
 export async function updateKnowledgeBase(

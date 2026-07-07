@@ -14,6 +14,8 @@ import {
   KnowledgeBaseDetailResponseSchema,
   KnowledgeBaseInfoSchema,
   KnowledgeBaseListResponseSchema,
+  KnowledgeFormOptionsResponseSchema,
+  KnowledgeFormOptionsSchema,
   KnowledgeResourceItemSchema,
   KnowledgeResourceListResponseSchema,
   UpdateKnowledgeBaseRequestSchema,
@@ -24,6 +26,7 @@ import {
   deleteKnowledgeBase,
   getKnowledgeBaseDetail,
   listKnowledgeBasesByTeamId,
+  listKnowledgeFormOptions,
   updateKnowledgeBase,
 } from "../../services/knowledge-base";
 import {
@@ -171,6 +174,8 @@ const app = new Elysia({ name: "web-knowledge-bases" }).use(authGuardPlugin).mod
   "import-knowledge-url-request": ImportKnowledgeUrlRequestSchema,
   "upload-knowledge-resources-response": UploadKnowledgeResourcesResponseSchema,
   "import-knowledge-url-response": ImportKnowledgeUrlResponseSchema,
+  "knowledge-form-options": KnowledgeFormOptionsSchema,
+  "knowledge-form-options-response": KnowledgeFormOptionsResponseSchema,
   "delete-knowledge-base-response": WebOkSchema(z.null()).describe("删除知识库后的成功响应。"),
   "delete-knowledge-resource-response": WebOkSchema(z.null()).describe("删除知识资源后的成功响应。"),
 });
@@ -198,7 +203,15 @@ app.post(
   // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation with sessionAuth + body model
   async ({ store, body, error }: any) => {
     const authCtx = store.authContext!;
-    const payload = body as { name: string; slug?: string; description?: string };
+    const payload = body as {
+      name: string;
+      slug?: string;
+      description?: string;
+      embeddingModel?: string | null;
+      parseMethod?: "builtin" | "pipeline" | null;
+      pipelineId?: string | null;
+      chunkMethod?: string | null;
+    };
     try {
       const result = await createKnowledgeBaseRecord(
         authCtx.organizationId,
@@ -206,6 +219,10 @@ app.post(
           name: payload.name,
           slug: payload.slug,
           description: payload.description,
+          embeddingModel: payload.embeddingModel,
+          parseMethod: payload.parseMethod,
+          pipelineId: payload.pipelineId,
+          chunkMethod: payload.chunkMethod,
         },
         authCtx.userId,
       );
@@ -235,7 +252,27 @@ app.post(
     detail: {
       tags: ["Knowledge"],
       summary: "创建知识库",
-      description: "创建一个新的知识库记录，并初始化远端知识库信息。",
+      description:
+        "创建一个新的知识库记录，并初始化远端知识库信息。可指定嵌入模型、解析方法与内置分块方法（创建后不可修改）。",
+    },
+  },
+);
+
+app.get(
+  "/knowledgeBases/form-options",
+  async () => {
+    // 选项为组织无关的全局 RagFlow 配置；仅需登录态（sessionAuth）即可访问
+    const data = await listKnowledgeFormOptions();
+    return { success: true as const, data };
+  },
+  {
+    sessionAuth: true,
+    response: "knowledge-form-options-response",
+    detail: {
+      tags: ["Knowledge"],
+      summary: "获取知识库创建表单可选项",
+      description:
+        "返回创建知识库表单所需的嵌入模型、内置分块方法与可选 pipeline 列表。嵌入模型与 pipeline 动态拉取自 RagFlow，上游不可用时对应字段返回空数组。",
     },
   },
 );

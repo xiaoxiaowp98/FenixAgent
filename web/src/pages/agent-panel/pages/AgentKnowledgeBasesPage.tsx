@@ -1,6 +1,26 @@
 import { useRequest } from "ahooks";
-import { File, FileCode, FileImage, FileSpreadsheet, FileText, Presentation, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import {
+  BookOpen,
+  Braces,
+  ChevronLeft,
+  Cpu,
+  ExternalLink,
+  File,
+  FileCode,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
+  Globe,
+  Layers,
+  Plus,
+  Presentation,
+  Scissors,
+  Search,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import type { ReactNode } from "react";
+import { Fragment, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
@@ -9,14 +29,28 @@ import { ResourcePreviewDialog } from "@/components/knowledge/ResourcePreviewDia
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItemWithLabel } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { kbApi } from "@/src/api/knowledge-bases";
 import { unwrap } from "@/src/api/request";
 import { NS } from "@/src/i18n";
-import type { KnowledgeBaseDetail, KnowledgeBaseInfo, KnowledgeResourceInfo } from "../../../types/knowledge";
-import { AgentCardList } from "../shared/AgentCardList";
-import { AgentPageHeader } from "../shared/AgentPageHeader";
+import type {
+  KnowledgeBaseDetail,
+  KnowledgeBaseInfo,
+  KnowledgeFormOptions,
+  KnowledgeParseMethod,
+  KnowledgeResourceInfo,
+} from "../../../types/knowledge";
 
 function formatTimestamp(timestamp: number | null | undefined): string {
   if (!timestamp) return "—";
@@ -43,15 +77,109 @@ function getFileIcon(filename: string) {
 function getStatusBadge(status: string) {
   switch (status) {
     case "ready":
-      return "bg-emerald-50 text-emerald-700";
+      return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
     case "processing":
     case "pending":
-      return "bg-amber-50 text-amber-700";
+    case "indexing":
+      return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
     case "error":
-      return "bg-red-50 text-red-700";
+      return "bg-red-50 text-red-700 ring-1 ring-red-200";
     default:
       return "bg-surface-2 text-text-muted";
   }
+}
+
+/** 知识库状态 → 圆点装饰色 */
+function getStatusDot(status: string) {
+  switch (status) {
+    case "ready":
+      return "bg-emerald-500";
+    case "processing":
+    case "pending":
+    case "indexing":
+      return "bg-amber-500";
+    case "error":
+      return "bg-red-500";
+    default:
+      return "bg-slate-300";
+  }
+}
+
+/**
+ * 头像配色板：浅底 + 深字，适配浅色主题。
+ * 不同知识库按名称 hash 分配稳定颜色，避免每次渲染抖动。
+ */
+const AVATAR_COLORS = [
+  "bg-blue-50 text-blue-600",
+  "bg-emerald-50 text-emerald-600",
+  "bg-violet-50 text-violet-600",
+  "bg-amber-50 text-amber-600",
+  "bg-rose-50 text-rose-600",
+  "bg-cyan-50 text-cyan-600",
+  "bg-indigo-50 text-indigo-600",
+  "bg-orange-50 text-orange-600",
+];
+
+/** 根据名称稳定地取一个头像配色（bg + text 组合类名） */
+function pickAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length] ?? AVATAR_COLORS[0];
+}
+
+/** 取名称首字符作为头像文字（支持中英文，统一取第一个码点） */
+function getInitial(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return "?";
+  const first = Array.from(trimmed)[0] ?? "?";
+  return first.toUpperCase();
+}
+
+interface KbCardProps {
+  kb: KnowledgeBaseInfo;
+  onClick: () => void;
+}
+
+function KbCard({ kb, onClick }: KbCardProps) {
+  const { t } = useTranslation(NS.KNOWLEDGE);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative flex w-full items-center gap-4 rounded-xl bg-white border border-[#e4e9f0] p-4 text-left transition-all duration-200 hover:border-[#c8d0dd] hover:shadow-[0_4px_16px_-4px_rgba(0,0,0,0.06),0_1px_4px_-1px_rgba(0,0,0,0.04)] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1677ff]/40"
+    >
+      {/* 左侧首字母头像 */}
+      <div
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-semibold ${pickAvatarColor(
+          kb.name,
+        )}`}
+      >
+        {getInitial(kb.name)}
+      </div>
+
+      {/* 右侧内容：名称 + 元数据 */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <h3 className="truncate text-[15px] font-semibold text-[#1a2944] group-hover:text-[#1677ff] transition-colors">
+            {kb.name}
+          </h3>
+          {/* 状态圆点 */}
+          <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${getStatusDot(kb.status)}`} />
+        </div>
+
+        <div className="mt-1.5 flex items-center gap-3 text-[12px] text-[#94a3b8]">
+          <span className="flex items-center gap-1">
+            <File className="h-3.5 w-3.5" />
+            {t("card.resourcesUnit", { count: kb.resourcesCount })}
+          </span>
+          <span className="text-[#dbe1ea]">·</span>
+          <span>{formatTimestamp(kb.updatedAt)}</span>
+        </div>
+      </div>
+    </button>
+  );
 }
 
 export function AgentKnowledgeBasesPage() {
@@ -65,9 +193,15 @@ export function AgentKnowledgeBasesPage() {
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeBaseInfo | null>(null);
   const [deletingResourceId, setDeletingResourceId] = useState<string | null>(null);
   const [previewResource, setPreviewResource] = useState<KnowledgeResourceInfo | null>(null);
+  // 表单字段
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
+  const [formEmbeddingModel, setFormEmbeddingModel] = useState("");
+  const [formParseMethod, setFormParseMethod] = useState<KnowledgeParseMethod>("builtin");
+  const [formChunkMethod, setFormChunkMethod] = useState("");
+  const [formPipeline, setFormPipeline] = useState("");
   const [editingItem, setEditingItem] = useState<KnowledgeBaseInfo | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // 列表查询
   const {
@@ -81,6 +215,15 @@ export function AgentKnowledgeBasesPage() {
     },
   });
   const items: KnowledgeBaseInfo[] = Array.isArray(listData) ? listData : [];
+
+  // 创建表单可选项（嵌入模型、分块方法、pipeline）；失败不阻断表单
+  const { data: formOptions } = useRequest(() => unwrap(kbApi.getFormOptions()), {
+    onError: (err) => {
+      // 选项拉取失败仅记录，不弹 toast——表单仍可用（分块方法是静态兜底）
+      console.error("Failed to load knowledge form options", err);
+    },
+  });
+  const options: KnowledgeFormOptions | null = formOptions ?? null;
 
   // 详情查询（手动触发）
   const { run: runLoadDetail, loading: detailLoading } = useRequest(
@@ -100,7 +243,15 @@ export function AgentKnowledgeBasesPage() {
 
   // 创建知识库
   const { run: runCreate, loading: createSaving } = useRequest(
-    (payload: { name: string; slug: string; description?: string }) => unwrap(kbApi.create(payload)),
+    (payload: {
+      name: string;
+      slug?: string;
+      description?: string;
+      embeddingModel?: string | null;
+      parseMethod?: KnowledgeParseMethod | null;
+      pipelineId?: string | null;
+      chunkMethod?: string | null;
+    }) => unwrap(kbApi.create(payload)),
     {
       manual: true,
       onSuccess: () => {
@@ -185,171 +336,275 @@ export function AgentKnowledgeBasesPage() {
     },
   );
 
+  // 搜索过滤
+  const filteredItems = items.filter((kb) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      kb.name.toLowerCase().includes(q) ||
+      (kb.slug?.toLowerCase().includes(q) ?? false) ||
+      (kb.description?.toLowerCase().includes(q) ?? false)
+    );
+  });
+
+  // 返回网格视图
+  const handleBackToGrid = () => {
+    setSelectedId(null);
+    setSelectedDetail(null);
+    setResources([]);
+  };
+
+  // 进入详情
+  const handleSelect = (kb: KnowledgeBaseInfo) => {
+    setSelectedId(kb.id);
+    runLoadDetail(kb.id);
+  };
+
+  // 打开创建弹窗：重置全部表单字段
+  const openCreateDialog = () => {
+    setEditingItem(null);
+    setFormName("");
+    setFormDescription("");
+    setFormEmbeddingModel("");
+    setFormParseMethod("builtin");
+    setFormChunkMethod("");
+    setFormPipeline("");
+    setDialogOpen(true);
+  };
+
+  // 打开编辑弹窗：仅 name/description 可改，配置字段不展示
+  const openEditDialog = () => {
+    const found = items.find((i) => i.id === selectedId);
+    setEditingItem(found ?? null);
+    setFormName(selectedDetail?.name ?? "");
+    setFormDescription(selectedDetail?.description ?? "");
+    setDialogOpen(true);
+  };
+
+  // 加载中骨架屏
   if (loading) {
     return (
       <div className="min-h-full overflow-auto bg-[#f4f7fb] px-8 py-7 text-[#14213d]">
-        <div className="mb-3 flex items-start justify-between gap-4">
+        <div className="mb-6 flex items-end justify-between">
           <div>
             <Skeleton className="h-[22px] w-28 rounded-md" />
             <Skeleton className="mt-1.5 h-3 w-56 rounded-md" />
           </div>
-          <Skeleton className="h-10 w-28 rounded-lg" />
+          <Skeleton className="h-9 w-[240px] rounded-lg" />
         </div>
-        <div className="mb-3.5 h-px bg-[#e8edf4]" />
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className="mb-5 h-px bg-[#e8edf4]" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholders
-            <Skeleton key={i} className="h-16 w-full rounded-lg" />
+            <div key={i} className="flex items-center gap-4 rounded-xl bg-white border border-[#e4e9f0] p-4">
+              <Skeleton className="h-12 w-12 rounded-xl" />
+              <div className="flex-1">
+                <Skeleton className="h-4 w-3/4 rounded-md mb-2" />
+                <Skeleton className="h-3 w-1/2 rounded-md" />
+              </div>
+            </div>
           ))}
         </div>
       </div>
     );
   }
 
+  // 解析方法可读文案（详情只读展示用）
+  const parseMethodLabel = (pm: KnowledgeParseMethod | null) => {
+    if (pm === "builtin") return t("detailConfig.parseMethodBuiltin");
+    if (pm === "pipeline") return t("detailConfig.parseMethodPipeline");
+    return t("detailConfig.notSet");
+  };
+
+  const chunkMethodLabel = (value: string | null) => {
+    if (!value) return t("detailConfig.notSet");
+    const matched = options?.chunkMethods.find((c) => c.value === value);
+    if (matched?.label) return matched.label;
+    if (matched?.labelKey) return t(matched.labelKey);
+    return value;
+  };
+
   return (
     <div className="min-h-full overflow-auto bg-[#f4f7fb] px-8 py-7 text-[#14213d]">
-      <AgentPageHeader
-        title={t("title")}
-        subtitle={t("subtitle")}
-        actions={
-          <Button
-            onClick={() => {
-              setEditingItem(null);
-              setFormName("");
-              setFormDescription("");
-              setDialogOpen(true);
-            }}
-          >
-            {t("btn.create")}
-          </Button>
-        }
-      />
-      <div className="flex flex-1 min-h-0">
-        {/* Left: KB list */}
-        <div className="w-[280px] border-r border-border-subtle flex flex-col pr-6">
-          <AgentCardList
-            items={items}
-            cardKey={(item) => item.id}
-            searchPlaceholder={t("searchPlaceholder")}
-            searchFn={(item, q) =>
-              item.name.toLowerCase().includes(q) || (item.slug?.toLowerCase().includes(q) ?? false)
-            }
-            emptyMessage={t("emptyMessage")}
-            renderCard={(kb) => (
-              <button
-                type="button"
+      {/* ===== 网格视图 ===== */}
+      {!selectedDetail && (
+        <>
+          {/* 顶部栏：标题 + 搜索 + 新建按钮 */}
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <div>
+              <h1 className="text-[22px] font-bold tracking-tight text-[#1a2944]">{t("title")}</h1>
+              <p className="mt-0.5 text-[12px] text-[#94a3b8]">{t("subtitle")}</p>
+            </div>
+            <div className="flex items-center gap-2.5">
+              {/* 搜索框 — 右上角 */}
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98a8bd]" />
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t("searchPlaceholder")}
+                  className="h-9 w-[220px] rounded-lg border border-[#dce5ef] bg-white pl-10 pr-4 text-[13px] text-[#1a2944] outline-none transition-all duration-200 placeholder:text-[#99a8bc] focus:w-[280px] focus:border-[#1677ff] focus:ring-4 focus:ring-[#1677ff]/10"
+                />
+              </div>
+              <Button onClick={openCreateDialog} className="h-9 gap-1.5 text-[13px]">
+                <Plus className="h-4 w-4" />
+                {t("btn.create")}
+              </Button>
+            </div>
+          </div>
+
+          <div className="mb-5 h-px bg-[#e8edf4]" />
+
+          {/* 知识库网格 */}
+          {filteredItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-[#94a3b8] gap-3">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#eef2f8]">
+                <BookOpen className="h-7 w-7 text-[#94a3b8]" />
+              </div>
+              <p className="text-sm font-medium">{t("emptyMessage")}</p>
+              {searchQuery.trim() && <p className="text-xs text-[#b0bec5]">No results for &quot;{searchQuery}&quot;</p>}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredItems.map((kb) => (
+                <KbCard key={kb.id} kb={kb} onClick={() => handleSelect(kb)} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ===== 详情视图 ===== */}
+      {selectedDetail && (
+        <div>
+          {/* 返回按钮 + 标题 */}
+          <div className="mb-5 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={handleBackToGrid}
+              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#64748b] hover:text-[#1a2944] transition-colors"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span>Back to Knowledge Bases</span>
+            </button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={openEditDialog} className="h-8 text-[12px]">
+                {t("btn.edit")}
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
                 onClick={() => {
-                  setSelectedId(kb.id);
-                  runLoadDetail(kb.id);
+                  const found = items.find((i) => i.id === selectedId);
+                  setDeleteTarget(found ?? null);
+                  setConfirmOpen(true);
                 }}
-                className={`w-full text-left rounded-lg border px-4 py-3 transition-all ${
-                  kb.id === selectedId
-                    ? "border-brand bg-brand-subtle shadow-sm"
-                    : "border-border-light bg-surface-1 hover:border-border-active hover:shadow-sm"
-                }`}
+                className="h-8 text-[12px]"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold text-text-bright truncate flex-1 min-w-0">{kb.name}</p>
-                  {kb.resourcesCount > 0 && (
-                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-text-muted">
-                      {kb.resourcesCount}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-text-muted mt-0.5">{kb.slug}</p>
-                {kb.description && (
-                  <p className="text-xs text-text-secondary mt-1.5 line-clamp-2 leading-relaxed">{kb.description}</p>
-                )}
-                <div className="flex items-center gap-2 mt-2">
-                  <span
-                    className={`inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium ${getStatusBadge(kb.status)}`}
-                  >
-                    {kb.status}
-                  </span>
-                  {kb.bindingsCount > 0 && (
-                    <span className="text-[10px] text-text-muted">
-                      {kb.bindingsCount} agent{kb.bindingsCount > 1 ? "s" : ""}
-                    </span>
-                  )}
-                </div>
-              </button>
-            )}
-          />
-        </div>
-        {/* Right: KB detail */}
-        <div className="flex-1 overflow-y-auto p-6">
+                {t("btn.delete")}
+              </Button>
+            </div>
+          </div>
+
+          <div className="h-px bg-[#e8edf4] mb-5" />
+
+          {/* 加载中 */}
           {detailLoading && (
             <div className="flex items-center justify-center h-64">
-              <div className="h-8 w-8 rounded-full border-2 border-brand border-t-transparent animate-spin" />
+              <div className="h-8 w-8 rounded-full border-2 border-[#1677ff] border-t-transparent animate-spin" />
             </div>
           )}
-          {!detailLoading && !selectedDetail && (
-            <div className="flex flex-col items-center justify-center h-64 text-text-muted gap-2">
-              <File className="h-10 w-10 opacity-20" />
-              <p className="text-sm">{t("selectHint")}</p>
-            </div>
-          )}
-          {!detailLoading && selectedDetail && (
-            <div className="max-w-[800px] mx-auto space-y-5">
-              {/* 详情头部卡片 */}
-              <div className="rounded-xl border border-border-light bg-surface-1 p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-lg font-bold text-text-bright">{selectedDetail.name}</h2>
-                    <p className="text-sm text-text-muted mt-0.5">{selectedDetail.slug}</p>
-                    {selectedDetail.description && (
-                      <p className="text-sm text-text-secondary mt-2 leading-relaxed">{selectedDetail.description}</p>
-                    )}
-                    <div className="flex items-center gap-3 mt-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${getStatusBadge(selectedDetail.status)}`}
-                      >
-                        {selectedDetail.status}
-                      </span>
-                      <span className="text-xs text-text-muted">
-                        {t("resources.title", { count: selectedDetail.resourcesCount })}
-                      </span>
-                      {selectedDetail.bindingsCount > 0 && (
-                        <span className="text-xs text-text-muted">
-                          {selectedDetail.bindingsCount} agent{selectedDetail.bindingsCount > 1 ? "s" : ""}
-                        </span>
+
+          {!detailLoading && (
+            <div className="max-w-[900px] mx-auto space-y-6">
+              {/* 详情头部卡片：头像 + 名称 + 元数据 + 配置 */}
+              <div className="rounded-xl bg-white border border-[#e4e9f0] overflow-hidden">
+                <div className="p-6">
+                  <div className="flex items-start gap-4">
+                    {/* 头像 */}
+                    <div
+                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold ${pickAvatarColor(
+                        selectedDetail.name,
+                      )}`}
+                    >
+                      {getInitial(selectedDetail.name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2.5">
+                        <h2 className="text-xl font-bold text-[#1a2944] truncate">{selectedDetail.name}</h2>
+                        <span
+                          className={`inline-block h-2.5 w-2.5 rounded-full ${getStatusDot(selectedDetail.status)}`}
+                        />
+                      </div>
+                      <p className="text-[12px] text-[#94a3b8] font-mono mt-0.5">{selectedDetail.slug}</p>
+                      {selectedDetail.description && (
+                        <p className="mt-3 text-[13px] text-[#5c6b7e] leading-relaxed max-w-[600px]">
+                          {selectedDetail.description}
+                        </p>
                       )}
+                      <div className="flex items-center gap-4 mt-4">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium tracking-wide uppercase ${getStatusBadge(
+                            selectedDetail.status,
+                          )}`}
+                        >
+                          {selectedDetail.status}
+                        </span>
+                        <span className="flex items-center gap-1.5 text-[12px] text-[#64748b]">
+                          <File className="h-3.5 w-3.5" />
+                          {t("card.resourcesUnit", { count: selectedDetail.resourcesCount })}
+                        </span>
+                        {selectedDetail.bindingsCount > 0 && (
+                          <span className="flex items-center gap-1.5 text-[12px] text-[#64748b]">
+                            <Braces className="h-3.5 w-3.5" />
+                            {selectedDetail.bindingsCount} agent{selectedDetail.bindingsCount > 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingItem(items.find((i) => i.id === selectedId) ?? null);
-                        setFormName(selectedDetail.name);
-                        setFormDescription(selectedDetail.description ?? "");
-                        setDialogOpen(true);
-                      }}
+
+                  {/* 创建时选定的配置（只读展示） */}
+                  <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-[#f0f3f8] pt-4">
+                    <ConfigItem
+                      icon={<Cpu className="h-4 w-4 text-[#1677ff]" />}
+                      label={t("detailConfig.embeddingModel")}
                     >
-                      {t("btn.edit")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => {
-                        setDeleteTarget(items.find((i) => i.id === selectedId) ?? null);
-                        setConfirmOpen(true);
-                      }}
+                      {selectedDetail.embeddingModel ?? t("detailConfig.notSet")}
+                    </ConfigItem>
+                    <ConfigItem
+                      icon={<Layers className="h-4 w-4 text-violet-500" />}
+                      label={t("detailConfig.parseMethod")}
                     >
-                      {t("btn.delete")}
-                    </Button>
+                      {parseMethodLabel(selectedDetail.parseMethod)}
+                    </ConfigItem>
+                    <ConfigItem
+                      icon={<Scissors className="h-4 w-4 text-emerald-500" />}
+                      label={t("detailConfig.chunkMethod")}
+                    >
+                      {chunkMethodLabel(selectedDetail.chunkMethod)}
+                    </ConfigItem>
                   </div>
                 </div>
               </div>
 
+              {/* 外部链接 */}
+              {selectedDetail.remoteId && (
+                <div className="rounded-xl bg-white border border-[#e4e9f0] p-4">
+                  <div className="flex items-center gap-2 text-[12px] text-[#64748b]">
+                    <Globe className="h-3.5 w-3.5" />
+                    <span>Remote ID: {selectedDetail.remoteId}</span>
+                  </div>
+                </div>
+              )}
+
               {/* 资源列表卡片 */}
-              <div className="rounded-xl border border-border-light bg-surface-1 overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-3 border-b border-border-subtle">
-                  <h3 className="text-sm font-semibold text-text-primary">
+              <div className="rounded-xl bg-white border border-[#e4e9f0] overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#e8edf4]">
+                  <h3 className="text-[13px] font-semibold text-[#1a2944]">
                     {t("resources.title", { count: resources.length })}
                   </h3>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -365,61 +620,69 @@ export function AgentKnowledgeBasesPage() {
                       }}
                       className="hidden"
                     />
-                    <Button size="xs" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
-                      <Upload className="h-3.5 w-3.5 mr-1" />
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      disabled={uploading}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-7 gap-1 text-[11px]"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
                       {uploading ? t("btn.uploading") : t("btn.upload")}
                     </Button>
                   </div>
                 </div>
-                <div className="divide-y divide-border-subtle">
+                <div className="divide-y divide-[#f0f3f8]">
                   {resources.map((r) => (
                     <div
                       key={r.id}
-                      className="group flex items-center gap-3 px-5 py-3 hover:bg-surface-2/50 transition-colors"
+                      className="group flex items-center gap-3 px-5 py-3 hover:bg-[#f8fafc] transition-colors"
                     >
                       <div className="shrink-0">{getFileIcon(r.sourceName)}</div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium text-text-bright truncate">{r.sourceName}</p>
+                        <p className="text-[13px] font-medium text-[#1a2944] truncate">{r.sourceName}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           {r.status !== "ready" && (
                             <span
-                              className={`inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium ${getStatusBadge(r.status)}`}
+                              className={`inline-flex items-center rounded-full px-1.5 py-px text-[10px] font-medium ${getStatusBadge(
+                                r.status,
+                              )}`}
                             >
                               {r.status}
                             </span>
                           )}
-                          <span className="text-[11px] text-text-muted">{formatTimestamp(r.createdAt)}</span>
+                          <span className="text-[11px] text-[#94a3b8]">{formatTimestamp(r.createdAt)}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {r.status === "ready" && r.sourceType === "upload" && (
                           <Button
                             size="xs"
                             variant="ghost"
-                            className="h-7 text-xs text-text-muted hover:text-brand"
+                            className="h-7 w-7 p-0 text-[#94a3b8] hover:text-[#1677ff]"
                             onClick={() => setPreviewResource(r)}
                           >
-                            {t("preview.btn")}
+                            <ExternalLink className="h-3.5 w-3.5" />
                           </Button>
                         )}
                         <Button
                           size="xs"
                           variant="ghost"
-                          className="h-7 text-xs text-text-muted hover:text-destructive"
+                          className="h-7 w-7 p-0 text-[#94a3b8] hover:text-red-500"
                           disabled={deletingResourceId === r.id}
                           onClick={() => {
                             setDeletingResourceId(r.id);
                             runDeleteResource(selectedId!, r.id);
                           }}
                         >
-                          {t("btn.delete")}
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
                   ))}
                   {resources.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-10 text-text-muted">
-                      <File className="h-8 w-8 mb-2 opacity-30" />
+                    <div className="flex flex-col items-center justify-center py-10 text-[#94a3b8] gap-2">
+                      <File className="h-8 w-8 opacity-30" />
                       <p className="text-sm">{t("resources.empty")}</p>
                     </div>
                   )}
@@ -428,8 +691,9 @@ export function AgentKnowledgeBasesPage() {
             </div>
           )}
         </div>
-      </div>
+      )}
 
+      {/* ===== 创建/编辑弹窗 ===== */}
       <FormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -442,28 +706,186 @@ export function AgentKnowledgeBasesPage() {
           const name = formName.trim();
           const description = formDescription.trim() || undefined;
           if (editingItem) {
-            // 更新时只传 name 和 description，slug 保持不变
+            // 编辑模式：仅 name/description 可改，配置字段创建时已锁定
             runUpdate(editingItem.id, { name, description });
-          } else {
-            // 创建时根据名称自动生成 slug（kebab-case）
-            const slug = name
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, "-")
-              .replace(/^-|-$/g, "");
-            runCreate({ name, slug, description });
+            return;
           }
+          // 创建模式：透传嵌入模型 / 解析方法 / 分块方法
+          const embeddingModel = formEmbeddingModel || null;
+          // 前端校验：嵌入模型必须含 @（RagFlow v0.26 要求 model@provider 格式）
+          if (embeddingModel && !embeddingModel.includes("@")) {
+            toast.error(t("validation.embeddingModelFormat") || "嵌入模型格式不对，必须包含@");
+            return;
+          }
+          const slug = name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "");
+          runCreate({
+            name,
+            slug,
+            description,
+            embeddingModel,
+            parseMethod: formParseMethod,
+            // pipeline 模式传 pipelineId，内置模式不传
+            pipelineId: formParseMethod === "pipeline" ? formPipeline || null : null,
+            // 仅内置模式传分块方法；pipeline 模式分块由远端流水线决定
+            chunkMethod: formParseMethod === "builtin" ? formChunkMethod || null : null,
+          });
         }}
         loading={saving}
       >
         <div className="space-y-4">
+          {/* 名称 */}
           <div>
-            <Label>{t("form.name")}</Label>
-            <Input value={formName} onChange={(e) => setFormName(e.target.value)} className="mt-1" />
+            <Label className="flex items-center gap-1">
+              {t("form.name")}
+              <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              placeholder={t("form.namePlaceholder")}
+              className="mt-1"
+            />
           </div>
+
+          {/* 描述 */}
           <div>
             <Label>{t("form.description")}</Label>
-            <Textarea value={formDescription} onChange={(e) => setFormDescription(e.target.value)} className="mt-1" />
+            <Textarea
+              value={formDescription}
+              onChange={(e) => setFormDescription(e.target.value)}
+              placeholder={t("form.descriptionPlaceholder")}
+              className="mt-1"
+            />
           </div>
+
+          {/* 创建模式专属：嵌入模型 / 解析方法 / 分块方法（编辑模式隐藏） */}
+          {!editingItem && (
+            <div className="space-y-4 rounded-lg border border-[#e8edf4] bg-[#f8fafc] p-4">
+              <p className="text-[11px] text-[#94a3b8]">{t("form.configLockedAfterCreate")}</p>
+
+              {/* 嵌入模型 */}
+              <div>
+                <Label>{t("form.embeddingModel")}</Label>
+                <Select
+                  value={formEmbeddingModel}
+                  onValueChange={setFormEmbeddingModel}
+                  disabled={(options?.embeddingModels?.length ?? 0) === 0}
+                >
+                  <SelectTrigger className="mt-1 w-full">
+                    <SelectValue placeholder={t("form.embeddingModelPlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(() => {
+                      // 嵌入模型三级分组:厂商(provider) → 实例(instance) → 模型
+                      // 数据按 provider/instance 分桶,实例层在 UI 上真正渲染出来(而非塞进 label 前缀),
+                      // 这样多厂商多实例时层级清晰,对齐 RAGFlow 创建知识库页面的展示结构。
+                      const models = options?.embeddingModels ?? [];
+                      const grouped = new Map<string, Map<string, typeof models>>();
+                      for (const m of models) {
+                        const prov = m.provider || "Unknown";
+                        const inst = m.instance || "default";
+                        if (!grouped.has(prov)) grouped.set(prov, new Map());
+                        const instMap = grouped.get(prov)!;
+                        if (!instMap.has(inst)) instMap.set(inst, []);
+                        instMap.get(inst)!.push(m);
+                      }
+                      const providers = Array.from(grouped.entries());
+                      return providers.map(([provider, instMap], providerIdx) => (
+                        <SelectGroup key={provider}>
+                          {/* 第一级:厂商。首个厂商不画顶部分隔线,避免下拉顶部多一条横线 */}
+                          <SelectLabel
+                            className={
+                              "px-2 text-[12px] font-semibold text-[#1a2944]" +
+                              (providerIdx > 0 ? " mt-1 border-t border-[#eef2f8] pt-2" : "")
+                            }
+                          >
+                            {provider}
+                          </SelectLabel>
+                          {Array.from(instMap.entries()).map(([instance, items]) => (
+                            <Fragment key={instance}>
+                              {/* 第二级:实例(instance),缩进 + 浅色小字次级标题 */}
+                              <SelectLabel className="pl-5 text-[11px] font-medium text-[#94a3b8]">
+                                {instance}
+                              </SelectLabel>
+                              {/* 第三级:纯模型名。name 形如 model@instance@provider(三段式),取首段展示,避免和 instance 标题重复 */}
+                              {items.map((m) => (
+                                <SelectItem key={m.name} value={m.name} className="pl-8 text-[13px]">
+                                  {m.name.split("@")[0] || m.name}
+                                </SelectItem>
+                              ))}
+                            </Fragment>
+                          ))}
+                        </SelectGroup>
+                      ));
+                    })()}
+                  </SelectContent>
+                </Select>
+                {(options?.embeddingModels?.length ?? 0) === 0 && (
+                  <p className="mt-1 text-[11px] text-[#94a3b8]">{t("form.noEmbeddingModels")}</p>
+                )}
+              </div>
+
+              {/* 解析方法 */}
+              <div>
+                <Label>{t("form.parseMethod")}</Label>
+                <RadioGroup
+                  value={formParseMethod}
+                  onValueChange={(v) => setFormParseMethod(v as KnowledgeParseMethod)}
+                  className="mt-2 flex gap-6"
+                >
+                  <RadioGroupItemWithLabel value="builtin" label={t("form.parseMethodBuiltin")} />
+                  <RadioGroupItemWithLabel value="pipeline" label={t("form.parseMethodPipeline")} />
+                </RadioGroup>
+              </div>
+
+              {/* 内置分块方法（仅 builtin 模式显示） */}
+              {formParseMethod === "builtin" && (
+                <div>
+                  <Label className="flex items-center gap-1">
+                    {t("form.chunkMethod")}
+                    <span className="text-red-500">*</span>
+                  </Label>
+                  <Select value={formChunkMethod} onValueChange={setFormChunkMethod}>
+                    <SelectTrigger className="mt-1 w-full">
+                      <SelectValue placeholder={t("form.chunkMethodPlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(options?.chunkMethods ?? []).map((c) => (
+                        <SelectItem key={c.value} value={c.value}>
+                          {c.label ?? t(c.labelKey ?? "")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Pipeline 选择（仅 pipeline 模式显示，best-effort） */}
+              {formParseMethod === "pipeline" && (
+                <div>
+                  <Label>{t("form.pipeline")}</Label>
+                  <Select value={formPipeline} onValueChange={setFormPipeline}>
+                    <SelectTrigger className="mt-1 w-full">
+                      <SelectValue placeholder={t("form.pipelinePlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(options?.pipelines ?? []).map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {(options?.pipelines?.length ?? 0) === 0 && (
+                    <p className="mt-1 text-[11px] text-[#94a3b8]">{t("form.noPipelines")}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </FormDialog>
 
@@ -488,6 +910,19 @@ export function AgentKnowledgeBasesPage() {
           kbId={selectedId}
         />
       )}
+    </div>
+  );
+}
+
+/** 详情头部配置项：图标 + 标签 + 值 */
+function ConfigItem({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <div className="mt-0.5 shrink-0">{icon}</div>
+      <div className="min-w-0">
+        <p className="text-[11px] text-[#94a3b8]">{label}</p>
+        <p className="mt-0.5 text-[13px] font-medium text-[#1a2944] truncate">{children}</p>
+      </div>
     </div>
   );
 }

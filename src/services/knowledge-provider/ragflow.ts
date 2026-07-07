@@ -574,6 +574,24 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
     });
   }
 
+  async reparseResource(input: {
+    resourceRemoteId: string;
+    knowledgeBaseRemoteId: string;
+    deleteOld: boolean;
+  }): Promise<void> {
+    // RAGFlow ingest API 触发重新解析：run=1 启动，delete 清旧数据
+    await this.request("/api/v1/documents/ingest", {
+      method: "POST",
+      body: JSON.stringify({
+        doc_ids: [input.resourceRemoteId],
+        run: 1,
+        delete: input.deleteOld,
+        apply_kb: false,
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   async search(input: {
     knowledgeBases: Array<{
       remoteId: string;

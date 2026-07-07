@@ -671,6 +671,57 @@ app.patch(
   },
 );
 
+app.post(
+  "/knowledgeBases/:id/resources/:resourceId/reparse",
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation with sessionAuth
+  async ({ store, params, body, error }: any) => {
+    const authCtx = store.authContext!;
+    const id = params.id;
+    const resourceId = params.resourceId;
+    const deleteOld = body?.delete === true;
+    try {
+      const resource = await knowledgeResourceRepo.getById(resourceId);
+      if (!resource || resource.knowledgeBaseId !== id) {
+        return error(404, { success: false, error: { code: "NOT_FOUND", message: "资源不存在" } });
+      }
+      const kb = await knowledgeBaseRepo.getByOrgAndId(authCtx.organizationId, id);
+      if (!kb) {
+        return error(404, { success: false, error: { code: "NOT_FOUND", message: "知识库不存在" } });
+      }
+      if (!resource.remoteId || !kb.remoteId) {
+        return error(400, { success: false, error: { code: "NOT_SYNCED", message: "资源尚未同步到远端" } });
+      }
+      const provider = getKnowledgeProvider();
+      // 触发 RAGFlow 重新解析，非阻塞：成功返回后由前端轮询进度
+      await provider.reparseResource({
+        resourceRemoteId: resource.remoteId,
+        knowledgeBaseRemoteId: kb.remoteId,
+        remoteAccountId: kb.remoteAccountId ?? authCtx.userId,
+        remoteUserId: kb.remoteUserId ?? authCtx.userId,
+        deleteOld,
+      });
+      // 更新本地状态为 processing
+      await knowledgeResourceRepo.update(resourceId, { status: "processing", updatedAt: new Date() });
+      return { success: true as const, data: null };
+    } catch (err) {
+      console.error(err);
+      return error(400, {
+        success: false,
+        error: { code: "REPARSE_FAILED", message: err instanceof Error ? err.message : "重新解析失败" },
+      });
+    }
+  },
+  {
+    sessionAuth: true,
+    response: { 200: WebOkSchema(z.null()), 400: WebErrSchema, 404: WebErrSchema },
+    detail: {
+      tags: ["Knowledge"],
+      summary: "触发文档重新解析",
+      description: "触发 RagFlow 对指定文档执行重新解析（异步），成功返回后由前端轮询进度。",
+    },
+  },
+);
+
 app.delete(
   "/knowledgeBases/:id/resources/:resourceId",
   // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation with sessionAuth

@@ -52,6 +52,13 @@
     "resourceDeleted": "Resource deleted",
     "deleteResourceFailed": "Failed to delete resource"
   },
+  "reparse": {
+    "btn": "Re-parse",
+    "started": "Re-parsing triggered",
+    "failed": "Re-parse failed",
+    "confirmTitle": "Re-parse Document",
+    "confirmDescription": "Delete existing chunks of «{{name}}» before re-parsing?\n\n· Delete & re-parse: clear old chunks, re-split with current config\n· Keep & re-parse: incremental parse on top of existing chunks"
+  },
   "resources": {
     "title": "Resources ({{count}})",
     "empty": "No resources",

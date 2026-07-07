@@ -146,6 +146,15 @@ export interface KnowledgeProvider {
     remoteUserId: string;
     enabled: boolean;
   }): Promise<void>;
+  /** 触发文档重新解析（RAGFlow ingest API），后端仅触发不等待完成 */
+  reparseResource(input: {
+    resourceRemoteId: string;
+    knowledgeBaseRemoteId: string;
+    remoteAccountId: string;
+    remoteUserId: string;
+    /** 重新解析前是否删除已有分块数据 */
+    deleteOld: boolean;
+  }): Promise<void>;
   deleteResource(input: {
     resourceRemoteId: string;
     knowledgeBaseRemoteId: string;

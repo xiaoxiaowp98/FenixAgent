@@ -14,6 +14,7 @@ import {
   Layers,
   Plus,
   Presentation,
+  RefreshCw,
   Scissors,
   Search,
   Trash2,
@@ -188,6 +189,9 @@ export function AgentKnowledgeBasesPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeBaseInfo | null>(null);
   const [deletingResourceId, setDeletingResourceId] = useState<string | null>(null);
+  const [reparsingResourceId, setReparsingResourceId] = useState<string | null>(null);
+  const [reparseTarget, setReparseTarget] = useState<KnowledgeResourceInfo | null>(null);
+  const [reparseConfirmOpen, setReparseConfirmOpen] = useState(false);
   const [previewResource, setPreviewResource] = useState<KnowledgeResourceInfo | null>(null);
   // 表单字段
   const [formName, setFormName] = useState("");
@@ -331,6 +335,32 @@ export function AgentKnowledgeBasesPage() {
       },
     },
   );
+
+  // 重新解析轮询：每隔 2s 刷新资源列表，直到 runStatus 为 DONE/FAIL
+  const reparseAndPoll = (kbId: string, resourceId: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const resList = await unwrap(kbApi.listResources({ id: kbId }));
+        if (!Array.isArray(resList)) return;
+        setResources(resList);
+        const target = resList.find((r) => r.id === resourceId);
+        if (!target) {
+          clearInterval(interval);
+          setReparsingResourceId(null);
+          return;
+        }
+        // DONE 或 FAIL 时停止轮询
+        if (target.runStatus === "DONE" || target.runStatus === "FAIL") {
+          clearInterval(interval);
+          setReparsingResourceId(null);
+          runLoadDetail(kbId);
+        }
+      } catch {
+        clearInterval(interval);
+        setReparsingResourceId(null);
+      }
+    }, 2000);
+  };
 
   // 搜索过滤
   const filteredItems = items.filter((kb) => {
@@ -685,12 +715,26 @@ export function AgentKnowledgeBasesPage() {
 
                       {/* 状态 */}
                       <div className="w-[100px] shrink-0">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${getStatusBadge(r.status)}`}
-                        >
-                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${getStatusDot(r.status)}`} />
-                          {r.status}
-                        </span>
+                        {r.runStatus === "RUNNING" && r.parseProgress != null ? (
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex-1 h-1 rounded-full bg-[#eef2f8]">
+                              <div
+                                className="h-full rounded-full bg-[#1677ff] transition-all"
+                                style={{ width: `${Math.round(r.parseProgress * 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-[#1677ff] shrink-0">
+                              {Math.round(r.parseProgress * 100)}%
+                            </span>
+                          </div>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${getStatusBadge(r.status)}`}
+                          >
+                            <span className={`inline-block h-1.5 w-1.5 rounded-full ${getStatusDot(r.status)}`} />
+                            {r.status}
+                          </span>
+                        )}
                       </div>
 
                       {/* 启用 */}
@@ -712,7 +756,20 @@ export function AgentKnowledgeBasesPage() {
                       </div>
 
                       {/* 操作 */}
-                      <div className="w-[80px] shrink-0 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="w-[110px] shrink-0 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 text-[#94a3b8] hover:text-[#1677ff]"
+                          title={t("reparse.btn")}
+                          disabled={reparsingResourceId === r.id}
+                          onClick={() => {
+                            setReparseTarget(r);
+                            setReparseConfirmOpen(true);
+                          }}
+                        >
+                          <RefreshCw className={`h-3.5 w-3.5 ${reparsingResourceId === r.id ? "animate-spin" : ""}`} />
+                        </Button>
                         {r.status === "ready" && (
                           <Button
                             size="xs"
@@ -966,6 +1023,45 @@ export function AgentKnowledgeBasesPage() {
         variant="destructive"
         onConfirm={() => {
           if (deleteTarget) runDelete(deleteTarget.id);
+        }}
+      />
+
+      {/* 重新解析确认：让用户选择是否删除已有分块 */}
+      <ConfirmDialog
+        open={reparseConfirmOpen}
+        onOpenChange={setReparseConfirmOpen}
+        title={t("reparse.confirmTitle")}
+        description={t("reparse.confirmDescription", { name: reparseTarget?.sourceName ?? "" })}
+        variant="default"
+        onConfirm={() => {
+          if (!reparseTarget || !selectedId) return;
+          setReparseConfirmOpen(false);
+          setReparsingResourceId(reparseTarget.id);
+          kbApi
+            .reparseResource({ kbId: selectedId, resourceId: reparseTarget.id }, { delete: true })
+            .then(() => {
+              toast.success(t("reparse.started"));
+              reparseAndPoll(selectedId, reparseTarget.id);
+            })
+            .catch((err) => {
+              toast.error(err instanceof Error ? err.message : t("reparse.failed"));
+              setReparsingResourceId(null);
+            });
+        }}
+        onCancel={() => {
+          if (!reparseTarget || !selectedId) return;
+          setReparseConfirmOpen(false);
+          setReparsingResourceId(reparseTarget.id);
+          kbApi
+            .reparseResource({ kbId: selectedId, resourceId: reparseTarget.id }, { delete: false })
+            .then(() => {
+              toast.success(t("reparse.started"));
+              reparseAndPoll(selectedId, reparseTarget.id);
+            })
+            .catch((err) => {
+              toast.error(err instanceof Error ? err.message : t("reparse.failed"));
+              setReparsingResourceId(null);
+            });
         }}
       />
 

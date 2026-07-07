@@ -94,6 +94,14 @@ export const kbApi = {
       body,
     }),
 
+  /** 触发文档重新解析（RAGFlow ingest） */
+  reparseResource: (params: { kbId: string; resourceId: string }, body: { delete: boolean }) =>
+    request<null>("/web/knowledgeBases/:kbId/resources/:resourceId/reparse", {
+      method: "POST",
+      params,
+      body,
+    }),
+
   /** 构造资源文件的预览/下载 URL（upload 类型资源） */
   getFileUrl: (params: { kbId: string; resourceId: string }) =>
     `/web/knowledgeBases/${encodeURIComponent(params.kbId)}/resources/${encodeURIComponent(params.resourceId)}/file`,

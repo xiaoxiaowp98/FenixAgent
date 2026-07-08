@@ -1,4 +1,4 @@
-export type FileCategory = "code" | "image" | "pdf" | "binary" | "table" | "markdown" | "html";
+export type FileCategory = "code" | "image" | "pdf" | "binary" | "table" | "markdown" | "html" | "video";
 
 /** encodeURIComponent 不编码 ()，需额外处理，用于 URL 路径 */
 export function encodePathSegment(seg: string) {
@@ -89,6 +89,8 @@ const CODE_EXTENSIONS = new Set([
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "ico", "bmp"]);
 
+const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "mov", "avi", "mkv", "ogv", "ogg"]);
+
 const TABLE_EXTENSIONS = new Set(["csv", "xlsx", "xls", "xlsm"]);
 
 const MARKDOWN_EXTENSIONS = new Set(["md", "mdx", "markdown"]);
@@ -164,6 +166,7 @@ export function classifyFile(filePath: string): FileCategory {
   const ext = getExtension(filePath);
   if (ext === "pdf") return "pdf";
   if (IMAGE_EXTENSIONS.has(ext)) return "image";
+  if (VIDEO_EXTENSIONS.has(ext)) return "video";
   if (TABLE_EXTENSIONS.has(ext)) return "table";
   if (HTML_EXTENSIONS.has(ext)) return "html";
   if (MARKDOWN_EXTENSIONS.has(ext)) return "markdown";
@@ -229,4 +232,19 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** 根据视频文件扩展名返回对应的 MIME type，用于 <source type="..."> */
+export function getVideoMimeType(ext: string): string {
+  switch (ext) {
+    case "mov":
+      return "video/quicktime";
+    case "webm":
+      return "video/webm";
+    case "ogv":
+    case "ogg":
+      return "video/ogg";
+    default:
+      return `video/${ext}`;
+  }
 }

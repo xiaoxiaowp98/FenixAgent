@@ -164,6 +164,10 @@ export interface KnowledgeResourceContent {
   title?: string | null;
   content: string;
   source?: string | null;
+  /** 文档类型（如 pdf、xlsx、md 等），来自 RAGFlow */
+  docType?: string | null;
+  /** 解析后的分块数量，为 0 表示尚未解析或解析失败 */
+  chunkCount?: number;
 }
 
 /** 知识图谱节点 */

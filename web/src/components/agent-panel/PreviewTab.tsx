@@ -12,6 +12,7 @@ import { MarkdownPreview } from "./preview/MarkdownPreview";
 import { PdfPreview } from "./preview/PdfPreview";
 import { TablePreview } from "./preview/TablePreview";
 import { classifyFile, formatFileSize } from "./preview/utils";
+import { VideoPreview } from "./preview/VideoPreview";
 
 interface PreviewTabProps {
   envId: string | null;
@@ -23,7 +24,8 @@ export function PreviewTab({ envId, filePath }: PreviewTabProps) {
   const category = filePath ? classifyFile(filePath) : null;
 
   // 图片、PDF、表格、HTML 直接由子组件通过 URL 处理，不需要 readFile API
-  const skipApi = category === "image" || category === "pdf" || category === "table" || category === "html";
+  const skipApi =
+    category === "image" || category === "pdf" || category === "table" || category === "html" || category === "video";
   const needsApi = !!(envId && filePath && category && !skipApi);
 
   const {
@@ -77,6 +79,7 @@ export function PreviewTab({ envId, filePath }: PreviewTabProps) {
         )}
         {!loading && !error && category === "markdown" && content !== null && <MarkdownPreview content={content} />}
         {!loading && !error && category === "image" && envId && <ImagePreview envId={envId} filePath={filePath!} />}
+        {!loading && !error && category === "video" && envId && <VideoPreview envId={envId} filePath={filePath!} />}
         {!loading && !error && category === "html" && envId && <HtmlPreview envId={envId} filePath={filePath!} />}
         {!loading && !error && category === "pdf" && envId && <PdfPreview envId={envId} filePath={filePath!} />}
         {!loading && !error && category === "table" && envId && (

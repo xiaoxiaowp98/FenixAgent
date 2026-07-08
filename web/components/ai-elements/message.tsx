@@ -1,7 +1,15 @@
 "use client";
 
 import type { FileUIPart, UIMessage } from "ai";
-import { ChevronLeftIcon, ChevronRightIcon, Maximize2, Minimize2, PaperclipIcon, XIcon } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  Maximize2,
+  Minimize2,
+  PaperclipIcon,
+  XIcon,
+} from "lucide-react";
 import type { ComponentProps, ErrorInfo, HTMLAttributes, ReactElement } from "react";
 import {
   Component,
@@ -367,6 +375,39 @@ export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProp
   );
 };
 
+/** 单个视频播放器：文件名标签 + 播放器，失败时叠加半透明遮罩 */
+export function VideoPlayerCard({ url, mimeType }: { url: string; mimeType: string }) {
+  const [error, setError] = useState(false);
+  const fileName = url.split("/").pop()?.split("?")[0] ?? url;
+
+  return (
+    <div>
+      <p className="text-[12px] text-text-muted mb-1 truncate" title={url}>
+        🎬 {fileName}
+      </p>
+      <div className="relative inline-block" style={{ maxWidth: "100%" }}>
+        <video
+          controls
+          preload="metadata"
+          className="w-auto max-w-full rounded-lg"
+          style={{ maxHeight: 320 }}
+          onError={() => setError(true)}
+        >
+          <source src={url} type={mimeType} />
+        </video>
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/60 pointer-events-none">
+            <div className="flex flex-col items-center gap-1 text-white/80">
+              <AlertCircle className="h-6 w-6" />
+              <span className="text-[12px]">视频链接无效或无法访问</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export type MessageResponseProps = {
   children?: string;
   className?: string;
@@ -412,10 +453,63 @@ export const MessageResponse = memo(
           />
         ),
         iframe: (props: Record<string, unknown>) => <IframePreview {...props} />,
+        // 保留默认链接渲染，确保正文中的链接正常显示
+        a: ({ href, children, ...rest }: Record<string, unknown>) => (
+          <a
+            href={href as string}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline"
+            {...Object.fromEntries(Object.entries(rest).filter(([k]) => !["children", "node"].includes(k)))}
+          >
+            {children as React.ReactNode}
+          </a>
+        ),
       };
       const registered = getRegisteredComponents();
       return { ...base, ...registered } as Components;
     }, []);
+
+    // 从消息文本中提取视频 URL（.mp4/.webm/.mov 等），保留链接在正文中，播放器放最下方
+    const videoUrls = useMemo(() => {
+      if (!children) return [];
+      const regex = /https?:\/\/[^\s<>"']+\.(mp4|webm|mov|avi|mkv|ogv|ogg)(\?[^\s<>"']*)?/gi;
+      const seen = new Set<string>();
+      const result: string[] = [];
+      for (const match of children.matchAll(regex)) {
+        const url = match[0];
+        if (!seen.has(url)) {
+          seen.add(url);
+          result.push(url);
+        }
+      }
+      return result;
+    }, [children]);
+
+    // 预处理正文，确保视频链接不丢失：
+    // 1. Agent 有时返回 <video src="url"> HTML 标签，而 streamdown 的 allowedTags 不含 video，
+    //    整个标签会被过滤掉，导致“视频链接”一行变成空白。这里把标签替换为裸 URL，保持原位。
+    // 2. 再把裸 URL（含中文标点紧贴的情况）转为 markdown 链接，确保渲染为可点击链接。
+    const processedChildren = useMemo(() => {
+      if (!children) return children;
+      let text = children;
+      // 步骤 1：提取 <video ... src="url" ...> 的 src，替换为裸 URL（兼容单/双引号、自闭合与成对标签）
+      text = text.replace(
+        /<video\b[^>]*?\bsrc=["']([^"']+)["'][^>]*?\/?>(?:\s*<\/video>)?/gi,
+        (_m, url: string) => `\n\n${url}\n\n`,
+      );
+      // 步骤 2：裸 URL → markdown 链接。负向后行断言排除 markdown 链接 ](url) / HTML 属性 ="url" 中已有的，
+      // 避免重复包装破坏既有语法。字符集取 RFC 3986 合法字符（不含 []() 引号）。
+      text = text.replace(/(?<!['"(])(https?:\/\/[A-Za-z0-9\-._~:/?#@!$&'*+,;=%]+)/g, (url) => `[${url}](${url})`);
+      return text;
+    }, [children]);
+
+    const getVideoMime = (url: string) => {
+      const ext = url.split(".").pop()?.toLowerCase().split("?")[0] ?? "mp4";
+      if (ext === "mov") return "video/quicktime";
+      if (ext === "ogv" || ext === "ogg") return "video/ogg";
+      return `video/${ext}`;
+    };
 
     return (
       <StreamdownErrorBoundary fallback={children}>
@@ -430,8 +524,16 @@ export const MessageResponse = memo(
             )}
             {...props}
           >
-            {children}
+            {processedChildren ?? children}
           </LazyStreamdown>
+          {/* 视频播放器：从正文中提取的视频链接，统一放在消息最下方 */}
+          {videoUrls.length > 0 && (
+            <div className="mt-3 space-y-3">
+              {videoUrls.map((url) => (
+                <VideoPlayerCard key={url} url={url} mimeType={getVideoMime(url)} />
+              ))}
+            </div>
+          )}
         </Suspense>
       </StreamdownErrorBoundary>
     );

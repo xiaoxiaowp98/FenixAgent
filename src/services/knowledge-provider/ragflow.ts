@@ -760,21 +760,25 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
     remoteAccountId: string;
     remoteUserId: string;
   }): Promise<KnowledgeResourceContent> {
-    const payload = await this.request<
+    // 先获取文档基本信息（类型、名称等），再获取分块内容
+    const docPayload = await this.request<
       RagFlowResponse<{
         doc?: { name?: string; type?: string; source_url?: string };
         chunks?: Array<{ content: string }>;
       }>
     >(`/api/v1/datasets/${input.knowledgeBaseRemoteId}/documents/${input.resourceRemoteId}/chunks`);
 
-    const { doc, chunks } = payload.data ?? {};
-    const content = (chunks ?? []).map((c) => c.content).join("\n\n");
+    const { doc, chunks } = docPayload.data ?? {};
+    const chunkList = chunks ?? [];
+    const content = chunkList.map((c) => c.content).join("\n\n");
 
     return {
       resourceId: input.resourceRemoteId,
       title: doc?.name ?? input.resourceRemoteId,
       content,
       source: doc?.source_url ?? null,
+      docType: doc?.type ?? null,
+      chunkCount: chunkList.length,
     };
   }
 

@@ -111,7 +111,7 @@ function createKnowledgeMcpServer(environment: {
     "kb_read",
     {
       description:
-        "读取 Agent 已绑定知识库中的指定资源（文档）的完整内容。需要提供资源的本地 ID（resourceId），该 ID 可从 kb_search 返回结果的 resourceId 字段获取。",
+        "读取 Agent 已绑定知识库中指定资源（文档）的完整解析内容。支持所有 RAGFlow 能解析的文档类型（PDF、Word、Excel、PPT、Markdown、TXT、HTML 等），返回解析后的文本内容及文档元数据（类型、分块数）。若内容为空（chunkCount=0），说明文档尚未解析完成，需等待解析或触发重新解析。",
       inputSchema: {
         resourceId: z.string().min(1).describe("知识库资源的本地 ID，来自 kb_search 结果中的 resourceId。"),
       },
@@ -125,6 +125,21 @@ function createKnowledgeMcpServer(environment: {
         resourceId,
         userId: environment.userId ?? undefined,
       });
+      // 内容为空时给出明确提示，帮助 agent 判断下一步操作
+      if (!result.content && result.chunkCount === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                ...result,
+                _hint: "该文档尚未解析（chunkCount=0）。请等待解析完成，或使用文档的 reparse 功能触发重新解析。",
+              }),
+            },
+          ],
+          structuredContent: result as unknown as Record<string, unknown>,
+        };
+      }
       return {
         content: [{ type: "text", text: JSON.stringify(result) }],
         structuredContent: result as unknown as Record<string, unknown>,

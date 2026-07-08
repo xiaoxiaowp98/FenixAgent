@@ -269,30 +269,14 @@ describe("RagFlowKnowledgeProvider", () => {
     ).rejects.toThrow("102");
   });
 
-  test("addResource 上传文件并轮询解析状态直到 DONE", async () => {
-    const responses = [
-      { ok: true, json: async () => ({ code: 0, data: [{ id: "doc_xyz" }] }) },
-      { ok: true, json: async () => ({ code: 0 }) },
-      {
-        ok: true,
-        json: async () => ({
-          code: 0,
-          data: { docs: [{ id: "doc_xyz", run: "RUNNING", progress: 0.35, chunk_count: 0, token_count: 0 }] },
-        }),
-      },
-      {
-        ok: true,
-        json: async () => ({
-          code: 0,
-          data: { docs: [{ id: "doc_xyz", run: "DONE", progress: 1, chunk_count: 3, token_count: 128 }] },
-        }),
-      },
-    ];
-    let callIndex = 0;
-    const fetchSpy = mock(async () => {
-      const res = responses[callIndex];
-      callIndex += 1;
-      return res;
+  test("addResource 上传文件并触发异步重解析，立即返回 processing", async () => {
+    // 新流程：上传 → ingest 触发重解析 → 立即返回（不轮询）
+    const fetchSpy = mock(async (url: string, init?: RequestInit) => {
+      const urlStr = String(url);
+      if (urlStr.includes("/ingest")) {
+        return { ok: true, json: async () => ({ code: 0 }) };
+      }
+      return { ok: true, json: async () => ({ code: 0, data: [{ id: "doc_xyz" }] }) };
     });
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
@@ -303,13 +287,12 @@ describe("RagFlowKnowledgeProvider", () => {
       remoteUserId: "user1",
       filePath: "/tmp/test.pdf",
       sourceName: "test.pdf",
-      wait: true,
     });
 
     expect(result.remoteId).toBe("doc_xyz");
-    expect(result.status).toBe("ready");
+    expect(result.status).toBe("processing"); // 立即返回，不 waiting
     expect(result.knowledgeBaseRemoteId).toBe("ds_abc123");
-    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    expect(fetchSpy).toHaveBeenCalledTimes(2); // 上传 + ingest
   });
 
   test("addResource 上传响应 data 数组为空时抛出异常", async () => {
@@ -348,9 +331,10 @@ describe("RagFlowKnowledgeProvider", () => {
     ).rejects.toThrow("Duplicate file");
   });
 
-  test("addResource wait=false 跳过轮询直接返回 processing", async () => {
-    const fetchSpy = mock(async (url: string) => {
-      if (String(url).includes("/chunks")) {
+  test("addResource 上传后触发 ingest 重解析（wait 参数已无效，统一异步）", async () => {
+    const fetchSpy = mock(async (url: string, init?: RequestInit) => {
+      const urlStr = String(url);
+      if (urlStr.includes("/ingest")) {
         return { ok: true, json: async () => ({ code: 0 }) };
       }
       return { ok: true, json: async () => ({ code: 0, data: [{ id: "doc_abc" }] }) };
@@ -364,29 +348,18 @@ describe("RagFlowKnowledgeProvider", () => {
       remoteUserId: "user1",
       filePath: "/tmp/test.pdf",
       sourceName: "test.pdf",
-      wait: false,
     });
 
     expect(result.status).toBe("processing");
     expect(result.remoteId).toBe("doc_abc");
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy).toHaveBeenCalledTimes(2); // 上传 + ingest
   });
 
-  test("addResource 解析 FAIL 抛出异常", async () => {
-    const fetchSpy = mock(async (url: string, init?: RequestInit) => {
+  test("addResource ingest 触发重解析失败时抛出异常", async () => {
+    const fetchSpy = mock(async (url: string) => {
       const urlStr = String(url);
-      if (urlStr.includes("/chunks")) {
-        return { ok: true, json: async () => ({ code: 0 }) };
-      }
-      // 区分轮询 GET 与上传 POST：两者都命中文档接口
-      if (urlStr.includes("/documents") && !urlStr.includes("/chunks") && init?.method !== "POST") {
-        return {
-          ok: true,
-          json: async () => ({
-            code: 0,
-            data: { docs: [{ id: "doc_fail", run: "FAIL", progress_msg: "File corrupted" }] },
-          }),
-        };
+      if (urlStr.includes("/ingest")) {
+        return { ok: true, json: async () => ({ code: 102, message: "Ingest service unavailable" }) };
       }
       return { ok: true, json: async () => ({ code: 0, data: [{ id: "doc_fail" }] }) };
     });
@@ -401,7 +374,7 @@ describe("RagFlowKnowledgeProvider", () => {
         filePath: "/tmp/bad.pdf",
         sourceName: "bad.pdf",
       }),
-    ).rejects.toThrow("File corrupted");
+    ).rejects.toThrow("Ingest service unavailable");
   });
 
   test("listResources 正确映射 RagFlow run 到接口状态", async () => {

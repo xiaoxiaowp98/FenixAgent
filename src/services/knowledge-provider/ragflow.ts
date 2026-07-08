@@ -2,11 +2,16 @@ import { config } from "../../config";
 import type {
   EmbeddingModelOption,
   KnowledgeBaseSnapshot,
+  KnowledgeGraphEdge,
+  KnowledgeGraphNode,
   KnowledgePipelineOption,
   KnowledgeProvider,
   KnowledgeResourceContent,
   KnowledgeResourceSnapshot,
+  KnowledgeRetrievalDetailedResult,
   KnowledgeSearchResult,
+  MetaDataFilter,
+  RerankModelOption,
 } from "./types";
 
 /**
@@ -27,12 +32,6 @@ function mapRunStatus(runStatus: string | undefined): "pending" | "processing" |
       return "pending";
   }
 }
-
-/** 轮询最大间隔（毫秒） */
-const POLL_MAX_INTERVAL_MS = 30_000;
-
-/** 初始轮询间隔（毫秒） */
-const POLL_INITIAL_INTERVAL_MS = 1_000;
 
 /**
  * RagFlow 业务响应通用结构
@@ -196,13 +195,30 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
    * 上游不可用或返回异常时返回空数组，避免阻断创建表单。
    */
   async listEmbeddingModels(): Promise<EmbeddingModelOption[]> {
+    return this.listModelsByType("embedding");
+  }
+
+  /**
+   * 拉取 RagFlow 租户下已配置的 rerank 重排序模型列表，供检索测试选择。
+   * 上游不可用时返回空数组。
+   */
+  async listRerankModels(): Promise<RerankModelOption[]> {
+    return this.listModelsByType("rerank");
+  }
+
+  /**
+   * 按模型类型拉取 RagFlow 模型列表（embedding / rerank 共用）。
+   * v0.26+ 使用 GET /api/v1/models（model_type 为 string[]）；旧版使用 /api/v1/llm/list（model_type 为 string）。
+   * 上游不可用或返回异常时返回空数组，避免阻断表单渲染。
+   */
+  private async listModelsByType(type: "embedding" | "rerank"): Promise<RerankModelOption[]> {
     let items: unknown[] = [];
 
     // v0.26 标准端点
     try {
       const payload = await this.request<RagFlowResponse<unknown[]>>("/api/v1/models");
       if (Array.isArray(payload.data)) {
-        console.log("[ragflow] listEmbeddingModels v0.26: got", payload.data.length, "models");
+        console.log(`[ragflow] listModelsByType(${type}) v0.26: got`, payload.data.length, "models");
         items = payload.data;
       }
     } catch (_err) {
@@ -213,11 +229,11 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
             RagFlowResponse<Array<{ llm_name?: string; name?: string; model_type?: string; fid?: string }>>
           >("/api/v1/llm/list");
         if (Array.isArray(payload.data)) {
-          console.log("[ragflow] listEmbeddingModels legacy: got", payload.data.length, "models");
+          console.log(`[ragflow] listModelsByType(${type}) legacy: got`, payload.data.length, "models");
           items = payload.data;
         }
       } catch (err) {
-        console.error("[ragflow] listEmbeddingModels both endpoints failed", err);
+        console.error(`[ragflow] listModelsByType(${type}) both endpoints failed`, err);
         return [];
       }
     }
@@ -226,14 +242,14 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
       .filter((item) => {
         if (typeof item !== "object" || item === null) return false;
         const record = item as Record<string, unknown>;
-        // v0.26: model_type 是 string[]，精确匹配 "embedding"
+        // v0.26: model_type 是 string[]，精确匹配目标类型
         // 枚举值来自 RagFlow Go API: chat / embedding / image2text / rerank / speech2text / tts
         const types = record.model_type;
         if (Array.isArray(types)) {
-          return types.some((t) => String(t).toLowerCase() === "embedding");
+          return types.some((t) => String(t).toLowerCase() === type);
         }
         // 旧版兼容: model_type 是 string
-        return String(types ?? "").toLowerCase() === "embedding";
+        return String(types ?? "").toLowerCase() === type;
       })
       .map((item) => {
         const r = item as Record<string, unknown>;
@@ -341,7 +357,7 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
   }): Promise<KnowledgeResourceSnapshot> {
     const datasetId = input.knowledgeBaseRemoteId!;
 
-    // 上传文件或 URL 到 knowledge base
+    // 步骤 1：上传文件或 URL 到 RAGFlow（仅上传，不触发解析）
     const formData = new FormData();
     if (input.filePath) {
       // ⚠️ Bun.file() returns BunFile, appending to FormData generates multipart/form-data.
@@ -369,95 +385,33 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
       throw new Error("upload returned unexpected response");
     }
     const documentId = uploadedDocs[0].id;
+    const sourceUrl = uploadedDocs[0].source_url ?? input.url ?? input.filePath ?? null;
 
-    // 触发解析
-    await this.request(`/api/v1/datasets/${datasetId}/chunks`, {
+    // 步骤 2：异步触发重新解析（delete_old=true 清除旧分块后重新解析，新文件本来就没有旧分块）
+    // 使用 RAGFlow ingest API：run=1 启动解析，delete=true 清除新文件已有的空分块，apply_kb=false 不自动应用
+    await this.request("/api/v1/documents/ingest", {
       method: "POST",
-      body: JSON.stringify({ document_ids: [documentId] }),
+      body: JSON.stringify({
+        doc_ids: [documentId],
+        run: 1,
+        delete: true,
+        apply_kb: false,
+      }),
       headers: { "Content-Type": "application/json" },
     });
 
-    // 仅在显式传入 wait=false 时跳过轮询，默认（undefined）为阻塞等待
-    if (input.wait === false) {
-      return {
-        remoteId: documentId,
-        knowledgeBaseRemoteId: datasetId,
-        sourceName: input.sourceName ?? input.filePath ?? input.url ?? documentId,
-        sourceType: input.filePath ? "file" : input.url ? "url" : "unknown",
-        status: "processing",
-        source: uploadedDocs[0].source_url ?? input.url ?? input.filePath ?? null,
-        lastError: null,
-      };
-    }
+    console.log("[ragflow] document upload + reparse triggered", { datasetId, documentId });
 
-    // blocking 模式：指数退避轮询直到解析完成
-    let interval = POLL_INITIAL_INTERVAL_MS;
-    while (true) {
-      await new Promise((resolve) => setTimeout(resolve, interval));
-      interval = Math.min(interval * 2, POLL_MAX_INTERVAL_MS);
-
-      const statusPayload = await this.request<
-        RagFlowResponse<{
-          docs: Array<{
-            id: string;
-            name?: string;
-            run?: string;
-            progress?: number;
-            progress_msg?: string;
-            chunk_count?: number;
-            token_count?: number;
-          }>;
-        }>
-      >(`/api/v1/datasets/${datasetId}/documents?page=1&page_size=50`);
-
-      const docs = statusPayload.data?.docs ?? [];
-      const targetDoc = docs.find((d) => d.id === documentId);
-
-      if (!targetDoc) {
-        throw new Error("document not found during polling");
-      }
-
-      const targetRunStatus = targetDoc.run;
-      const targetRunMessage = targetDoc.progress_msg;
-
-      // 解析状态异常时，进度与分块/Token 计数是定位 RagFlow 解析卡住的关键上下文。
-      console.log("[ragflow] polling document parse status", {
-        datasetId,
-        documentId,
-        run: targetRunStatus,
-        progress: targetDoc.progress,
-        progress_msg: targetRunMessage,
-        chunk_count: targetDoc.chunk_count,
-        token_count: targetDoc.token_count,
-      });
-
-      if (targetRunStatus === "DONE") {
-        return {
-          remoteId: documentId,
-          knowledgeBaseRemoteId: datasetId,
-          sourceName: input.sourceName ?? input.filePath ?? input.url ?? documentId,
-          sourceType: input.filePath ? "file" : input.url ? "url" : "unknown",
-          status: "ready",
-          source: uploadedDocs[0].source_url ?? input.url ?? input.filePath ?? null,
-          lastError: null,
-        };
-      }
-
-      if (targetRunStatus === "FAIL") {
-        console.error("[ragflow] document parse failed", {
-          datasetId,
-          documentId,
-          run: targetRunStatus,
-          progress: targetDoc.progress,
-          progress_msg: targetRunMessage,
-          chunk_count: targetDoc.chunk_count,
-          token_count: targetDoc.token_count,
-        });
-        throw new Error(targetRunMessage ?? `parse ${targetRunStatus}`);
-      }
-
-      // RUNNING / UNSTART 继续轮询，未知状态也保守等待，避免 RagFlow 新状态导致误判失败。
-    }
+    // 立即返回，不等待解析完成（RAGFlow 后台异步解析）
+    return {
+      remoteId: documentId,
+      knowledgeBaseRemoteId: datasetId,
+      sourceName: input.sourceName ?? input.filePath ?? input.url ?? documentId,
+      sourceType: input.filePath ? "file" : input.url ? "url" : "unknown",
+      status: "processing",
+      source: sourceUrl,
+      lastError: null,
+    };
   }
 
   async listResources(input: {
@@ -600,42 +554,204 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
     }>;
     query: string;
     topK: number;
+    /** 相似度阈值；缺省时由 RagFlow 用默认值 */
+    similarityThreshold?: number;
+    /** 向量相似度权重；缺省时由 RagFlow 用默认值 */
+    vectorSimilarityWeight?: number;
+    /** rerank 模型 ID；不传则不做 rerank */
+    rerankId?: string | null;
+    /** 是否启用关键词增强 */
+    keyword?: boolean;
+    /** 是否返回高亮 */
+    highlight?: boolean;
+    /** 每页返回数 */
+    pageSize?: number;
+    /** 页码 */
+    page?: number;
+    /** 是否启用知识图谱 */
+    useKg?: boolean;
+    /** 跨语言检索目标语言 */
+    crossLanguages?: string[];
+    /** 元数据过滤配置（支持 4 种模式：disabled/auto/semi_auto/manual） */
+    metaDataFilter?: MetaDataFilter;
   }): Promise<KnowledgeSearchResult[]> {
     // 收集所有要检索的 dataset_id
     const datasetIds = input.knowledgeBases.map((kb) => kb.remoteId);
+
+    // 构建请求体：基础字段始终透传，可选字段仅在调用方提供时透传，让 RagFlow 用其默认值
+    const body: Record<string, unknown> = {
+      question: input.query,
+      dataset_ids: datasetIds,
+      top_k: input.topK,
+    };
+    if (input.similarityThreshold != null) body.similarity_threshold = input.similarityThreshold;
+    if (input.vectorSimilarityWeight != null) body.vector_similarity_weight = input.vectorSimilarityWeight;
+    if (input.rerankId?.trim()) body.rerank_id = input.rerankId.trim();
+    if (input.keyword != null) body.keyword = input.keyword;
+    if (input.highlight != null) body.highlight = input.highlight;
+    if (input.pageSize != null) body.page_size = input.pageSize;
+    if (input.page != null) body.page = input.page;
+    if (input.useKg != null) body.use_kg = input.useKg;
+    if (input.crossLanguages != null && input.crossLanguages.length > 0) body.cross_languages = input.crossLanguages;
+    if (input.metaDataFilter != null && input.metaDataFilter.method !== "disabled")
+      body.meta_data_filter = input.metaDataFilter;
 
     const payload = await this.request<
       RagFlowResponse<{
         chunks?: Array<{
           content: string;
+          document_keyword?: string;
           document_name?: string;
           document_id?: string;
           dataset_id?: string;
           similarity?: number;
+          id?: string;
           chunk_id?: string;
         }>;
       }>
     >("/api/v1/retrieval", {
       method: "POST",
-      body: JSON.stringify({
-        question: input.query,
-        dataset_ids: datasetIds,
-        top_k: input.topK,
-      }),
+      body: JSON.stringify(body),
       headers: { "Content-Type": "application/json" },
     });
 
     const chunks = payload.data?.chunks ?? [];
 
     return chunks.map((chunk) => ({
-      title: chunk.document_name ?? chunk.chunk_id ?? "result",
+      title: chunk.document_keyword ?? chunk.document_name ?? chunk.id ?? chunk.chunk_id ?? "result",
       snippet: chunk.content,
-      source: chunk.document_name ?? chunk.document_id ?? chunk.chunk_id ?? "result",
-      // 注意：source 字段放什么? chunk 没有独立 source_url，用 document_name 兜底
+      source:
+        chunk.document_keyword ?? chunk.document_name ?? chunk.document_id ?? chunk.id ?? chunk.chunk_id ?? "result",
       score: chunk.similarity ?? 0,
       knowledgeBaseId: chunk.dataset_id ?? null,
       resourceId: chunk.document_id ?? null,
     }));
+  }
+
+  /**
+   * 检索测试专用：调用 /api/v1/datasets/search（与 RAGFlow 测试表单同一端点），
+   * 原生支持 meta_data_filter 的 4 种模式（disabled/auto/semi_auto/manual）。
+   * 与 search() 的区别：返回 KnowledgeRetrievalDetailedResult（含 total/docAggs），专供检索测试 UI。
+   */
+  async searchDetailed(input: {
+    knowledgeBases: Array<{
+      remoteId: string;
+      remoteAccountId: string;
+      remoteUserId: string;
+    }>;
+    query: string;
+    topK: number;
+    similarityThreshold?: number;
+    vectorSimilarityWeight?: number;
+    rerankId?: string | null;
+    keyword?: boolean;
+    highlight?: boolean;
+    pageSize?: number;
+    page?: number;
+    /** 是否启用知识图谱 */
+    useKg?: boolean;
+    /** 跨语言检索目标语言 */
+    crossLanguages?: string[];
+    /** 元数据过滤配置（支持 4 种模式：disabled/auto/semi_auto/manual） */
+    metaDataFilter?: MetaDataFilter;
+  }): Promise<KnowledgeRetrievalDetailedResult> {
+    const datasetIds = input.knowledgeBases.map((kb) => kb.remoteId);
+
+    // 构建请求体：检索测试默认开启高亮，便于结果展示
+    const body: Record<string, unknown> = {
+      question: input.query,
+      dataset_ids: datasetIds,
+      top_k: input.topK,
+      highlight: input.highlight ?? true,
+    };
+    if (input.similarityThreshold != null) body.similarity_threshold = input.similarityThreshold;
+    if (input.vectorSimilarityWeight != null) body.vector_similarity_weight = input.vectorSimilarityWeight;
+    if (input.rerankId?.trim()) body.rerank_id = input.rerankId.trim();
+    if (input.keyword != null) body.keyword = input.keyword;
+    if (input.pageSize != null) body.size = input.pageSize;
+    if (input.page != null) body.page = input.page;
+    if (input.useKg != null) body.use_kg = input.useKg;
+    if (input.crossLanguages != null && input.crossLanguages.length > 0) body.cross_languages = input.crossLanguages;
+    if (input.metaDataFilter != null && input.metaDataFilter.method !== "disabled")
+      body.meta_data_filter = input.metaDataFilter;
+
+    const payload = await this.request<
+      RagFlowResponse<{
+        chunks?: Array<{
+          chunk_id?: string;
+          id?: string;
+          content_with_weight?: string;
+          content?: string;
+          document_keyword?: string;
+          document_name?: string;
+          docnm_kwd?: string;
+          document_id?: string;
+          doc_id?: string;
+          dataset_id?: string;
+          kb_id?: string;
+          similarity?: number;
+          vector_similarity?: number;
+          term_similarity?: number;
+          highlight?: string;
+          important_keywords?: string[] | string;
+          important_kwd?: string[] | string;
+        }>;
+        total?: number;
+        count?: number;
+        doc_aggs?: Array<{ doc_name?: string; doc_id?: string; count?: number }>;
+      }>
+    >("/api/v1/datasets/search", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const rawChunks = payload.data?.chunks ?? [];
+    const chunks = rawChunks.map((chunk) => {
+      // RAGFlow /api/v1/datasets/search 返回原始字段名（无 key mapping）：
+      // - chunk_id、content_with_weight、doc_id、important_kwd、docnm_kwd、kb_id
+      const content = chunk.content_with_weight ?? chunk.content ?? "";
+      const documentName = chunk.docnm_kwd ?? chunk.document_name ?? chunk.document_keyword ?? "";
+      const documentId = chunk.doc_id ?? chunk.document_id ?? "";
+      const datasetId = chunk.kb_id ?? chunk.dataset_id ?? "";
+      // important_kwd 可能是数组或逗号分隔字符串
+      let importantKeywords: string[] | undefined;
+      if (Array.isArray(chunk.important_kwd)) {
+        importantKeywords = chunk.important_kwd.filter((k): k is string => typeof k === "string");
+      } else if (typeof chunk.important_kwd === "string" && chunk.important_kwd.trim()) {
+        importantKeywords = chunk.important_kwd
+          .split(",")
+          .map((k) => k.trim())
+          .filter(Boolean);
+      } else if (Array.isArray(chunk.important_keywords)) {
+        importantKeywords = chunk.important_keywords.filter((k): k is string => typeof k === "string");
+      }
+
+      return {
+        chunkId: chunk.chunk_id ?? chunk.id ?? "",
+        content,
+        documentName,
+        documentId,
+        datasetId,
+        similarity: chunk.similarity ?? 0,
+        vectorSimilarity: chunk.vector_similarity,
+        termSimilarity: chunk.term_similarity,
+        // RAGFlow /api/v1/datasets/search 不返回 highlight，保留兼容
+        highlight: chunk.highlight,
+        importantKeywords,
+      };
+    });
+
+    // total 字段：RagFlow 返回 total 或 count，兜底用 chunks 长度
+    const total = payload.data?.total ?? payload.data?.count ?? chunks.length;
+    // 文档聚合：doc_aggs 字段名映射
+    const docAggs = (payload.data?.doc_aggs ?? []).map((agg) => ({
+      documentName: agg.doc_name ?? "",
+      documentId: agg.doc_id ?? "",
+      count: agg.count ?? 0,
+    }));
+
+    return { chunks, total, docAggs };
   }
 
   async readResource(input: {
@@ -659,6 +775,84 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
       title: doc?.name ?? input.resourceRemoteId,
       content,
       source: doc?.source_url ?? null,
+    };
+  }
+
+  // ============================================================
+  // 知识图谱
+  // ============================================================
+
+  async generateKnowledgeGraph(input: { knowledgeBaseRemoteId: string }): Promise<void> {
+    const datasetId = input.knowledgeBaseRemoteId;
+    // v0.26.0 正确端点：POST /api/v1/datasets/{id}/run_graphrag（无 body）
+    await this.request(`/api/v1/datasets/${datasetId}/run_graphrag`, {
+      method: "POST",
+    });
+  }
+
+  async getKnowledgeGraph(input: {
+    knowledgeBaseRemoteId: string;
+  }): Promise<{ graph: { nodes: KnowledgeGraphNode[]; edges: KnowledgeGraphEdge[] }; mind_map?: unknown } | null> {
+    const datasetId = input.knowledgeBaseRemoteId;
+    // v0.26.0 正确端点：GET /api/v1/datasets/{id}/knowledge_graph
+    const payload = await this.request<
+      RagFlowResponse<{
+        graph?: { nodes?: KnowledgeGraphNode[]; edges?: KnowledgeGraphEdge[] };
+        mind_map?: unknown;
+      }>
+    >(`/api/v1/datasets/${datasetId}/knowledge_graph`, {
+      method: "GET",
+    });
+
+    const data = payload.data;
+    if (!data?.graph) return null;
+
+    return {
+      graph: {
+        nodes: data.graph.nodes ?? [],
+        edges: data.graph.edges ?? [],
+      },
+      mind_map: data.mind_map,
+    };
+  }
+
+  async deleteKnowledgeGraph(input: { knowledgeBaseRemoteId: string }): Promise<void> {
+    const datasetId = input.knowledgeBaseRemoteId;
+    // v0.26.0 正确端点：DELETE /api/v1/datasets/{id}/knowledge_graph
+    try {
+      await this.request(`/api/v1/datasets/${datasetId}/knowledge_graph`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      // 图不存在时 RAGFlow 返回 code != 0，视为幂等删除
+      const message = err instanceof Error ? err.message : "";
+      if (message.includes("code=102")) {
+        console.log("[ragflow] deleteKnowledgeGraph: graph not found, treating as success", { datasetId });
+        return;
+      }
+      throw err;
+    }
+  }
+
+  async pollKnowledgeGraphProgress(input: {
+    knowledgeBaseRemoteId: string;
+  }): Promise<{ progress: number; progressMsg?: string; taskId?: string }> {
+    const datasetId = input.knowledgeBaseRemoteId;
+    // v0.26.0 正确端点：GET /api/v1/datasets/{id}/trace_graphrag
+    const payload = await this.request<
+      RagFlowResponse<{
+        progress?: number;
+        progress_msg?: string;
+        task_id?: string;
+      }>
+    >(`/api/v1/datasets/${datasetId}/trace_graphrag`, {
+      method: "GET",
+    });
+
+    return {
+      progress: payload.data?.progress ?? 0,
+      progressMsg: payload.data?.progress_msg,
+      taskId: payload.data?.task_id,
     };
   }
 }

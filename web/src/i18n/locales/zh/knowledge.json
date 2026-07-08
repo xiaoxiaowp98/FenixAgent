@@ -168,6 +168,8 @@
   "confirm": {
     "deleteTitle": "确认删除知识库",
     "deleteDescription": "确定删除知识库 \"{{name}}\" 吗？",
+    "deleteResourceTitle": "确认删除文档",
+    "deleteResourceDescription": "确定删除文档 \"{{name}}\" 吗？此操作不可撤销。",
     "title": "确认删除知识库",
     "description": "确定删除知识库 \"{{name}}\" 吗？"
   },
@@ -180,5 +182,54 @@
     "download": "下载",
     "close": "关闭",
     "btn": "预览"
+  },
+  "tabs": {
+    "documents": "文档",
+    "retrievalTest": "检索测试"
+  },
+  "retrieval": {
+    "similarityThreshold": "相似度阈值",
+    "vectorWeight": "向量 / 关键词权重",
+    "vectorPercent": "向量 {{pct}}%",
+    "fullTextPercent": "关键词 {{pct}}%",
+    "rerankModel": "Rerank 模型",
+    "noRerank": "不使用",
+    "pageSize": "返回条数",
+    "topK": "Top K 候选数",
+    "keywordMatch": "关键词匹配增强",
+    "useKg": "知识图谱检索",
+    "crossLanguages": "跨语言搜索",
+    "selectAll": "全部",
+    "metaDataFilter": "元数据过滤",
+    "metaFilterDisabled": "禁用",
+    "metaFilterAuto": "自动",
+    "metaFilterSemiAuto": "半自动",
+    "metaFilterManual": "手动",
+    "metaFilterManualPlaceholder": "JSON 格式，手动输入筛选条件数组，如：[{\"key\":\"status\",\"op\":\"=\",\"value\":\"published\"}]",
+    "metaFilterJsonError": "元数据过滤 JSON 格式错误",
+    "queryPlaceholder": "输入检索查询文本，按 Enter 测试检索...",
+    "runTest": "测试检索",
+    "enterQueryHint": "输入查询文本，点击「测试检索」查看结果",
+    "resultCount": "共 {{count}} 条结果",
+    "noResults": "没有找到匹配的结果",
+    "hybridSimilarity": "混合",
+    "vectorSimilarity": "向量",
+    "termSimilarity": "关键词",
+    "error": "检索测试失败",
+    "knowledgeGraphSection": "知识图谱"
+  },
+  "graph": {
+    "title": "知识图谱",
+    "generate": "生成知识图谱",
+    "generating": "生成中",
+    "generateSuccess": "知识图谱生成完成",
+    "generateFailed": "知识图谱生成失败",
+    "delete": "删除",
+    "deleteSuccess": "知识图谱已删除",
+    "deleteFailed": "删除知识图谱失败",
+    "empty": "暂无知识图谱",
+    "emptyHint": "点击「生成知识图谱」按钮，AI 将从文档中提取实体和关系",
+    "nodes": "实体节点",
+    "edges": "关系边"
   }
 }

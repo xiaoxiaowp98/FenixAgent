@@ -17,11 +17,12 @@ import {
   RefreshCw,
   Scissors,
   Search,
+  Sparkles,
   Trash2,
   Upload,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
@@ -50,10 +51,13 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { kbApi } from "@/src/api/knowledge-bases";
 import { unwrap } from "@/src/api/request";
 import { NS } from "@/src/i18n";
+import { KnowledgeGraphPanel } from "@/src/pages/agent-panel/components/KnowledgeGraphPanel";
+import { RetrievalTestPanel } from "@/src/pages/agent-panel/components/RetrievalTestPanel";
 import type {
   KnowledgeBaseDetail,
   KnowledgeBaseInfo,
@@ -199,10 +203,18 @@ export function AgentKnowledgeBasesPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeBaseInfo | null>(null);
   const [deletingResourceId, setDeletingResourceId] = useState<string | null>(null);
+  const [resourceDeleteConfirmOpen, setResourceDeleteConfirmOpen] = useState(false);
+  const [resourceDeleteTarget, setResourceDeleteTarget] = useState<{
+    kbId: string;
+    resourceId: string;
+    name: string;
+  } | null>(null);
   const [reparsingResourceId, setReparsingResourceId] = useState<string | null>(null);
   const [reparseTarget, setReparseTarget] = useState<KnowledgeResourceInfo | null>(null);
   const [reparseConfirmOpen, setReparseConfirmOpen] = useState(false);
   const [reparseDeleteOld, setReparseDeleteOld] = useState(false);
+  const [detailTab, setDetailTab] = useState<"documents" | "retrieval">("documents");
+  const [showGraphPanel, setShowGraphPanel] = useState(false);
   const [previewResource, setPreviewResource] = useState<KnowledgeResourceInfo | null>(null);
   // 表单字段
   const [formName, setFormName] = useState("");
@@ -225,6 +237,13 @@ export function AgentKnowledgeBasesPage() {
       toast.error(err instanceof Error ? err.message : t("loadError"));
     },
   });
+
+  // 组件卸载时清理轮询
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
   const items: KnowledgeBaseInfo[] = Array.isArray(listData) ? listData : [];
 
   // 创建表单可选项（嵌入模型、分块方法、pipeline）；失败不阻断表单
@@ -322,6 +341,8 @@ export function AgentKnowledgeBasesPage() {
       onSuccess: (_data, [id]) => {
         toast.success(t("toast.uploaded"));
         runLoadDetail(id as string);
+        // 上传后异步解析，轮询刷新直到解析完成
+        startStatusPoll(id as string);
       },
       onError: (err) => {
         console.error("Upload failed", err);
@@ -329,6 +350,33 @@ export function AgentKnowledgeBasesPage() {
       },
     },
   );
+
+  /** 上传/重新解析后轮询刷新资源状态，直到所有文档解析完成 */
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startStatusPoll = (kbId: string) => {
+    // 先清理之前的轮询
+    if (pollingRef.current) clearInterval(pollingRef.current);
+    let ticks = 0;
+    pollingRef.current = setInterval(async () => {
+      try {
+        ticks += 1;
+        const resList = await unwrap(kbApi.listResources({ id: kbId }));
+        if (!Array.isArray(resList)) return;
+        setResources(resList);
+        // 所有文档都已不在解析中（DONE/FAIL/空），停止轮询
+        const hasRunning = resList.some((r) => r.runStatus === "RUNNING" || r.runStatus === "UNSTART");
+        if (!hasRunning || ticks > 150) {
+          // 最多轮询 5 分钟 (150 * 2s)
+          clearInterval(pollingRef.current!);
+          pollingRef.current = null;
+          runLoadDetail(kbId);
+        }
+      } catch {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    }, 2000);
+  };
 
   // 删除资源（静默操作，不弹 toast）
   const { run: runDeleteResource } = useRequest(
@@ -389,11 +437,13 @@ export function AgentKnowledgeBasesPage() {
     setSelectedId(null);
     setSelectedDetail(null);
     setResources([]);
+    setDetailTab("documents");
   };
 
   // 进入详情
   const handleSelect = (kb: KnowledgeBaseInfo) => {
     setSelectedId(kb.id);
+    setDetailTab("documents");
     runLoadDetail(kb.id);
   };
 
@@ -581,7 +631,17 @@ export function AgentKnowledgeBasesPage() {
             <div className="max-w-[900px] mx-auto space-y-6">
               {/* 详情头部卡片：头像 + 名称 + 元数据 + 配置 */}
               <div className="rounded-xl bg-white border border-[#e4e9f0] overflow-hidden">
-                <div className="p-6">
+                <div className="p-6 relative">
+                  {/* 右上角知识图谱魔法棒按钮 */}
+                  <button
+                    type="button"
+                    className="absolute top-4 right-4 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-[#64748b] hover:text-[#1677ff] hover:bg-[#f0f6ff] transition-colors"
+                    onClick={() => setShowGraphPanel(!showGraphPanel)}
+                    title={t("retrieval.knowledgeGraphSection")}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {t("retrieval.knowledgeGraphSection")}
+                  </button>
                   <div className="flex items-start gap-4">
                     {/* 头像 */}
                     <div
@@ -650,178 +710,206 @@ export function AgentKnowledgeBasesPage() {
                 </div>
               </div>
 
-              {/* 外部链接 */}
-              {selectedDetail.remoteId && (
-                <div className="rounded-xl bg-white border border-[#e4e9f0] p-4">
-                  <div className="flex items-center gap-2 text-[12px] text-[#64748b]">
-                    <Globe className="h-3.5 w-3.5" />
-                    <span>Remote ID: {selectedDetail.remoteId}</span>
-                  </div>
+              {/* 知识图谱面板（点击魔法棒展开） */}
+              {showGraphPanel && selectedDetail && (
+                <div className="rounded-xl bg-white border border-[#e4e9f0] p-5">
+                  <KnowledgeGraphPanel knowledgeBaseId={selectedDetail.id} />
                 </div>
               )}
 
-              {/* 资源列表 — 表格形式 */}
-              <div className="rounded-xl bg-white border border-[#e4e9f0] overflow-hidden">
-                {/* 表头工具栏 */}
-                <div className="flex items-center justify-between px-5 py-3 border-b border-[#e8edf4]">
-                  <h3 className="text-[13px] font-semibold text-[#1a2944]">
-                    {t("resources.title", { count: resources.length })}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files.length > 0 && selectedId) {
-                          const formData = new FormData();
-                          for (const file of e.target.files) {
-                            formData.append("files", file);
-                          }
-                          runUpload(selectedId, formData);
-                        }
-                      }}
-                      className="hidden"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={uploading}
-                      onClick={() => fileInputRef.current?.click()}
-                      className="h-8 gap-1.5 text-[12px]"
-                    >
-                      <Upload className="h-3.5 w-3.5" />
-                      {uploading ? t("btn.uploading") : t("btn.upload")}
-                    </Button>
-                  </div>
-                </div>
+              {/* Tab 切换：文档 | 检索测试 */}
+              <Tabs
+                value={detailTab}
+                onValueChange={(v) => setDetailTab(v as "documents" | "retrieval")}
+                className="space-y-4"
+              >
+                <TabsList>
+                  <TabsTrigger value="documents">{t("tabs.documents")}</TabsTrigger>
+                  <TabsTrigger value="retrieval">{t("tabs.retrievalTest")}</TabsTrigger>
+                </TabsList>
 
-                {/* 表头 */}
-                <div className="flex items-center gap-3 border-b border-[#f0f3f8] bg-[#f8fafc] px-5 py-2.5 text-[11px] font-medium uppercase tracking-wider text-[#94a3b8]">
-                  <div className="flex-[2] min-w-0">{t("columns.name")}</div>
-                  <div className="w-[60px] shrink-0 text-center">{t("resources.colChunks")}</div>
-                  <div className="w-[100px] shrink-0">{t("resources.colStatus")}</div>
-                  <div className="w-[80px] shrink-0 text-center">{t("resources.colEnabled")}</div>
-                  <div className="w-[130px] shrink-0">{t("columns.updatedAt")}</div>
-                  <div className="w-[200px] shrink-0 text-right">{t("resources.colActions")}</div>
-                </div>
-
-                {/* 表格行 */}
-                <div className="divide-y divide-[#f0f3f8]">
-                  {resources.map((r) => (
-                    <div
-                      key={r.id}
-                      className="group flex items-center gap-3 px-5 py-3 hover:bg-[#f8fafc] transition-colors"
-                    >
-                      {/* 文件名 + 方法标签 */}
-                      <div className="flex-[2] min-w-0 flex items-center gap-2">
-                        <span className="shrink-0">{getFileIcon(r.sourceName)}</span>
-                        <span className="text-[13px] font-medium text-[#1a2944] truncate">{r.sourceName}</span>
+                <TabsContent value="documents" className="space-y-6">
+                  {/* 外部链接 */}
+                  {selectedDetail.remoteId && (
+                    <div className="rounded-xl bg-white border border-[#e4e9f0] p-4">
+                      <div className="flex items-center gap-2 text-[12px] text-[#64748b]">
+                        <Globe className="h-3.5 w-3.5" />
+                        <span>Remote ID: {selectedDetail.remoteId}</span>
                       </div>
-
-                      {/* 分块数 */}
-                      <div className="w-[60px] shrink-0 text-center text-[12px] text-[#94a3b8]">
-                        {r.chunkCount != null ? r.chunkCount : "—"}
-                      </div>
-
-                      {/* 状态 */}
-                      <div className="w-[100px] shrink-0">
-                        {r.runStatus === "RUNNING" && r.parseProgress != null ? (
-                          <div className="flex items-center gap-1.5">
-                            <div className="flex-1 h-1 rounded-full bg-[#eef2f8]">
-                              <div
-                                className="h-full rounded-full bg-[#1677ff] transition-all"
-                                style={{ width: `${Math.round(r.parseProgress * 100)}%` }}
-                              />
-                            </div>
-                            <span className="text-[10px] text-[#1677ff] shrink-0">
-                              {Math.round(r.parseProgress * 100)}%
-                            </span>
-                          </div>
-                        ) : (
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${getStatusBadge(r.status)}`}
-                          >
-                            <span className={`inline-block h-1.5 w-1.5 rounded-full ${getStatusDot(r.status)}`} />
-                            {r.status}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* 启用 */}
-                      <div className="w-[80px] shrink-0 flex justify-center">
-                        <Switch
-                          checked={r.enabled ?? true}
-                          onCheckedChange={(checked) => {
-                            kbApi
-                              .toggleResourceEnabled({ kbId: selectedId!, resourceId: r.id }, { enabled: checked })
-                              .then(() => runLoadDetail(selectedId!))
-                              .catch(console.error);
-                          }}
-                        />
-                      </div>
-
-                      {/* 更新时间 */}
-                      <div className="w-[130px] shrink-0 text-[12px] text-[#94a3b8]">
-                        {formatTimestamp(r.createdAt)}
-                      </div>
-
-                      {/* 操作 */}
-                      <div className="w-[200px] shrink-0 flex items-center justify-end gap-2">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          className="h-7 gap-1 rounded-md border-[#dbe1ea] px-2 text-[11px] text-[#1677ff] hover:border-[#1677ff] hover:bg-[#e8f4ff] shrink-0"
-                          disabled={reparsingResourceId === r.id}
-                          onClick={() => {
-                            setReparseDeleteOld(false);
-                            setReparseTarget(r);
-                            setReparseConfirmOpen(true);
-                          }}
-                        >
-                          <RefreshCw className={`h-3 w-3 ${reparsingResourceId === r.id ? "animate-spin" : ""}`} />
-                          {t("reparse.btn")}
-                        </Button>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {r.status === "ready" && (
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              className="h-7 w-7 p-0 text-[#94a3b8] hover:text-[#1677ff]"
-                              title={t("preview.btn")}
-                              onClick={() => setPreviewResource(r)}
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            className="h-7 w-7 p-0 text-[#94a3b8] hover:text-red-500"
-                            title={t("actions.delete")}
-                            disabled={deletingResourceId === r.id}
-                            onClick={() => {
-                              setDeletingResourceId(r.id);
-                              runDeleteResource(selectedId!, r.id);
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {resources.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8] gap-3">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#eef2f8]">
-                        <File className="h-7 w-7 opacity-30" />
-                      </div>
-                      <p className="text-[13px] font-medium">{t("resources.empty")}</p>
                     </div>
                   )}
-                </div>
-              </div>
+
+                  {/* 资源列表 — 表格形式 */}
+                  <div className="rounded-xl bg-white border border-[#e4e9f0] overflow-hidden">
+                    {/* 表头工具栏 */}
+                    <div className="flex items-center justify-between px-5 py-3 border-b border-[#e8edf4]">
+                      <h3 className="text-[13px] font-semibold text-[#1a2944]">
+                        {t("resources.title", { count: resources.length })}
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0 && selectedId) {
+                              const formData = new FormData();
+                              for (const file of e.target.files) {
+                                formData.append("files", file);
+                              }
+                              runUpload(selectedId, formData);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={uploading}
+                          onClick={() => fileInputRef.current?.click()}
+                          className="h-8 gap-1.5 text-[12px]"
+                        >
+                          <Upload className="h-3.5 w-3.5" />
+                          {uploading ? t("btn.uploading") : t("btn.upload")}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* 表头 */}
+                    <div className="flex items-center gap-3 border-b border-[#f0f3f8] bg-[#f8fafc] px-5 py-2.5 text-[11px] font-medium uppercase tracking-wider text-[#94a3b8]">
+                      <div className="flex-[2] min-w-0">{t("columns.name")}</div>
+                      <div className="w-[60px] shrink-0 text-center">{t("resources.colChunks")}</div>
+                      <div className="w-[100px] shrink-0">{t("resources.colStatus")}</div>
+                      <div className="w-[80px] shrink-0 text-center">{t("resources.colEnabled")}</div>
+                      <div className="w-[130px] shrink-0">{t("columns.updatedAt")}</div>
+                      <div className="w-[200px] shrink-0 text-right">{t("resources.colActions")}</div>
+                    </div>
+
+                    {/* 表格行 */}
+                    <div className="divide-y divide-[#f0f3f8]">
+                      {resources.map((r) => (
+                        <div
+                          key={r.id}
+                          className="group flex items-center gap-3 px-5 py-3 hover:bg-[#f8fafc] transition-colors"
+                        >
+                          {/* 文件名 + 方法标签 */}
+                          <div className="flex-[2] min-w-0 flex items-center gap-2">
+                            <span className="shrink-0">{getFileIcon(r.sourceName)}</span>
+                            <span className="text-[13px] font-medium text-[#1a2944] truncate">{r.sourceName}</span>
+                          </div>
+
+                          {/* 分块数 */}
+                          <div className="w-[60px] shrink-0 text-center text-[12px] text-[#94a3b8]">
+                            {r.chunkCount != null ? r.chunkCount : "—"}
+                          </div>
+
+                          {/* 状态 */}
+                          <div className="w-[100px] shrink-0">
+                            {r.runStatus === "RUNNING" && r.parseProgress != null ? (
+                              <div className="flex items-center gap-1.5">
+                                <div className="flex-1 h-1 rounded-full bg-[#eef2f8]">
+                                  <div
+                                    className="h-full rounded-full bg-[#1677ff] transition-all"
+                                    style={{ width: `${Math.round(r.parseProgress * 100)}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] text-[#1677ff] shrink-0">
+                                  {Math.round(r.parseProgress * 100)}%
+                                </span>
+                              </div>
+                            ) : (
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${getStatusBadge(r.status)}`}
+                              >
+                                <span className={`inline-block h-1.5 w-1.5 rounded-full ${getStatusDot(r.status)}`} />
+                                {r.status}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* 启用 */}
+                          <div className="w-[80px] shrink-0 flex justify-center">
+                            <Switch
+                              checked={r.enabled ?? true}
+                              onCheckedChange={(checked) => {
+                                kbApi
+                                  .toggleResourceEnabled({ kbId: selectedId!, resourceId: r.id }, { enabled: checked })
+                                  .then(() => runLoadDetail(selectedId!))
+                                  .catch(console.error);
+                              }}
+                            />
+                          </div>
+
+                          {/* 更新时间 */}
+                          <div className="w-[130px] shrink-0 text-[12px] text-[#94a3b8]">
+                            {formatTimestamp(r.createdAt)}
+                          </div>
+
+                          {/* 操作 */}
+                          <div className="w-[200px] shrink-0 flex items-center justify-end gap-2">
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              className="h-7 gap-1 rounded-md border-[#dbe1ea] px-2 text-[11px] text-[#1677ff] hover:border-[#1677ff] hover:bg-[#e8f4ff] shrink-0"
+                              disabled={reparsingResourceId === r.id}
+                              onClick={() => {
+                                setReparseDeleteOld(false);
+                                setReparseTarget(r);
+                                setReparseConfirmOpen(true);
+                              }}
+                            >
+                              <RefreshCw className={`h-3 w-3 ${reparsingResourceId === r.id ? "animate-spin" : ""}`} />
+                              {t("reparse.btn")}
+                            </Button>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {r.status === "ready" && (
+                                <Button
+                                  size="xs"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-[#94a3b8] hover:text-[#1677ff]"
+                                  title={t("preview.btn")}
+                                  onClick={() => setPreviewResource(r)}
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-[#94a3b8] hover:text-red-500"
+                                title={t("actions.delete")}
+                                disabled={deletingResourceId === r.id}
+                                onClick={() => {
+                                  setResourceDeleteTarget({ kbId: selectedId!, resourceId: r.id, name: r.sourceName });
+                                  setResourceDeleteConfirmOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {resources.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8] gap-3">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#eef2f8]">
+                            <File className="h-7 w-7 opacity-30" />
+                          </div>
+                          <p className="text-[13px] font-medium">{t("resources.empty")}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* 检索测试 Tab — 仅在切换到此 tab 时挂载 */}
+                <TabsContent value="retrieval" forceMount className="data-[state=inactive]:hidden">
+                  {detailTab === "retrieval" && selectedDetail && (
+                    <RetrievalTestPanel knowledgeBaseId={selectedDetail.id} />
+                  )}
+                </TabsContent>
+              </Tabs>
             </div>
           )}
         </div>
@@ -1037,6 +1125,21 @@ export function AgentKnowledgeBasesPage() {
         variant="destructive"
         onConfirm={() => {
           if (deleteTarget) runDelete(deleteTarget.id);
+        }}
+      />
+
+      {/* 资源删除确认 */}
+      <ConfirmDialog
+        open={resourceDeleteConfirmOpen}
+        onOpenChange={setResourceDeleteConfirmOpen}
+        title={t("confirm.deleteResourceTitle")}
+        description={t("confirm.deleteResourceDescription", { name: resourceDeleteTarget?.name ?? "" })}
+        variant="destructive"
+        onConfirm={() => {
+          if (resourceDeleteTarget) {
+            setDeletingResourceId(resourceDeleteTarget.resourceId);
+            runDeleteResource(resourceDeleteTarget.kbId, resourceDeleteTarget.resourceId);
+          }
         }}
       />
 

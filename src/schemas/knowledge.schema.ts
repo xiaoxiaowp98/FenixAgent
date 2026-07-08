@@ -146,6 +146,88 @@ export const KnowledgeFormOptionsResponseSchema = WebOkSchema(
   KnowledgeFormOptionsSchema.describe("创建知识库表单所需的全部可选项。"),
 ).describe("创建表单可选项响应。");
 
+/** rerank 重排序模型选项（检索测试用，结构与 EmbeddingModelOption 一致） */
+export const RerankModelOptionSchema = z.object({
+  name: z.string().describe("RagFlow 模型标识，三段式 name@instance@provider。"),
+  label: z.string().describe("展示名。"),
+  provider: z.string().describe("厂商名，用于前端分组展示。"),
+  instance: z.string().describe("实例名，用于前端分组展示。"),
+});
+
+/** GET /web/knowledgeBases/rerank-models 响应 */
+export const RerankModelsResponseSchema = WebOkSchema(
+  z.array(RerankModelOptionSchema).describe("可用的 rerank 模型列表。"),
+).describe("rerank 模型列表响应。");
+
+/** POST /web/knowledgeBases/:id/search — 检索测试请求体 */
+export const KnowledgeSearchBodySchema = z.object({
+  query: z.string().min(1).describe("检索查询文本。"),
+  similarityThreshold: z.number().min(0).max(1).optional().describe("相似度阈值，0~1，低于此分的 chunk 被过滤。"),
+  vectorSimilarityWeight: z.number().min(0).max(1).optional().describe("向量相似度权重，0~1，全文权重 = 1 - 此值。"),
+  rerankId: z.string().nullable().optional().describe("rerank 重排序模型 ID（三段式 name@instance@provider）。"),
+  keyword: z.boolean().optional().describe("是否启用关键词匹配增强。"),
+  highlight: z.boolean().optional().describe("是否返回高亮内容，默认 true。"),
+  pageSize: z.number().int().min(1).max(100).optional().describe("每页返回 chunk 数。"),
+  page: z.number().int().min(1).optional().describe("页码，从 1 开始。"),
+  topK: z.number().int().min(1).max(2048).optional().describe("Top K 候选数（选择 rerank 模型后可见），默认 1024。"),
+  useKg: z.boolean().optional().describe("是否启用知识图谱多跳检索。"),
+  crossLanguages: z.array(z.string()).optional().describe('跨语言检索目标语言列表，如 ["English","Chinese"]。'),
+  metaDataFilter: z
+    .object({
+      method: z.enum(["disabled", "auto", "semi_auto", "manual"]).describe("元数据过滤模式。"),
+      logic: z.string().optional().describe('手动模式下的条件组合逻辑："and" 或 "or"。'),
+      manual: z
+        .array(
+          z.object({
+            key: z.string().describe("元数据字段名。"),
+            op: z.string().describe("比较操作符，如 =、>、<、contains。"),
+            value: z.union([z.string(), z.array(z.string())]).describe("比较值。"),
+          }),
+        )
+        .optional()
+        .describe("手动模式下的筛选条件列表。"),
+      semi_auto: z
+        .array(z.union([z.string(), z.object({ key: z.string(), op: z.string().optional() })]))
+        .optional()
+        .describe("半自动模式下的元数据字段选择。"),
+    })
+    .optional()
+    .describe("元数据过滤配置（支持 4 种模式：disabled/auto/semi_auto/manual）。"),
+});
+
+/** 检索测试单个 chunk 的详细信息（含三种相似度分） */
+export const KnowledgeRetrievalChunkSchema = z.object({
+  chunkId: z.string().describe("chunk 远端 ID。"),
+  content: z.string().describe("chunk 原文内容。"),
+  documentName: z.string().describe("文档名。"),
+  documentId: z.string().describe("文档远端 ID。"),
+  datasetId: z.string().describe("知识库远端 ID（dataset_id）。"),
+  similarity: z.number().describe("混合相似度总分（向量 + 全文加权后）。"),
+  vectorSimilarity: z.number().nullable().optional().describe("向量相似度分。"),
+  termSimilarity: z.number().nullable().optional().describe("词项（全文）相似度分。"),
+  highlight: z.string().nullable().optional().describe("高亮内容（含 <em> 标签的 HTML）。"),
+  importantKeywords: z.array(z.string()).optional().describe("关键词标签。"),
+});
+
+/** 检索测试文档维度聚合项 */
+export const KnowledgeRetrievalDocAggSchema = z.object({
+  documentName: z.string().describe("文档名。"),
+  documentId: z.string().describe("文档远端 ID。"),
+  count: z.number().describe("该文档命中的 chunk 数。"),
+});
+
+/** 检索测试详细结果 */
+export const KnowledgeSearchResultDataSchema = z.object({
+  chunks: z.array(KnowledgeRetrievalChunkSchema).describe("命中的 chunk 列表。"),
+  total: z.number().describe("过阈值后的总命中数。"),
+  docAggs: z.array(KnowledgeRetrievalDocAggSchema).describe("文档维度聚合。"),
+});
+
+/** POST /web/knowledgeBases/:id/search — 检索测试响应 */
+export const KnowledgeSearchResponseSchema = WebOkSchema(
+  KnowledgeSearchResultDataSchema.describe("检索测试详细结果。"),
+).describe("检索测试响应。");
+
 export type KnowledgeBaseInfo = z.infer<typeof KnowledgeBaseInfoSchema>;
 export type KnowledgeResourceItem = z.infer<typeof KnowledgeResourceItemSchema>;
 export type CreateKnowledgeBaseRequest = z.infer<typeof CreateKnowledgeBaseRequestSchema>;
@@ -160,3 +242,8 @@ export type EmbeddingModelOption = z.infer<typeof EmbeddingModelOptionSchema>;
 export type ChunkMethodOption = z.infer<typeof ChunkMethodOptionSchema>;
 export type KnowledgePipelineOption = z.infer<typeof KnowledgePipelineOptionSchema>;
 export type KnowledgeParseMethod = z.infer<typeof KnowledgeParseMethodSchema>;
+export type RerankModelOption = z.infer<typeof RerankModelOptionSchema>;
+export type KnowledgeSearchBody = z.infer<typeof KnowledgeSearchBodySchema>;
+export type KnowledgeRetrievalChunk = z.infer<typeof KnowledgeRetrievalChunkSchema>;
+export type KnowledgeRetrievalDocAgg = z.infer<typeof KnowledgeRetrievalDocAggSchema>;
+export type KnowledgeSearchResultData = z.infer<typeof KnowledgeSearchResultDataSchema>;

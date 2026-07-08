@@ -84,11 +84,105 @@ export interface KnowledgeSearchResult {
   resourceId?: string | null;
 }
 
+/** rerank 重排序模型选项（检索测试用，结构与 EmbeddingModelOption 一致） */
+export interface RerankModelOption {
+  /** RagFlow 模型标识，三段式 name@instance@provider */
+  name: string;
+  /** 展示名 */
+  label: string;
+  /** 厂商名，用于分组展示 */
+  provider: string;
+  /** 实例名，用于分组展示 */
+  instance: string;
+}
+
+/** 检索测试场景下单个 chunk 的详细信息（保留 RAGFlow 返回的完整字段） */
+export interface KnowledgeRetrievalChunk {
+  /** chunk 远端 ID */
+  chunkId: string;
+  /** chunk 原文内容 */
+  content: string;
+  /** 文档名 */
+  documentName: string;
+  /** 文档远端 ID */
+  documentId: string;
+  /** 知识库远端 ID（dataset_id） */
+  datasetId: string;
+  /** 混合相似度总分（向量 + 全文加权后） */
+  similarity: number;
+  /** 向量相似度分（可能为空，取决于 RAGFlow 是否返回） */
+  vectorSimilarity?: number;
+  /** 词项（全文）相似度分（可能为空） */
+  termSimilarity?: number;
+  /** 高亮内容（含 <em> 标签的 HTML），无高亮时为空 */
+  highlight?: string;
+  /** 关键词标签 */
+  importantKeywords?: string[];
+}
+
+/** 检索测试文档维度聚合项，用于结果按文档筛选 */
+export interface KnowledgeRetrievalDocAgg {
+  documentName: string;
+  documentId: string;
+  /** 该文档命中的 chunk 数 */
+  count: number;
+}
+
+/** 元数据过滤 4 种模式：禁用 / 自动 / 半自动 / 手动 */
+export type MetaDataFilterMethod = "disabled" | "auto" | "semi_auto" | "manual";
+
+/** 元数据过滤手动条件项 */
+export interface MetaDataFilterCondition {
+  key: string;
+  op: string;
+  value: string | string[];
+}
+
+/** 元数据过滤配置（对应 RAGFlow meta_data_filter 字段） */
+export interface MetaDataFilter {
+  /** 过滤模式 */
+  method: MetaDataFilterMethod;
+  /** 手动模式下的条件组合逻辑：and / or */
+  logic?: string;
+  /** 手动模式：直接提供筛选条件 */
+  manual?: MetaDataFilterCondition[];
+  /** 半自动模式：指定的元数据字段名或字段+可选操作符约束 */
+  semi_auto?: Array<string | { key: string; op?: string }>;
+}
+
+/** 检索测试详细结果，由 searchDetailed() 返回 */
+export interface KnowledgeRetrievalDetailedResult {
+  chunks: KnowledgeRetrievalChunk[];
+  /** 过阈值后的总命中数 */
+  total: number;
+  /** 文档维度聚合 */
+  docAggs: KnowledgeRetrievalDocAgg[];
+}
+
 export interface KnowledgeResourceContent {
   resourceId: string;
   title?: string | null;
   content: string;
   source?: string | null;
+}
+
+/** 知识图谱节点 */
+export interface KnowledgeGraphNode {
+  id: string;
+  name: string;
+  label?: string;
+  entity_type?: string;
+  weight?: number;
+  description?: string;
+}
+
+/** 知识图谱边 */
+export interface KnowledgeGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  weight?: number;
+  description?: string;
 }
 
 export interface KnowledgeProvider {
@@ -112,6 +206,11 @@ export interface KnowledgeProvider {
    * 实现应在上游不可用时返回空数组，避免阻断表单渲染。
    */
   listEmbeddingModels(): Promise<EmbeddingModelOption[]>;
+  /**
+   * 列出上游可用的 rerank 重排序模型，供检索测试选择。
+   * 上游不可用时返回空数组。
+   */
+  listRerankModels(): Promise<RerankModelOption[]>;
   /**
    * 列出上游可用的自定义解析 pipeline（best-effort）。
    * 不支持 pipeline 的上游或调用失败时返回空数组。
@@ -170,7 +269,77 @@ export interface KnowledgeProvider {
     }>;
     query: string;
     topK: number;
+    /** 相似度阈值，0~1，低于此分的 chunk 被过滤；缺省时由 RagFlow 用默认值（0.2） */
+    similarityThreshold?: number;
+    /** 向量相似度权重，0~1，全文权重 = 1 - 此值；缺省时由 RagFlow 用默认值（0.3） */
+    vectorSimilarityWeight?: number;
+    /** rerank 重排序模型 ID（三段式 name@instance@provider）；不传则不做 rerank */
+    rerankId?: string | null;
+    /** 是否用 LLM 抽取 query 关键词增强检索 */
+    keyword?: boolean;
+    /** 是否返回 highlight 高亮字段 */
+    highlight?: boolean;
+    /** 每页返回 chunk 数 */
+    pageSize?: number;
+    /** 页码，从 1 开始 */
+    page?: number;
+    /** 是否启用知识图谱多跳检索 */
+    useKg?: boolean;
+    /** 跨语言检索：将 query 翻译为这些语言后拼接检索 */
+    crossLanguages?: string[];
+    /** 元数据过滤配置（支持 4 种模式：disabled/auto/semi_auto/manual） */
+    metaDataFilter?: MetaDataFilter;
   }): Promise<KnowledgeSearchResult[]>;
+  /**
+   * 检索测试专用：返回保留 RAGFlow 完整字段的详细结果（三种相似度、高亮、文档聚合）。
+   * 供知识库详情页检索测试 UI 使用，不影响 agent 检索链路。
+   */
+  searchDetailed(input: {
+    knowledgeBases: Array<{
+      remoteId: string;
+      remoteAccountId: string;
+      remoteUserId: string;
+    }>;
+    query: string;
+    topK: number;
+    similarityThreshold?: number;
+    vectorSimilarityWeight?: number;
+    rerankId?: string | null;
+    keyword?: boolean;
+    highlight?: boolean;
+    pageSize?: number;
+    page?: number;
+    /** 是否启用知识图谱多跳检索 */
+    useKg?: boolean;
+    /** 跨语言检索：将 query 翻译为这些语言后拼接检索 */
+    crossLanguages?: string[];
+    /** 元数据过滤配置（支持 4 种模式：disabled/auto/semi_auto/manual） */
+    metaDataFilter?: MetaDataFilter;
+  }): Promise<KnowledgeRetrievalDetailedResult>;
+  /** 生成知识图谱（触发后台 GraphRAG 流水线） */
+  generateKnowledgeGraph(input: {
+    knowledgeBaseRemoteId: string;
+    remoteAccountId: string;
+    remoteUserId: string;
+  }): Promise<void>;
+  /** 获取知识图谱数据（节点 + 边），不存在时返回 null */
+  getKnowledgeGraph(input: {
+    knowledgeBaseRemoteId: string;
+    remoteAccountId: string;
+    remoteUserId: string;
+  }): Promise<{ graph: { nodes: KnowledgeGraphNode[]; edges: KnowledgeGraphEdge[] }; mind_map?: unknown } | null>;
+  /** 删除知识图谱 */
+  deleteKnowledgeGraph(input: {
+    knowledgeBaseRemoteId: string;
+    remoteAccountId: string;
+    remoteUserId: string;
+  }): Promise<void>;
+  /** 轮询知识图谱生成进度，返回 0~1 的进度值 */
+  pollKnowledgeGraphProgress(input: {
+    knowledgeBaseRemoteId: string;
+    remoteAccountId: string;
+    remoteUserId: string;
+  }): Promise<{ progress: number; progressMsg?: string; taskId?: string }>;
   readResource(input: {
     resourceRemoteId: string;
     knowledgeBaseRemoteId: string;

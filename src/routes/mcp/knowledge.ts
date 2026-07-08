@@ -5,7 +5,11 @@ import * as z from "zod/v4";
 import { errorResponse } from "../../plugins/auth";
 import { McpKnowledgeAuthHeadersSchema } from "../../schemas";
 import { getEnvironmentBySecret } from "../../services/environment";
-import { readKnowledgeResourceForAgent, searchKnowledgeByConfigId } from "../../services/knowledge-runtime";
+import {
+  getKnowledgeGraphForAgent,
+  readKnowledgeResourceForAgent,
+  searchKnowledgeDetailedForAgent,
+} from "../../services/knowledge-runtime";
 
 function getBearerToken(headerValue: string | undefined): string | null {
   if (!headerValue) return null;
@@ -26,20 +30,75 @@ function createKnowledgeMcpServer(environment: {
   server.registerTool(
     "kb_search",
     {
-      description: "Searches the agent's bound knowledge bases.",
+      description:
+        "在 Agent 绑定的知识库中进行语义检索。支持相似度阈值、向量/关键词权重、Rerank 重排序、跨语言检索、知识图谱增强检索、元数据过滤等高级参数。",
       inputSchema: {
-        query: z.string().min(1),
-        topK: z.number().int().min(1).max(20).optional(),
+        query: z.string().min(1).describe("检索查询文本，支持自然语言。"),
+        topK: z.number().int().min(1).max(50).optional().describe("返回的 top 结果数量，默认 5，最大 50。"),
+        similarityThreshold: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe("相似度阈值 (0~1)，低于此值的 chunk 被过滤，默认 0.2。"),
+        vectorSimilarityWeight: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe("向量检索权重 (0~1)，关键词权重 = 1 - 此值，默认 0.3。"),
+        rerankId: z
+          .string()
+          .optional()
+          .describe("Rerank 重排序模型 ID，格式为 <name>@<instance>@<provider>，不传则不进行重排序。"),
+        keyword: z.boolean().optional().describe("是否启用 LLM 关键词提取增强检索，默认 false。"),
+        useKg: z.boolean().optional().describe("是否启用知识图谱多跳增强检索，默认 false。"),
+        crossLanguages: z
+          .array(z.string())
+          .optional()
+          .describe("跨语言检索目标语言列表，如 ['Chinese','English','Japanese']，将 query 翻译后拼接检索。"),
+        metaDataFilter: z
+          .object({
+            method: z
+              .enum(["disabled", "auto", "semi_auto", "manual"])
+              .describe("过滤模式：disabled=禁用，auto=自动，semi_auto=半自动，manual=手动"),
+            logic: z.string().optional().describe("手动模式下的条件组合逻辑：and / or"),
+            manual: z
+              .array(
+                z.object({
+                  key: z.string(),
+                  op: z.string(),
+                  value: z.union([z.string(), z.array(z.string())]),
+                }),
+              )
+              .optional()
+              .describe("手动模式下的过滤条件列表"),
+            semi_auto: z
+              .array(z.union([z.string(), z.object({ key: z.string(), op: z.string().optional() })]))
+              .optional()
+              .describe("半自动模式下指定的元数据字段"),
+          })
+          .optional()
+          .describe("元数据过滤配置，支持 4 种模式。manual 模式需提供 key/op/value 条件数组。"),
       },
     },
-    async ({ query, topK }) => {
+    async (params) => {
       if (!environment.agentConfigId) {
         throw new Error("Environment agent is not configured");
       }
-      const results = await searchKnowledgeByConfigId({
+      const results = await searchKnowledgeDetailedForAgent({
         agentConfigId: environment.agentConfigId,
-        query,
-        topK: topK ?? 5,
+        query: params.query,
+        topK: params.topK ?? 5,
+        similarityThreshold: params.similarityThreshold,
+        vectorSimilarityWeight: params.vectorSimilarityWeight,
+        rerankId: params.rerankId,
+        keyword: params.keyword,
+        useKg: params.useKg,
+        crossLanguages: params.crossLanguages,
+        metaDataFilter: params.metaDataFilter as Parameters<
+          typeof searchKnowledgeDetailedForAgent
+        >[0]["metaDataFilter"],
       });
       return {
         content: [{ type: "text", text: JSON.stringify({ results }) }],
@@ -51,9 +110,10 @@ function createKnowledgeMcpServer(environment: {
   server.registerTool(
     "kb_read",
     {
-      description: "Reads a knowledge resource already bound to the agent.",
+      description:
+        "读取 Agent 已绑定知识库中的指定资源（文档）的完整内容。需要提供资源的本地 ID（resourceId），该 ID 可从 kb_search 返回结果的 resourceId 字段获取。",
       inputSchema: {
-        resourceId: z.string().min(1),
+        resourceId: z.string().min(1).describe("知识库资源的本地 ID，来自 kb_search 结果中的 resourceId。"),
       },
     },
     async ({ resourceId }) => {
@@ -65,6 +125,40 @@ function createKnowledgeMcpServer(environment: {
         resourceId,
         userId: environment.userId ?? undefined,
       });
+      return {
+        content: [{ type: "text", text: JSON.stringify(result) }],
+        structuredContent: result as unknown as Record<string, unknown>,
+      };
+    },
+  );
+
+  server.registerTool(
+    "kb_graph_get",
+    {
+      description:
+        "获取 Agent 绑定知识库的知识图谱数据，包含实体节点（nodes）和关系边（edges）。若未指定 knowledgeBaseId，则返回第一个有图谱的绑定知识库的数据。节点含 id/name/entity_type/weight/description，边含 id/source/target/weight/description。",
+      inputSchema: {
+        knowledgeBaseId: z
+          .string()
+          .optional()
+          .describe(
+            "知识库 ID，不传则返回第一个有图谱的绑定知识库。可通过 kb_list_knowledge_bases 获取可用的知识库 ID。",
+          ),
+      },
+    },
+    async ({ knowledgeBaseId }) => {
+      if (!environment.agentConfigId) {
+        throw new Error("Environment agent is not configured");
+      }
+      const result = await getKnowledgeGraphForAgent({
+        agentConfigId: environment.agentConfigId,
+        knowledgeBaseId,
+      });
+      if (!result) {
+        return {
+          content: [{ type: "text", text: "未找到知识图谱数据。请先在知识库中生成知识图谱。" }],
+        };
+      }
       return {
         content: [{ type: "text", text: JSON.stringify(result) }],
         structuredContent: result as unknown as Record<string, unknown>,
@@ -107,7 +201,12 @@ app.all(
       tags: ["Knowledge"],
       summary: "Agent 知识库 MCP 服务入口",
       description:
-        "提供给底层 Agent 运行时调用的内部 MCP Streamable HTTP 服务入口。调用方需通过 `Authorization: Bearer <environment_secret>` 鉴权。当前暴露两个 MCP tools：`kb_search`（输入 `{ query, topK? }`，在 Agent 绑定知识库中检索）和 `kb_read`（输入 `{ resourceId }`，读取已绑定知识资源内容）。该接口为 MCP 协议入口，不按普通 REST 响应建模，因此在公开文档中隐藏。",
+        "提供给底层 Agent 运行时调用的内部 MCP Streamable HTTP 服务入口。调用方需通过 `Authorization: Bearer <environment_secret>` 鉴权。" +
+        "暴露 3 个 MCP tools：" +
+        "`kb_search`（语义检索，支持相似度阈值/向量权重/Rerank/跨语言/知识图谱增强/元数据过滤）；" +
+        "`kb_read`（读取绑定知识资源完整内容）；" +
+        "`kb_graph_get`（获取知识图谱节点和边数据）。" +
+        "该接口为 MCP 协议入口，不按普通 REST 响应建模，因此在公开文档中隐藏。",
     },
   },
 );

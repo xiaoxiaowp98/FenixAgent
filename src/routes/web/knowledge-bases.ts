@@ -18,6 +18,9 @@ import {
   KnowledgeFormOptionsSchema,
   KnowledgeResourceItemSchema,
   KnowledgeResourceListResponseSchema,
+  KnowledgeSearchBodySchema,
+  KnowledgeSearchResponseSchema,
+  RerankModelsResponseSchema,
   UpdateKnowledgeBaseRequestSchema,
   UploadKnowledgeResourcesResponseSchema,
 } from "../../schemas/knowledge.schema";
@@ -30,6 +33,14 @@ import {
   updateKnowledgeBase,
 } from "../../services/knowledge-base";
 import { getKnowledgeProvider } from "../../services/knowledge-provider/registry";
+import {
+  deleteKnowledgeGraphForKb,
+  generateKnowledgeGraphForKb,
+  getKnowledgeGraphForKb,
+  listRerankModelsForOrg,
+  pollKnowledgeGraphProgressForKb,
+  searchKnowledgeForTest,
+} from "../../services/knowledge-runtime";
 import {
   deleteKnowledgeResource,
   importKnowledgeResourceFromUrl,
@@ -177,6 +188,9 @@ const app = new Elysia({ name: "web-knowledge-bases" }).use(authGuardPlugin).mod
   "import-knowledge-url-response": ImportKnowledgeUrlResponseSchema,
   "knowledge-form-options": KnowledgeFormOptionsSchema,
   "knowledge-form-options-response": KnowledgeFormOptionsResponseSchema,
+  "knowledge-search-body": KnowledgeSearchBodySchema,
+  "knowledge-search-response": KnowledgeSearchResponseSchema,
+  "rerank-models-response": RerankModelsResponseSchema,
   "delete-knowledge-base-response": WebOkSchema(z.null()).describe("删除知识库后的成功响应。"),
   "delete-knowledge-resource-response": WebOkSchema(z.null()).describe("删除知识资源后的成功响应。"),
 });
@@ -274,6 +288,25 @@ app.get(
       summary: "获取知识库创建表单可选项",
       description:
         "返回创建知识库表单所需的嵌入模型、内置分块方法与可选 pipeline 列表。嵌入模型与 pipeline 动态拉取自 RagFlow，上游不可用时对应字段返回空数组。",
+    },
+  },
+);
+
+app.get(
+  "/knowledgeBases/rerank-models",
+  async () => {
+    // rerank 模型是 RagFlow 租户级配置，与组织无关；仅需登录态访问
+    const data = await listRerankModelsForOrg();
+    return { success: true as const, data };
+  },
+  {
+    sessionAuth: true,
+    response: "rerank-models-response",
+    detail: {
+      tags: ["Knowledge"],
+      summary: "获取检索测试可用的 rerank 模型列表",
+      description:
+        "返回当前 RagFlow 租户下已配置的 rerank 重排序模型，供知识库检索测试选择重排序模型。上游不可用时返回空数组。",
     },
   },
 );
@@ -758,6 +791,169 @@ app.delete(
       summary: "删除知识资源",
       description: "删除指定知识库下的单个资源记录及其远端资源。",
     },
+  },
+);
+
+app.post(
+  "/knowledgeBases/:id/search",
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation with sessionAuth + body model
+  async ({ store, params, body, error }: any) => {
+    const authCtx = store.authContext!;
+    const id = params.id;
+    const payload = body as {
+      query: string;
+      similarityThreshold?: number;
+      vectorSimilarityWeight?: number;
+      rerankId?: string | null;
+      keyword?: boolean;
+      highlight?: boolean;
+      pageSize?: number;
+      page?: number;
+      topK?: number;
+      useKg?: boolean;
+      crossLanguages?: string[];
+      metaDataFilter?: import("../../services/knowledge-provider/types").MetaDataFilter;
+    };
+
+    try {
+      // topK 取一个合理上限（与 RAGFlow 默认 1024 一致），检索测试不暴露此参数
+      const result = await searchKnowledgeForTest({
+        organizationId: authCtx.organizationId,
+        knowledgeBaseId: id,
+        query: payload.query,
+        topK: payload.topK ?? 1024,
+        similarityThreshold: payload.similarityThreshold,
+        vectorSimilarityWeight: payload.vectorSimilarityWeight,
+        rerankId: payload.rerankId,
+        keyword: payload.keyword,
+        highlight: payload.highlight,
+        pageSize: payload.pageSize,
+        page: payload.page,
+        useKg: payload.useKg,
+        crossLanguages: payload.crossLanguages,
+        metaDataFilter: payload.metaDataFilter,
+      });
+      return { success: true as const, data: result };
+    } catch (err) {
+      console.error("[knowledge-bases] search failed", { knowledgeBaseId: id, err });
+      const message = err instanceof Error ? err.message : "知识库检索测试失败";
+      // 知识库不存在或归属校验失败返回 404，其余上游异常返回 502
+      const isNotFound = message.includes("not found");
+      const code = isNotFound ? 404 : 502;
+      const errCode = isNotFound ? "NOT_FOUND" : "KNOWLEDGE_PROVIDER_ERROR";
+      return error(code, { success: false, error: { code: errCode, message } });
+    }
+  },
+  {
+    sessionAuth: true,
+    body: "knowledge-search-body",
+    response: {
+      200: "knowledge-search-response",
+      404: WebErrSchema,
+      502: WebErrSchema,
+    },
+    detail: {
+      tags: ["Knowledge"],
+      summary: "知识库检索测试",
+      description:
+        "对指定知识库执行检索测试，返回命中的 chunk 列表（含三种相似度分、高亮）、总命中数与文档维度聚合。支持相似度阈值、向量/全文权重、rerank 模型、关键词匹配等核心参数。",
+    },
+  },
+);
+
+// ============================================================
+// 知识图谱
+// ============================================================
+
+app.post(
+  "/knowledgeBases/:id/graph/generate",
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation
+  async ({ store, params, error }: any) => {
+    const authCtx = store.authContext!;
+    try {
+      await generateKnowledgeGraphForKb({
+        organizationId: authCtx.organizationId,
+        knowledgeBaseId: params.id,
+      });
+      return { success: true as const, data: null };
+    } catch (err) {
+      console.error("[knowledge-bases] graph generate failed", { knowledgeBaseId: params.id, err });
+      const message = err instanceof Error ? err.message : "知识图谱生成失败";
+      return error(502, { success: false, error: { code: "KNOWLEDGE_PROVIDER_ERROR", message } });
+    }
+  },
+  {
+    sessionAuth: true,
+    detail: { tags: ["Knowledge"], summary: "生成知识图谱", description: "触发知识库的 GraphRAG 知识图谱生成流水线。" },
+  },
+);
+
+app.get(
+  "/knowledgeBases/:id/graph",
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation
+  async ({ store, params, error }: any) => {
+    const authCtx = store.authContext!;
+    try {
+      const result = await getKnowledgeGraphForKb({
+        organizationId: authCtx.organizationId,
+        knowledgeBaseId: params.id,
+      });
+      return { success: true as const, data: result };
+    } catch (err) {
+      console.error("[knowledge-bases] graph get failed", { knowledgeBaseId: params.id, err });
+      const message = err instanceof Error ? err.message : "获取知识图谱失败";
+      return error(502, { success: false, error: { code: "KNOWLEDGE_PROVIDER_ERROR", message } });
+    }
+  },
+  {
+    sessionAuth: true,
+    detail: { tags: ["Knowledge"], summary: "获取知识图谱", description: "获取知识库的知识图谱数据（节点 + 边）。" },
+  },
+);
+
+app.delete(
+  "/knowledgeBases/:id/graph",
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation
+  async ({ store, params, error }: any) => {
+    const authCtx = store.authContext!;
+    try {
+      await deleteKnowledgeGraphForKb({
+        organizationId: authCtx.organizationId,
+        knowledgeBaseId: params.id,
+      });
+      return { success: true as const, data: null };
+    } catch (err) {
+      console.error("[knowledge-bases] graph delete failed", { knowledgeBaseId: params.id, err });
+      const message = err instanceof Error ? err.message : "删除知识图谱失败";
+      return error(502, { success: false, error: { code: "KNOWLEDGE_PROVIDER_ERROR", message } });
+    }
+  },
+  {
+    sessionAuth: true,
+    detail: { tags: ["Knowledge"], summary: "删除知识图谱", description: "删除知识库的知识图谱数据。" },
+  },
+);
+
+app.get(
+  "/knowledgeBases/:id/graph/progress",
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation
+  async ({ store, params, error }: any) => {
+    const authCtx = store.authContext!;
+    try {
+      const result = await pollKnowledgeGraphProgressForKb({
+        organizationId: authCtx.organizationId,
+        knowledgeBaseId: params.id,
+      });
+      return { success: true as const, data: result };
+    } catch (err) {
+      console.error("[knowledge-bases] graph progress failed", { knowledgeBaseId: params.id, err });
+      const message = err instanceof Error ? err.message : "查询图谱进度失败";
+      return error(502, { success: false, error: { code: "KNOWLEDGE_PROVIDER_ERROR", message } });
+    }
+  },
+  {
+    sessionAuth: true,
+    detail: { tags: ["Knowledge"], summary: "查询图谱生成进度", description: "轮询知识图谱生成任务进度。" },
   },
 );
 

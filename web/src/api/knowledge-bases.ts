@@ -11,7 +11,10 @@ import type {
   KnowledgeFormOptions,
   KnowledgeParseMethod,
   KnowledgeResourceInfo,
+  KnowledgeSearchBody,
+  KnowledgeSearchResultData,
   KnowledgeUploadResponse,
+  RerankModelOption,
 } from "../types/knowledge";
 import { request } from "./request";
 
@@ -109,4 +112,40 @@ export const kbApi = {
   /** 构造 Office 资源 PDF 转换预览 URL */
   getPdfUrl: (params: { kbId: string; resourceId: string }) =>
     `/web/knowledgeBases/${encodeURIComponent(params.kbId)}/resources/${encodeURIComponent(params.resourceId)}/pdf`,
+
+  /** 检索测试：对指定知识库执行检索，返回命中的 chunk 列表与文档聚合 */
+  search: (params: { id: string }, body: KnowledgeSearchBody) =>
+    request<KnowledgeSearchResultData>("/web/knowledgeBases/:id/search", {
+      method: "POST",
+      params,
+      body,
+    }),
+
+  /** 获取检索测试可用的 rerank 重排序模型列表 */
+  listRerankModels: () => request<RerankModelOption[]>("/web/knowledgeBases/rerank-models", { method: "GET" }),
+
+  // ============================================================
+  // 知识图谱
+  // ============================================================
+
+  /** 生成知识图谱（触发后台 GraphRAG 流水线） */
+  generateGraph: (params: { id: string }) =>
+    request<null>("/web/knowledgeBases/:id/graph/generate", { method: "POST", params }),
+
+  /** 获取知识图谱数据 */
+  getGraph: (params: { id: string }) =>
+    request<import("../types/knowledge").KnowledgeGraphData | null>("/web/knowledgeBases/:id/graph", {
+      method: "GET",
+      params,
+    }),
+
+  /** 删除知识图谱 */
+  deleteGraph: (params: { id: string }) => request<null>("/web/knowledgeBases/:id/graph", { method: "DELETE", params }),
+
+  /** 轮询知识图谱生成进度 */
+  getGraphProgress: (params: { id: string }) =>
+    request<import("../types/knowledge").KnowledgeGraphProgress>("/web/knowledgeBases/:id/graph/progress", {
+      method: "GET",
+      params,
+    }),
 };

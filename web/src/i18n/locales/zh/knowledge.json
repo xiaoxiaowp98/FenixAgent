@@ -57,7 +57,9 @@
     "started": "重新解析已触发",
     "failed": "重新解析失败",
     "confirmTitle": "重新解析文档",
-    "confirmDescription": "是否删除「{{name}}」已有的分块数据再重新解析？\n\n· 删除后重新解析：清空旧分块，以当前解析配置重新切分\n· 保留后重新解析：在现有分块基础上增量解析"
+    "confirmDescription": "将使用当前解析配置重新处理 \"{{name}}\"。",
+    "deleteCheckbox": "删除已有分块数据后重新解析",
+    "startBtn": "开始解析"
   },
   "resources": {
     "title": "资源（{{count}}）",

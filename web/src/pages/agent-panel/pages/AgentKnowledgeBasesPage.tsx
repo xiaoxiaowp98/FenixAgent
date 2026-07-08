@@ -27,7 +27,17 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/config/ConfirmDialog";
 import { FormDialog } from "@/components/config/FormDialog";
 import { ResourcePreviewDialog } from "@/components/knowledge/ResourcePreviewDialog";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -192,6 +202,7 @@ export function AgentKnowledgeBasesPage() {
   const [reparsingResourceId, setReparsingResourceId] = useState<string | null>(null);
   const [reparseTarget, setReparseTarget] = useState<KnowledgeResourceInfo | null>(null);
   const [reparseConfirmOpen, setReparseConfirmOpen] = useState(false);
+  const [reparseDeleteOld, setReparseDeleteOld] = useState(false);
   const [previewResource, setPreviewResource] = useState<KnowledgeResourceInfo | null>(null);
   // 表单字段
   const [formName, setFormName] = useState("");
@@ -692,7 +703,7 @@ export function AgentKnowledgeBasesPage() {
                   <div className="w-[100px] shrink-0">{t("resources.colStatus")}</div>
                   <div className="w-[80px] shrink-0 text-center">{t("resources.colEnabled")}</div>
                   <div className="w-[130px] shrink-0">{t("columns.updatedAt")}</div>
-                  <div className="w-[80px] shrink-0 text-right">{t("resources.colActions")}</div>
+                  <div className="w-[200px] shrink-0 text-right">{t("resources.colActions")}</div>
                 </div>
 
                 {/* 表格行 */}
@@ -756,44 +767,47 @@ export function AgentKnowledgeBasesPage() {
                       </div>
 
                       {/* 操作 */}
-                      <div className="w-[110px] shrink-0 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="w-[200px] shrink-0 flex items-center justify-end gap-2">
                         <Button
                           size="xs"
-                          variant="ghost"
-                          className="h-7 w-7 p-0 text-[#94a3b8] hover:text-[#1677ff]"
-                          title={t("reparse.btn")}
+                          variant="outline"
+                          className="h-7 gap-1 rounded-md border-[#dbe1ea] px-2 text-[11px] text-[#1677ff] hover:border-[#1677ff] hover:bg-[#e8f4ff] shrink-0"
                           disabled={reparsingResourceId === r.id}
                           onClick={() => {
+                            setReparseDeleteOld(false);
                             setReparseTarget(r);
                             setReparseConfirmOpen(true);
                           }}
                         >
-                          <RefreshCw className={`h-3.5 w-3.5 ${reparsingResourceId === r.id ? "animate-spin" : ""}`} />
+                          <RefreshCw className={`h-3 w-3 ${reparsingResourceId === r.id ? "animate-spin" : ""}`} />
+                          {t("reparse.btn")}
                         </Button>
-                        {r.status === "ready" && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {r.status === "ready" && (
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-[#94a3b8] hover:text-[#1677ff]"
+                              title={t("preview.btn")}
+                              onClick={() => setPreviewResource(r)}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           <Button
                             size="xs"
                             variant="ghost"
-                            className="h-7 w-7 p-0 text-[#94a3b8] hover:text-[#1677ff]"
-                            title={t("preview.btn")}
-                            onClick={() => setPreviewResource(r)}
+                            className="h-7 w-7 p-0 text-[#94a3b8] hover:text-red-500"
+                            title={t("actions.delete")}
+                            disabled={deletingResourceId === r.id}
+                            onClick={() => {
+                              setDeletingResourceId(r.id);
+                              runDeleteResource(selectedId!, r.id);
+                            }}
                           >
-                            <ExternalLink className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                        )}
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          className="h-7 w-7 p-0 text-[#94a3b8] hover:text-red-500"
-                          title={t("actions.delete")}
-                          disabled={deletingResourceId === r.id}
-                          onClick={() => {
-                            setDeletingResourceId(r.id);
-                            runDeleteResource(selectedId!, r.id);
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1026,44 +1040,51 @@ export function AgentKnowledgeBasesPage() {
         }}
       />
 
-      {/* 重新解析确认：让用户选择是否删除已有分块 */}
-      <ConfirmDialog
-        open={reparseConfirmOpen}
-        onOpenChange={setReparseConfirmOpen}
-        title={t("reparse.confirmTitle")}
-        description={t("reparse.confirmDescription", { name: reparseTarget?.sourceName ?? "" })}
-        variant="default"
-        onConfirm={() => {
-          if (!reparseTarget || !selectedId) return;
-          setReparseConfirmOpen(false);
-          setReparsingResourceId(reparseTarget.id);
-          kbApi
-            .reparseResource({ kbId: selectedId, resourceId: reparseTarget.id }, { delete: true })
-            .then(() => {
-              toast.success(t("reparse.started"));
-              reparseAndPoll(selectedId, reparseTarget.id);
-            })
-            .catch((err) => {
-              toast.error(err instanceof Error ? err.message : t("reparse.failed"));
-              setReparsingResourceId(null);
-            });
-        }}
-        onCancel={() => {
-          if (!reparseTarget || !selectedId) return;
-          setReparseConfirmOpen(false);
-          setReparsingResourceId(reparseTarget.id);
-          kbApi
-            .reparseResource({ kbId: selectedId, resourceId: reparseTarget.id }, { delete: false })
-            .then(() => {
-              toast.success(t("reparse.started"));
-              reparseAndPoll(selectedId, reparseTarget.id);
-            })
-            .catch((err) => {
-              toast.error(err instanceof Error ? err.message : t("reparse.failed"));
-              setReparsingResourceId(null);
-            });
-        }}
-      />
+      {/* 重新解析确认：checkbox 选择是否删除已有分块 */}
+      <AlertDialog open={reparseConfirmOpen} onOpenChange={setReparseConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("reparse.confirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("reparse.confirmDescription", { name: reparseTarget?.sourceName ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex items-center gap-2 py-2">
+            <Checkbox
+              id="reparse-delete"
+              checked={reparseDeleteOld}
+              onCheckedChange={(v) => setReparseDeleteOld(!!v)}
+            />
+            <label htmlFor="reparse-delete" className="text-[13px] cursor-pointer">
+              {t("reparse.deleteCheckbox")}
+            </label>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setReparseDeleteOld(false)}>{t("common:cancel")}</AlertDialogCancel>
+            <Button
+              onClick={() => {
+                if (!reparseTarget || !selectedId) return;
+                setReparseConfirmOpen(false);
+                setReparsingResourceId(reparseTarget.id);
+                kbApi
+                  .reparseResource({ kbId: selectedId, resourceId: reparseTarget.id }, { delete: reparseDeleteOld })
+                  .then(() => {
+                    toast.success(t("reparse.started"));
+                    reparseAndPoll(selectedId, reparseTarget.id);
+                    setReparseDeleteOld(false);
+                  })
+                  .catch((err) => {
+                    toast.error(err instanceof Error ? err.message : t("reparse.failed"));
+                    setReparsingResourceId(null);
+                    setReparseDeleteOld(false);
+                  });
+              }}
+            >
+              {t("reparse.startBtn")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {previewResource && selectedId && (
         <ResourcePreviewDialog

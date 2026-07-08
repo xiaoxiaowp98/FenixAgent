@@ -408,6 +408,45 @@ export function VideoPlayerCard({ url, mimeType }: { url: string; mimeType: stri
   );
 }
 
+/** 单个图片预览器：文件名标签 + 图片，加载失败叠加半透明遮罩。样式与 VideoPlayerCard 保持一致 */
+export function ImagePreviewCard({ url }: { url: string }) {
+  const [error, setError] = useState(false);
+  const fileName = url.split("/").pop()?.split("?")[0] ?? url;
+
+  // 外部图片走后端代理，绕过浏览器 Referer 防盗链拦截
+  const proxyUrl =
+    url.startsWith("http://") || url.startsWith("https://") ? `/web/proxy/image?url=${encodeURIComponent(url)}` : url;
+
+  return (
+    <div>
+      <p className="text-[12px] text-text-muted mb-1 truncate" title={url}>
+        🖼️ {fileName}
+      </p>
+      <div className="relative inline-block rounded-lg overflow-hidden" style={{ maxWidth: "100%" }}>
+        <img
+          src={proxyUrl}
+          alt={fileName}
+          loading="lazy"
+          onError={() => setError(true)}
+          className="block max-w-full rounded-lg"
+          style={{ maxHeight: 400, objectFit: "contain", display: error ? "none" : "block" }}
+        />
+        {error && (
+          <div
+            className="flex items-center justify-center bg-muted rounded-lg pointer-events-none"
+            style={{ minHeight: 120, minWidth: 200 }}
+          >
+            <div className="flex flex-col items-center gap-1 text-text-muted">
+              <AlertCircle className="h-6 w-6" />
+              <span className="text-[12px]">图片无法加载（链接无效或防盗链拦截）</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export type MessageResponseProps = {
   children?: string;
   className?: string;
@@ -444,14 +483,23 @@ export const MessageResponse = memo(
     // 合并注册表中已注册的组件到 streamdown components
     const components = useMemo((): Components => {
       const base = {
-        img: ({ src, alt, ...rest }: Record<string, unknown>) => (
-          <img
-            src={src as string}
-            alt={(alt as string) || ""}
-            style={{ maxWidth: "100%", maxHeight: "50vh", objectFit: "contain" }}
-            {...Object.fromEntries(Object.entries(rest).filter(([k]) => !["children", "node"].includes(k)))}
-          />
-        ),
+        img: ({ src, alt, ...rest }: Record<string, unknown>) => {
+          const rawSrc = (src as string) || "";
+          // 外部图片走后端代理，绕过 Referer 防盗链（与 ImagePreviewCard 一致）
+          const imgSrc =
+            rawSrc.startsWith("http://") || rawSrc.startsWith("https://")
+              ? `/web/proxy/image?url=${encodeURIComponent(rawSrc)}`
+              : rawSrc;
+          return (
+            <img
+              src={imgSrc}
+              alt={(alt as string) || ""}
+              loading="lazy"
+              style={{ maxWidth: "100%", maxHeight: "50vh", objectFit: "contain" }}
+              {...Object.fromEntries(Object.entries(rest).filter(([k]) => !["children", "node"].includes(k)))}
+            />
+          );
+        },
         iframe: (props: Record<string, unknown>) => <IframePreview {...props} />,
         // 保留默认链接渲染，确保正文中的链接正常显示
         a: ({ href, children, ...rest }: Record<string, unknown>) => (
@@ -486,9 +534,25 @@ export const MessageResponse = memo(
       return result;
     }, [children]);
 
-    // 预处理正文，确保视频链接不丢失：
-    // 1. Agent 有时返回 <video src="url"> HTML 标签，而 streamdown 的 allowedTags 不含 video，
-    //    整个标签会被过滤掉，导致“视频链接”一行变成空白。这里把标签替换为裸 URL，保持原位。
+    // 从消息文本中提取图片 URL（.jpg/.png/.gif/.webp 等），与视频同理：保留链接在正文中，预览器放最下方
+    const imageUrls = useMemo(() => {
+      if (!children) return [];
+      const regex = /https?:\/\/[^\s<>"']+\.(png|jpe?g|gif|webp|bmp|svg|avif)(\?[^\s<>"']*)?/gi;
+      const seen = new Set<string>();
+      const result: string[] = [];
+      for (const match of children.matchAll(regex)) {
+        const url = match[0];
+        if (!seen.has(url)) {
+          seen.add(url);
+          result.push(url);
+        }
+      }
+      return result;
+    }, [children]);
+
+    // 预处理正文，确保视频/图片链接不丢失：
+    // 1. Agent 有时返回 <video src="url"> / <img src="url"> HTML 标签，streamdown 的 allowedTags 不含二者，
+    //    整个标签会被过滤掉，导致链接所在行变成空白。这里把标签替换为裸 URL，保持原位。
     // 2. 再把裸 URL（含中文标点紧贴的情况）转为 markdown 链接，确保渲染为可点击链接。
     const processedChildren = useMemo(() => {
       if (!children) return children;
@@ -498,6 +562,8 @@ export const MessageResponse = memo(
         /<video\b[^>]*?\bsrc=["']([^"']+)["'][^>]*?\/?>(?:\s*<\/video>)?/gi,
         (_m, url: string) => `\n\n${url}\n\n`,
       );
+      // 步骤 1.5：提取 <img ... src="url" ...> 的 src，替换为裸 URL（同理，兼容自闭合标签）
+      text = text.replace(/<img\b[^>]*?\bsrc=["']([^"']+)["'][^>]*?\/?>/gi, (_m, url: string) => `\n\n${url}\n\n`);
       // 步骤 2：裸 URL → markdown 链接。负向后行断言排除 markdown 链接 ](url) / HTML 属性 ="url" 中已有的，
       // 避免重复包装破坏既有语法。字符集取 RFC 3986 合法字符（不含 []() 引号）。
       text = text.replace(/(?<!['"(])(https?:\/\/[A-Za-z0-9\-._~:/?#@!$&'*+,;=%]+)/g, (url) => `[${url}](${url})`);
@@ -526,6 +592,14 @@ export const MessageResponse = memo(
           >
             {processedChildren ?? children}
           </LazyStreamdown>
+          {/* 图片预览器：从正文中提取的图片链接，统一放在消息最下方 */}
+          {imageUrls.length > 0 && (
+            <div className="mt-3 space-y-3">
+              {imageUrls.map((url) => (
+                <ImagePreviewCard key={url} url={url} />
+              ))}
+            </div>
+          )}
           {/* 视频播放器：从正文中提取的视频链接，统一放在消息最下方 */}
           {videoUrls.length > 0 && (
             <div className="mt-3 space-y-3">

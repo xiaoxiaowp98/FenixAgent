@@ -12,6 +12,7 @@ import webInstances from "./instances";
 import webKnowledgeBases from "./knowledge-bases";
 import webMetaAgent from "./meta-agent";
 import webOrganizations from "./organizations";
+import webProxyImage from "./proxy-image";
 import webRegistry from "./registry";
 import webSessions from "./sessions";
 import webTasks from "./tasks";
@@ -34,6 +35,7 @@ const webApp = new Elysia({ name: "web", prefix: "/web" })
   .use(webKnowledgeBases)
   .use(webMetaAgent)
   .use(webOrganizations)
+  .use(webProxyImage)
   .use(webSessions)
   .use(webTasks)
   .use(webUserFile)

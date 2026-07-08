@@ -213,6 +213,8 @@ export function AgentKnowledgeBasesPage() {
   const [reparseTarget, setReparseTarget] = useState<KnowledgeResourceInfo | null>(null);
   const [reparseConfirmOpen, setReparseConfirmOpen] = useState(false);
   const [reparseDeleteOld, setReparseDeleteOld] = useState(false);
+  const [overwriteConfirmOpen, setOverwriteConfirmOpen] = useState(false);
+  const pendingOverwriteRef = useRef<{ kbId: string; formData: FormData; dupNames: string[] } | null>(null);
   const [detailTab, setDetailTab] = useState<"documents" | "retrieval">("documents");
   const [showGraphPanel, setShowGraphPanel] = useState(false);
   const [previewResource, setPreviewResource] = useState<KnowledgeResourceInfo | null>(null);
@@ -335,14 +337,14 @@ export function AgentKnowledgeBasesPage() {
 
   // 上传资源
   const { run: runUpload, loading: uploading } = useRequest(
-    (id: string, formData: FormData) => unwrap(kbApi.uploadResources({ id }, formData)),
+    (id: string, formData: FormData, overwrite?: boolean) => unwrap(kbApi.uploadResources({ id, overwrite }, formData)),
     {
       manual: true,
-      onSuccess: (_data, [id]) => {
+      onSuccess: (_data, params) => {
         toast.success(t("toast.uploaded"));
-        runLoadDetail(id as string);
+        runLoadDetail(params[0]);
         // 上传后异步解析，轮询刷新直到解析完成
-        startStatusPoll(id as string);
+        startStatusPoll(params[0]);
       },
       onError: (err) => {
         console.error("Upload failed", err);
@@ -753,9 +755,21 @@ export function AgentKnowledgeBasesPage() {
                           multiple
                           onChange={(e) => {
                             if (e.target.files && e.target.files.length > 0 && selectedId) {
+                              const filesArr = Array.from(e.target.files);
                               const formData = new FormData();
-                              for (const file of e.target.files) {
+                              for (const file of filesArr) {
                                 formData.append("files", file);
+                              }
+                              // 检查与现有资源的同名冲突
+                              const existingNames = new Set(resources.map((r) => r.sourceName));
+                              const dupNames = filesArr.map((f) => f.name).filter((n) => existingNames.has(n));
+                              if (dupNames.length > 0) {
+                                // 先存起来，弹窗确认后再上传
+                                pendingOverwriteRef.current = { kbId: selectedId, formData, dupNames };
+                                setOverwriteConfirmOpen(true);
+                                // 重置 input 值，否则第二次选同名文件不会触发 onChange
+                                if (fileInputRef.current) fileInputRef.current.value = "";
+                                return;
                               }
                               runUpload(selectedId, formData);
                             }
@@ -1139,6 +1153,21 @@ export function AgentKnowledgeBasesPage() {
           if (resourceDeleteTarget) {
             setDeletingResourceId(resourceDeleteTarget.resourceId);
             runDeleteResource(resourceDeleteTarget.kbId, resourceDeleteTarget.resourceId);
+          }
+        }}
+      />
+
+      {/* 同名文件覆盖确认 */}
+      <ConfirmDialog
+        open={overwriteConfirmOpen}
+        onOpenChange={setOverwriteConfirmOpen}
+        title="覆盖同名文件"
+        description={`以下文件已存在，上传将覆盖原有文件：\n${(pendingOverwriteRef.current?.dupNames ?? []).join("、")}`}
+        onConfirm={() => {
+          const pending = pendingOverwriteRef.current;
+          if (pending) {
+            runUpload(pending.kbId, pending.formData, true);
+            pendingOverwriteRef.current = null;
           }
         }}
       />

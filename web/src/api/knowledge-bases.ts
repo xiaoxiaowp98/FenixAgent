@@ -59,10 +59,11 @@ export const kbApi = {
   del: (params: { id: string }) => request<void>("/web/knowledgeBases/:id", { method: "DELETE", params }),
 
   /** 上传资源文件到知识库（FormData 格式），返回解析后的资源项列表 */
-  uploadResources: (params: { id: string }, formData: FormData) =>
+  uploadResources: (params: { id: string; overwrite?: boolean }, formData: FormData) =>
     request<KnowledgeUploadResponse>("/web/knowledgeBases/:id/resources/upload", {
       method: "POST",
-      params,
+      params: { id: params.id },
+      query: params.overwrite ? { overwrite: "true" } : undefined,
       body: formData,
     }),
 

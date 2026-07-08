@@ -58,9 +58,10 @@ async function createOrReusePendingResource(
 ) {
   const now = new Date();
 
-  // 先按 sourceName 检查是否已有同名资源（防止并发重复上传到 RagFlow）
+  // 先按 sourceName 检查是否已有同名资源
   const existing = await knowledgeResourceRepo.getBySourceName(knowledgeBaseId, sourceName);
   if (existing) {
+    // 同名已有 → 复用记录，重置为 pending
     await knowledgeResourceRepo.update(existing.id, {
       sourceType,
       sourcePath,
@@ -78,7 +79,7 @@ async function createOrReusePendingResource(
     sourceType,
     sourceName,
     sourcePath,
-    remoteId: null, // remoteId 在 provider.addResource 返回 document_id 后才写入
+    remoteId: null,
     status: "pending",
     lastError: null,
     createdAt: now,
@@ -122,7 +123,12 @@ async function completeResource(
   });
 }
 
-export async function uploadKnowledgeResource(userId: string, knowledgeBaseId: string, file: File) {
+export async function uploadKnowledgeResource(
+  userId: string,
+  knowledgeBaseId: string,
+  file: File,
+  overwrite?: boolean,
+) {
   const kb = await knowledgeBaseRepo.getByOrgAndId(userId, knowledgeBaseId);
   if (!kb) {
     throw new Error("知识库不存在");
@@ -131,9 +137,34 @@ export async function uploadKnowledgeResource(userId: string, knowledgeBaseId: s
     throw new Error("知识库 remoteId 不存在");
   }
 
+  const sourceName = basename(file.name || "upload.bin");
+
+  // 覆盖模式：先删除同名旧资源（远端 + 本地），再上传新文件
+  if (overwrite) {
+    const existing = await knowledgeResourceRepo.getBySourceName(knowledgeBaseId, sourceName);
+    if (existing) {
+      // 删除远端 RagFlow 文档
+      if (existing.remoteId) {
+        const tenantIdentity = resolveKnowledgeTenantIdentity(kb);
+        try {
+          await getKnowledgeProvider().deleteResource({
+            resourceRemoteId: existing.remoteId,
+            knowledgeBaseRemoteId: kb.remoteId,
+            remoteAccountId: tenantIdentity.remoteAccountId,
+            remoteUserId: tenantIdentity.remoteUserId,
+            recursive: true,
+          });
+        } catch (err) {
+          console.warn("[knowledge-upload] 覆盖前删除远端文档失败（继续上传）:", err);
+        }
+      }
+      // 删除本地记录
+      await knowledgeResourceRepo.delete(existing.id);
+    }
+  }
+
   const dir = join(KNOWLEDGE_UPLOAD_ROOT, userId, knowledgeBaseId);
   await mkdir(dir, { recursive: true });
-  const sourceName = basename(file.name || "upload.bin");
   const filePath = join(dir, `${Date.now()}-${sourceName}`);
   await writeFile(filePath, Buffer.from(await file.arrayBuffer()));
 

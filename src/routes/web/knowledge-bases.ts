@@ -412,16 +412,17 @@ app.delete(
 app.post(
   "/knowledgeBases/:id/resources/upload",
   // biome-ignore lint/suspicious/noExplicitAny: Elysia 在 multipart/response 组合下类型推断不稳定
-  async ({ store, params, request, error }: any) => {
+  async ({ store, params, request, query, error }: any) => {
     const authCtx = store.authContext!;
     const id = params.id;
+    const overwrite = query.overwrite === "true" || query.overwrite === "1";
     try {
       const form = await request.formData();
       const files = Array.from(form.getAll("files")).filter(
         (entry: unknown): entry is globalThis.File => entry instanceof globalThis.File,
       );
       const items = await Promise.all(
-        files.map((file) => uploadKnowledgeResource(authCtx.organizationId, id, file as unknown as File)),
+        files.map((file) => uploadKnowledgeResource(authCtx.organizationId, id, file as unknown as File, overwrite)),
       );
 
       for (let index = 0; index < items.length; index += 1) {

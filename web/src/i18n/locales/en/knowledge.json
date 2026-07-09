@@ -181,7 +181,9 @@
     "converting": "Converting Office document to PDF...",
     "download": "Download",
     "close": "Close",
-    "btn": "Preview"
+    "btn": "Preview",
+    "emptyTable": "Table is empty",
+    "tableTruncated": "Showing first {{shown}} of {{total}} rows"
   },
   "tabs": {
     "documents": "Documents",
@@ -242,5 +244,22 @@
     "noNodeSelected": "Click a node to view details",
     "noDescription": "No description",
     "legend": "Legend"
+  },
+  "chunk": {
+    "close": "Close",
+    "docPreview": "Document Preview",
+    "chunkCount": "{{count}} chunks",
+    "totalCount": "{{count}} chunks total",
+    "searchFor": "Search \"{{keyword}}\"",
+    "searchPlaceholder": "Search chunks...",
+    "fullText": "Full text",
+    "ellipse": "Ellipse",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "empty": "No chunks",
+    "noMatch": "No matching chunks",
+    "chunksUnit": "chunks",
+    "pageOf": "Page {{page}}/{{total}}",
+    "fetchFailed": "Failed to fetch chunks"
   }
 }

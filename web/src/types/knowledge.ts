@@ -185,3 +185,20 @@ export interface KnowledgeGraphProgress {
   progressMsg?: string;
   taskId?: string;
 }
+
+/** 资源内的单个切片 */
+export interface KnowledgeChunk {
+  id: string;
+  content: string;
+  chunkIndex: number;
+  importantKeywords: string[];
+  enabled: boolean;
+}
+
+/** 切片列表分页响应 */
+export interface KnowledgeChunkListResponse {
+  items: KnowledgeChunk[];
+  total: number;
+  page: number;
+  pageSize: number;
+}

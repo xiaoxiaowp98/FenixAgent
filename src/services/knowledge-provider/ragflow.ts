@@ -2,6 +2,7 @@ import { config } from "../../config";
 import type {
   EmbeddingModelOption,
   KnowledgeBaseSnapshot,
+  KnowledgeChunk,
   KnowledgeGraphEdge,
   KnowledgeGraphNode,
   KnowledgePipelineOption,
@@ -779,6 +780,59 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
       source: doc?.source_url ?? null,
       docType: doc?.type ?? null,
       chunkCount: chunkList.length,
+    };
+  }
+
+  /**
+   * 分页拉取资源内的切片列表（含关键词）。
+   * 调用 RAGFlow GET /api/v1/datasets/{id}/documents/{doc_id}/chunks，支持分页和关键词搜索。
+   */
+  async listChunks(input: {
+    knowledgeBaseRemoteId: string;
+    resourceRemoteId: string;
+    remoteAccountId: string;
+    remoteUserId: string;
+    page: number;
+    pageSize: number;
+    keyword?: string;
+  }): Promise<{ items: KnowledgeChunk[]; total: number; page: number; pageSize: number }> {
+    const params = new URLSearchParams();
+    params.set("page", String(input.page));
+    params.set("page_size", String(input.pageSize));
+    if (input.keyword?.trim()) {
+      params.set("keywords", input.keyword.trim());
+    }
+
+    const payload = await this.request<
+      RagFlowResponse<{
+        total?: number;
+        chunks?: Array<{
+          id: string;
+          content: string;
+          important_keywords?: string[];
+          available_int?: number;
+        }>;
+      }>
+    >(
+      `/api/v1/datasets/${input.knowledgeBaseRemoteId}/documents/${input.resourceRemoteId}/chunks?${params.toString()}`,
+    );
+
+    const { chunks, total } = payload.data ?? {};
+    const chunkList = chunks ?? [];
+
+    const items: KnowledgeChunk[] = chunkList.map((c, idx) => ({
+      id: c.id,
+      content: c.content ?? "",
+      chunkIndex: (input.page - 1) * input.pageSize + idx + 1,
+      importantKeywords: Array.isArray(c.important_keywords) ? c.important_keywords : [],
+      enabled: c.available_int !== 0,
+    }));
+
+    return {
+      items,
+      total: total ?? items.length,
+      page: input.page,
+      pageSize: input.pageSize,
     };
   }
 

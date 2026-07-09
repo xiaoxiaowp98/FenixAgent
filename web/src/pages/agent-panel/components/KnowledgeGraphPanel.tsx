@@ -219,7 +219,8 @@ export function KnowledgeGraphPanel({ knowledgeBaseId }: KnowledgeGraphPanelProp
     }
     graphRef.current = graph;
 
-    graph.setData({ nodes, edges });
+    // G6 v5 的 setData 需要 NodeData/EdgeData，这里做类型转换
+    graph.setData({ nodes: nodes as never, edges: edges as never });
     graph.render();
 
     // 力导向布局是异步迭代的，autoFit 在渲染瞬间执行时坐标还在原点附近，
@@ -227,7 +228,7 @@ export function KnowledgeGraphPanel({ knowledgeBaseId }: KnowledgeGraphPanelProp
     // 并留 padding，保证初始视图合理且不撑爆画布。
     const fitOnce = () => {
       try {
-        graph.fitView([60, 60], undefined, false, "move");
+        graph.fitView({ when: "always" }, false);
       } catch {
         // 忽略：节点尚未就位时 fitView 可能抛错
       }

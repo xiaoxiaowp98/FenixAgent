@@ -86,6 +86,24 @@ const MIME_TYPES: Record<string, string> = {
   ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ".ppt": "application/vnd.ms-powerpoint",
   ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".xlsm": "application/vnd.ms-excel.sheet.macroEnabled.12",
+  // —— 视频格式 ——
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".ogg": "video/ogg",
+  ".ogv": "video/ogg",
+  ".mov": "video/quicktime",
+  ".mkv": "video/x-matroska",
+  ".avi": "video/x-msvideo",
+  ".flv": "video/x-flv",
+  ".wmv": "video/x-ms-wmv",
+  ".m4v": "video/x-m4v",
+  ".mpeg": "video/mpeg",
+  ".mpg": "video/mpeg",
+  // —— 补充图片格式 ——
+  ".avif": "image/avif",
+  ".tiff": "image/tiff",
+  ".tif": "image/tiff",
 };
 
 /** 可转换为 PDF 的 Office 文件扩展名 */
@@ -136,7 +154,7 @@ async function convertToPdf(sourcePath: string, sourceName: string, resourceId: 
       return outputPdf;
     }
     console.warn("Gotenberg conversion returned non-OK", { status: resp.status, sourceName });
-  } catch (err) {
+  } catch {
     console.warn("Gotenberg not available, trying LibreOffice CLI", { sourceName });
   }
 
@@ -537,8 +555,7 @@ app.get(
 app.get(
   "/knowledgeBases/:id/resources/:resourceId/file",
   // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation with sessionAuth
-  async ({ store, params, error }: any) => {
-    const authCtx = store.authContext!;
+  async ({ params, error }: any) => {
     const resourceId = params.resourceId;
     const kbId = params.id;
 
@@ -591,8 +608,7 @@ app.get(
 app.get(
   "/knowledgeBases/:id/resources/:resourceId/pdf",
   // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation with sessionAuth
-  async ({ store, params, error }: any) => {
-    const authCtx = store.authContext!;
+  async ({ params, error }: any) => {
     const resourceId = params.resourceId;
     const kbId = params.id;
 
@@ -752,6 +768,59 @@ app.post(
       tags: ["Knowledge"],
       summary: "触发文档重新解析",
       description: "触发 RagFlow 对指定文档执行重新解析（异步），成功返回后由前端轮询进度。",
+    },
+  },
+);
+
+// ── 分页查询资源切片列表 ──
+app.get(
+  "/knowledgeBases/:id/resources/:resourceId/chunks",
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation with sessionAuth
+  async ({ store, params, query, error }: any) => {
+    const authCtx = store.authContext!;
+    const kbId = params.id;
+    const resourceId = params.resourceId;
+    const page = Math.max(1, Number(query?.page) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize) || 20));
+    const keyword = query?.keyword?.trim() || undefined;
+
+    try {
+      const resource = await knowledgeResourceRepo.getById(resourceId);
+      if (!resource || resource.knowledgeBaseId !== kbId) {
+        return error(404, { success: false, error: { code: "NOT_FOUND", message: "资源不存在" } });
+      }
+      const kb = await knowledgeBaseRepo.getByOrgAndId(authCtx.organizationId, kbId);
+      if (!kb) {
+        return error(404, { success: false, error: { code: "NOT_FOUND", message: "知识库不存在" } });
+      }
+      if (!resource.remoteId || !kb.remoteId) {
+        return { success: true as const, data: { items: [], total: 0, page, pageSize } };
+      }
+      const provider = getKnowledgeProvider();
+      const result = await provider.listChunks({
+        knowledgeBaseRemoteId: kb.remoteId,
+        resourceRemoteId: resource.remoteId,
+        remoteAccountId: kb.remoteAccountId ?? authCtx.userId,
+        remoteUserId: kb.remoteUserId ?? authCtx.userId,
+        page,
+        pageSize,
+        keyword,
+      });
+      return { success: true as const, data: result };
+    } catch (err) {
+      console.error("Failed to list chunks", err);
+      return error(400, {
+        success: false,
+        error: { code: "CHUNK_LIST_FAILED", message: err instanceof Error ? err.message : "获取切片列表失败" },
+      });
+    }
+  },
+  {
+    sessionAuth: true,
+    detail: {
+      tags: ["Knowledge"],
+      summary: "分页获取资源切片列表",
+      description: "根据知识库 ID 和资源 ID 分页拉取切片列表，支持按关键词搜索。",
     },
   },
 );

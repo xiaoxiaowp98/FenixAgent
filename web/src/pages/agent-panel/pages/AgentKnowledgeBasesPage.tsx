@@ -56,6 +56,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { kbApi } from "@/src/api/knowledge-bases";
 import { unwrap } from "@/src/api/request";
 import { NS } from "@/src/i18n";
+import { ChunkDetailSheet } from "@/src/pages/agent-panel/components/ChunkDetailSheet";
 import { KnowledgeGraphPanel } from "@/src/pages/agent-panel/components/KnowledgeGraphPanel";
 import { RetrievalTestPanel } from "@/src/pages/agent-panel/components/RetrievalTestPanel";
 import type {
@@ -237,6 +238,7 @@ export function AgentKnowledgeBasesPage() {
   const [detailTab, setDetailTab] = useState<"documents" | "retrieval">("documents");
   const [showGraphPanel, setShowGraphPanel] = useState(false);
   const [previewResource, setPreviewResource] = useState<KnowledgeResourceInfo | null>(null);
+  const [selectedChunkResource, setSelectedChunkResource] = useState<KnowledgeResourceInfo | null>(null);
   // 表单字段
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
@@ -846,12 +848,22 @@ export function AgentKnowledgeBasesPage() {
                           key={r.id}
                           className="group flex items-center gap-3 px-6 py-3.5 hover:bg-[#fafbfd] transition-all duration-150 border-l-[3px] border-l-transparent hover:border-l-[#6366f1]"
                         >
-                          {/* 文件名 + 方法标签 */}
+                          {/* 文件名 + 方法标签 — 点击文件名进入切片详情 */}
                           <div className="flex-[2] min-w-0 flex items-center gap-2.5">
                             <span className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-[#f1f5f9] group-hover:bg-[#eef0ff] transition-colors">
                               {getFileIcon(r.sourceName)}
                             </span>
-                            <span className="text-[13px] font-semibold text-[#0f172a] truncate">{r.sourceName}</span>
+                            {r.chunkCount != null && r.chunkCount > 0 ? (
+                              <button
+                                type="button"
+                                className="text-[13px] font-semibold text-[#0f172a] hover:text-[#6366f1] truncate transition-colors text-left"
+                                onClick={() => setSelectedChunkResource(r)}
+                              >
+                                {r.sourceName}
+                              </button>
+                            ) : (
+                              <span className="text-[13px] font-semibold text-[#0f172a] truncate">{r.sourceName}</span>
+                            )}
                           </div>
 
                           {/* 分块数 */}
@@ -1268,6 +1280,16 @@ export function AgentKnowledgeBasesPage() {
           }}
           resource={previewResource}
           kbId={selectedId}
+        />
+      )}
+
+      {/* 切片详情 Sheet */}
+      {selectedChunkResource && selectedId && (
+        <ChunkDetailSheet
+          open={selectedChunkResource !== null}
+          onClose={() => setSelectedChunkResource(null)}
+          kbId={selectedId}
+          resource={selectedChunkResource}
         />
       )}
     </div>

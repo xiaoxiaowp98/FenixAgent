@@ -181,7 +181,9 @@
     "converting": "正在转换 Office 文档为 PDF...",
     "download": "下载",
     "close": "关闭",
-    "btn": "预览"
+    "btn": "预览",
+    "emptyTable": "表格为空",
+    "tableTruncated": "仅显示前 {{shown}} 行（共 {{total}} 行）"
   },
   "tabs": {
     "documents": "文档",
@@ -242,5 +244,22 @@
     "noNodeSelected": "点击图中节点查看详情",
     "noDescription": "暂无描述",
     "legend": "图例"
+  },
+  "chunk": {
+    "close": "关闭",
+    "docPreview": "文档预览",
+    "chunkCount": "共 {{count}} 个切片",
+    "totalCount": "共 {{count}} 个切片",
+    "searchFor": "搜索 \"{{keyword}}\"",
+    "searchPlaceholder": "搜索切片内容...",
+    "fullText": "全文",
+    "ellipse": "省略",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "empty": "暂无切片数据",
+    "noMatch": "无匹配切片",
+    "chunksUnit": "个切片",
+    "pageOf": "第 {{page}}/{{total}} 页",
+    "fetchFailed": "获取切片列表失败"
   }
 }

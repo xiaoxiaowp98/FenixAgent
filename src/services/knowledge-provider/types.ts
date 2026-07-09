@@ -189,6 +189,20 @@ export interface KnowledgeGraphEdge {
   description?: string;
 }
 
+/** 资源内的单个切片（chunk），来自 RAGFlow chunks API */
+export interface KnowledgeChunk {
+  /** RAGFlow chunk ID */
+  id: string;
+  /** 切片文本内容 */
+  content: string;
+  /** 切片在文档中的序号 */
+  chunkIndex: number;
+  /** 提取的重要关键词 */
+  importantKeywords: string[];
+  /** 启用状态 */
+  enabled: boolean;
+}
+
 export interface KnowledgeProvider {
   createKnowledgeBase(input: {
     organizationId: string;
@@ -350,4 +364,17 @@ export interface KnowledgeProvider {
     remoteAccountId: string;
     remoteUserId: string;
   }): Promise<KnowledgeResourceContent>;
+  /**
+   * 分页拉取资源内的切片列表（含关键词）。
+   * 供资源切片查看页面使用。
+   */
+  listChunks(input: {
+    knowledgeBaseRemoteId: string;
+    resourceRemoteId: string;
+    remoteAccountId: string;
+    remoteUserId: string;
+    page: number;
+    pageSize: number;
+    keyword?: string;
+  }): Promise<{ items: KnowledgeChunk[]; total: number; page: number; pageSize: number }>;
 }

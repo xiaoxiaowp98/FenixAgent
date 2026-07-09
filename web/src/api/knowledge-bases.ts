@@ -106,6 +106,16 @@ export const kbApi = {
       body,
     }),
 
+  /** 分页获取资源切片列表 */
+  listChunks: (
+    params: { kbId: string; resourceId: string },
+    query?: { page?: number; pageSize?: number; keyword?: string },
+  ) =>
+    request<import("../types/knowledge").KnowledgeChunkListResponse>(
+      "/web/knowledgeBases/:kbId/resources/:resourceId/chunks",
+      { method: "GET", params, query },
+    ),
+
   /** 构造资源文件的预览/下载 URL（upload 类型资源） */
   getFileUrl: (params: { kbId: string; resourceId: string }) =>
     `/web/knowledgeBases/${encodeURIComponent(params.kbId)}/resources/${encodeURIComponent(params.resourceId)}/file`,

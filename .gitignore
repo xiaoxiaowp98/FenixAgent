@@ -30,6 +30,10 @@ Claude-Haiku-*.txt
 .swarm/
 .agents/__pycache__/
 
+# 第三方 skill 工具产生的本地文件，不应入库
+.pi/
+skills-lock.json
+
 # Python bytecode
 __pycache__/
 *.pyc

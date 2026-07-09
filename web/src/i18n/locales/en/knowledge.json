@@ -260,6 +260,7 @@
     "noMatch": "No matching chunks",
     "chunksUnit": "chunks",
     "pageOf": "Page {{page}}/{{total}}",
-    "fetchFailed": "Failed to fetch chunks"
+    "fetchFailed": "Failed to fetch chunks",
+    "toggleFailed": "Failed to toggle chunk"
   }
 }

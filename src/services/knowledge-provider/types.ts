@@ -377,4 +377,18 @@ export interface KnowledgeProvider {
     pageSize: number;
     keyword?: string;
   }): Promise<{ items: KnowledgeChunk[]; total: number; page: number; pageSize: number }>;
+
+  /**
+   * 切换单个切片的启用/禁用状态。
+   * 调用 RAGFlow PATCH /api/v1/datasets/{id}/documents/{doc_id}/chunks/{chunk_id}，
+   * 传 { available: 0|1 }。
+   */
+  switchChunk(input: {
+    knowledgeBaseRemoteId: string;
+    resourceRemoteId: string;
+    chunkId: string;
+    available: boolean;
+    remoteAccountId: string;
+    remoteUserId: string;
+  }): Promise<void>;
 }

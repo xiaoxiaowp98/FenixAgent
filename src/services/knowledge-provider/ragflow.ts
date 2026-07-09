@@ -836,6 +836,28 @@ export class RagFlowKnowledgeProvider implements KnowledgeProvider {
     };
   }
 
+  /**
+   * 切换单个切片的启用/禁用状态。
+   * 调用 RAGFlow PATCH /api/v1/datasets/{id}/documents/{doc_id}/chunks/{chunk_id}，
+   * body: { available: 0|1 }。
+   */
+  async switchChunk(input: {
+    knowledgeBaseRemoteId: string;
+    resourceRemoteId: string;
+    chunkId: string;
+    available: boolean;
+    remoteAccountId: string;
+    remoteUserId: string;
+  }): Promise<void> {
+    await this.request(
+      `/api/v1/datasets/${input.knowledgeBaseRemoteId}/documents/${input.resourceRemoteId}/chunks/${input.chunkId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ available: input.available ? 1 : 0 }),
+      },
+    );
+  }
+
   // ============================================================
   // 知识图谱
   // ============================================================

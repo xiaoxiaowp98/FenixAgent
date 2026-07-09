@@ -825,6 +825,57 @@ app.get(
   },
 );
 
+// ── 切换单个切片的启用/禁用状态 ──
+app.patch(
+  "/knowledgeBases/:id/resources/:resourceId/chunks/:chunkId/enabled",
+  // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation with sessionAuth
+  async ({ store, params, body, error }: any) => {
+    const authCtx = store.authContext!;
+    const kbId = params.id;
+    const resourceId = params.resourceId;
+    const chunkId = params.chunkId;
+    const enabled = Boolean(body?.enabled);
+
+    try {
+      const resource = await knowledgeResourceRepo.getById(resourceId);
+      if (!resource || resource.knowledgeBaseId !== kbId) {
+        return error(404, { success: false, error: { code: "NOT_FOUND", message: "资源不存在" } });
+      }
+      const kb = await knowledgeBaseRepo.getByOrgAndId(authCtx.organizationId, kbId);
+      if (!kb) {
+        return error(404, { success: false, error: { code: "NOT_FOUND", message: "知识库不存在" } });
+      }
+      if (!resource.remoteId || !kb.remoteId) {
+        return error(400, { success: false, error: { code: "NO_REMOTE", message: "资源未关联远端文档" } });
+      }
+      const provider = getKnowledgeProvider();
+      await provider.switchChunk({
+        knowledgeBaseRemoteId: kb.remoteId,
+        resourceRemoteId: resource.remoteId,
+        chunkId,
+        available: enabled,
+        remoteAccountId: kb.remoteAccountId ?? authCtx.userId,
+        remoteUserId: kb.remoteUserId ?? authCtx.userId,
+      });
+      return { success: true as const, data: { enabled } };
+    } catch (err) {
+      console.error("Failed to switch chunk", err);
+      return error(400, {
+        success: false,
+        error: { code: "CHUNK_SWITCH_FAILED", message: err instanceof Error ? err.message : "切换切片状态失败" },
+      });
+    }
+  },
+  {
+    sessionAuth: true,
+    detail: {
+      tags: ["Knowledge"],
+      summary: "切换单个切片的启用/禁用状态",
+      description: "调用 RAGFlow PATCH 接口，切换指定切片的 available 状态。",
+    },
+  },
+);
+
 app.delete(
   "/knowledgeBases/:id/resources/:resourceId",
   // biome-ignore lint/suspicious/noExplicitAny: Elysia type inference limitation with sessionAuth

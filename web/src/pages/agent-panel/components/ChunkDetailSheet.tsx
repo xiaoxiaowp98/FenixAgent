@@ -91,32 +91,47 @@ export function ChunkDetailSheet({ open, onClose, kbId, resource }: ChunkDetailS
     fetchChunks(newPage, keyword);
   };
 
+  // 切换单个切片启用/禁用：调 RAGFlow PATCH 接口，乐观更新本地状态
+  const handleToggleEnabled = async (chunkId: string, enabled: boolean) => {
+    if (!data) return;
+    // 乐观更新
+    setData({
+      ...data,
+      items: data.items.map((c) => (c.id === chunkId ? { ...c, enabled } : c)),
+    });
+    try {
+      await unwrap(kbApi.switchChunk({ kbId, resourceId: resource.id, chunkId }, { enabled }));
+    } catch (err) {
+      console.error("Failed to switch chunk", err);
+      toast.error(t("chunk.toggleFailed"));
+      // 回滚
+      setData({
+        ...data,
+        items: data.items.map((c) => (c.id === chunkId ? { ...c, enabled: !enabled } : c)),
+      });
+    }
+  };
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const hasKeyword = keyword.trim().length > 0;
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent className="w-full sm:max-w-full p-0 flex flex-col gap-0">
-        {/* ── 顶部 Header：文件名 + 关闭 ── */}
-        <SheetHeader className="flex-row items-center justify-between px-6 py-4 border-b border-[#e8edf4] shrink-0 bg-gradient-to-r from-[#fafbfc] to-white">
-          <div className="min-w-0 flex-1">
-            <SheetTitle className="text-[16px] font-bold text-[#0f172a] truncate">{resource.sourceName}</SheetTitle>
-            <p className="text-[12px] text-[#94a3b8] mt-0.5">
-              {data ? t("chunk.totalCount", { count: data.total }) : ""}
-              {hasKeyword && (
-                <span className="ml-2 inline-flex items-center gap-1 text-[#6366f1]">
-                  · {t("chunk.searchFor", { keyword })}
-                  <button type="button" className="hover:text-[#4f46e5]" onClick={handleClearSearch}>
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              )}
-            </p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4 mr-1" />
-            {t("chunk.close")}
-          </Button>
+        {/* ── 顶部 Header：文件名（Sheet 右上角自带 X 关闭按钮，无需重复添加） ── */}
+        <SheetHeader className="px-6 py-4 border-b border-[#e8edf4] shrink-0 bg-gradient-to-r from-[#fafbfc] to-white pr-12">
+          <SheetTitle className="text-[16px] font-bold text-[#0f172a] truncate">{resource.sourceName}</SheetTitle>
+          <p className="text-[12px] text-[#94a3b8] mt-0.5">
+            {data ? t("chunk.totalCount", { count: data.total }) : ""}
+            {hasKeyword && (
+              <span className="ml-2 inline-flex items-center gap-1 text-[#6366f1]">
+                · {t("chunk.searchFor", { keyword })}
+                <button type="button" className="hover:text-[#4f46e5]" onClick={handleClearSearch}>
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+          </p>
         </SheetHeader>
 
         {/* ── 主体：双栏布局，左预览右切片 ── */}
@@ -208,7 +223,11 @@ export function ChunkDetailSheet({ open, onClose, kbId, resource }: ChunkDetailS
                         >
                           {chunk.enabled ? t("chunk.enabled") : t("chunk.disabled")}
                         </span>
-                        <Switch checked={chunk.enabled} className="scale-75" aria-readonly />
+                        <Switch
+                          checked={chunk.enabled}
+                          onCheckedChange={(v) => handleToggleEnabled(chunk.id, v)}
+                          className="scale-75"
+                        />
                       </div>
                     </div>
 

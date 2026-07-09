@@ -116,6 +116,14 @@ export const kbApi = {
       { method: "GET", params, query },
     ),
 
+  /** 切换单个切片的启用/禁用状态 */
+  switchChunk: (params: { kbId: string; resourceId: string; chunkId: string }, body: { enabled: boolean }) =>
+    request<{ enabled: boolean }>("/web/knowledgeBases/:kbId/resources/:resourceId/chunks/:chunkId/enabled", {
+      method: "PATCH",
+      params,
+      body,
+    }),
+
   /** 构造资源文件的预览/下载 URL（upload 类型资源） */
   getFileUrl: (params: { kbId: string; resourceId: string }) =>
     `/web/knowledgeBases/${encodeURIComponent(params.kbId)}/resources/${encodeURIComponent(params.resourceId)}/file`,

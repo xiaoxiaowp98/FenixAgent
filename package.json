@@ -85,6 +85,7 @@
     "cytoscape": "^3.34.0",
     "cytoscape-fcose": "^2.2.0",
     "dagre": "^0.8.5",
+    "dompurify": "^3.4.11",
     "drawflow": "^0.0.60",
     "drizzle-orm": "^0.45.2",
     "elysia": "^1.4.28",

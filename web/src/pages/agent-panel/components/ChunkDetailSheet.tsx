@@ -1,5 +1,6 @@
 "use client";
 
+import DOMPurify from "dompurify";
 import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -211,14 +212,16 @@ export function ChunkDetailSheet({ open, onClose, kbId, resource }: ChunkDetailS
                       </div>
                     </div>
 
-                    {/* 内容预览（全文 / 省略模式） */}
-                    <p
-                      className={`text-[12px] text-[#475569] leading-relaxed whitespace-pre-wrap break-words ${
+                    {/* 内容预览（全文 / 省略模式）。
+                        RAGFlow 切片内容可能包含 HTML（表格、视频标签、富文本），
+                        用 DOMPurify 清洗后渲染，与 RAGFlow chunk-card 行为一致。 */}
+                    <div
+                      className={`text-[12px] text-[#475569] leading-relaxed break-words [&_video]:max-w-full [&_video]:rounded-lg [&_img]:max-w-full [&_img]:rounded-lg [&_table]:w-full [&_a]:text-[#6366f1] [&_a]:underline ${
                         textMode === "ellipse" ? "line-clamp-3" : ""
                       }`}
-                    >
-                      {chunk.content}
-                    </p>
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: DOMPurify 已清洗
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(chunk.content) }}
+                    />
 
                     {/* 关键词标签 */}
                     {chunk.importantKeywords.length > 0 && (

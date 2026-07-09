@@ -30,7 +30,8 @@ Claude-Haiku-*.txt
 .swarm/
 .agents/__pycache__/
 
-# 第三方 skill 工具产生的本地文件，不应入库
+# AI 工具运行时本地目录与产物，不应入库
+.zcode/
 .pi/
 skills-lock.json
 

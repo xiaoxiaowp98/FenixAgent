@@ -93,6 +93,7 @@ export const CreateKnowledgeBaseRequestSchema = z.object({
   parseMethod: KnowledgeParseMethodSchema.optional().describe("解析方法；未传时不记录。创建后不可修改。"),
   pipelineId: z
     .string()
+    .nullable()
     .optional()
     .describe("自定义解析 pipeline ID（dataflow canvas ID）；仅 parseMethod=pipeline 时生效。"),
   chunkMethod: z

@@ -1,0 +1,85 @@
+# xasy 生产部署 — 使用预构建 amd64 镜像
+# Usage: docker compose -f docker-compose.xasy.yml up -d
+# 镜像构建: ./docker-build-xasy.sh
+
+services:
+
+    postgres:
+        image: postgres:16-alpine
+        restart: unless-stopped
+        user: root
+        environment:
+            POSTGRES_USER: rcs
+            POSTGRES_PASSWORD: rcs
+            POSTGRES_DB: rcs
+        ports:
+            - "5432:5432"
+        volumes:
+            - postgres-data:/var/lib/postgresql/data:Z
+        # root 启动 → chown 给 postgres 用户 → 再跑原始 entrypoint
+        command: >
+            sh -c "
+            chown -R postgres:postgres /var/lib/postgresql/data &&
+            exec docker-entrypoint.sh postgres
+            "
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U rcs"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+
+    # Office 文档 → PDF 转换（知识库预览）
+    gotenberg:
+        image: gotenberg/gotenberg:8
+        restart: unless-stopped
+        ports:
+            - "3200:3000"
+
+    # ── FenixAgent 主服务（xasy 镜像） ──
+    rcs:
+        image: docker-hub.pazhoulab-huangpu.com/pzlab/fenixagent:xasy
+        restart: unless-stopped
+        depends_on:
+            postgres:
+                condition: service_healthy
+        ports:
+            - "3001:3000"
+        environment:
+            LOG_FORMAT: json
+            RCS_HOST: 0.0.0.0
+            RCS_PORT: 3000
+            RCS_BASE_URL: http://localhost:3000
+            RCS_API_KEYS: ${RCS_API_KEYS:-123456}
+            REGISTRY_SECRET: "340b6908-031d-47de-9cfb-26f75818f969"
+            DATABASE_URL: postgres://rcs:rcs@postgres:5432/rcs
+            ACPX_G_URL: http://localhost:8848
+            APP_BRAND_NAME: ${APP_BRAND_NAME:-Fenix}
+            APP_LOGO_PATH: ${APP_LOGO_PATH:-}
+            OPENCODE_DISABLE_AUTOUPDATE: "1"
+            OPENCODE_DISABLE_TELEMETRY: "1"
+            RAGFLOW_API_URL: "http://192.168.9.55:9380"
+            RAGFLOW_API_KEY: "ragflow-MBOF28rqf1mYiViuq-rT1RfVMjdbDuMaTMztFAt9Kfw"
+        volumes:
+            - rcs-opencode-config:/root/.config/opencode:Z
+            - rcs-opencode-data:/root/.local/share/opencode:Z
+            - ./data:/app/data
+            - ./workflow:/app/workflow
+            - ./workspaces:/app/workspaces
+        command: ["sh", "-lc", "bun migrate.js && exec bun dist/index.js"]
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "bun",
+                    "-e",
+                    "fetch('http://127.0.0.1:3000/health').then((r) => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))",
+                ]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 20s
+
+volumes:
+    postgres-data:
+    rcs-opencode-config:
+    rcs-opencode-data:

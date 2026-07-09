@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.192",
+    "@antv/g6": "^5.1.0",
     "@better-auth/api-key": "1.6.11",
     "@elysiajs/cors": "^1.4.2",
     "@elysiajs/openapi": "^1.4.15",

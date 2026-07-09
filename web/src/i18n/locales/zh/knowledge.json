@@ -227,9 +227,20 @@
     "delete": "删除",
     "deleteSuccess": "知识图谱已删除",
     "deleteFailed": "删除知识图谱失败",
+    "deleteConfirmTitle": "确认删除知识图谱",
+    "deleteConfirmDescription": "删除后知识图谱数据将无法恢复，确定要删除吗？",
     "empty": "暂无知识图谱",
     "emptyHint": "点击「生成知识图谱」按钮，AI 将从文档中提取实体和关系",
     "nodes": "实体节点",
-    "edges": "关系边"
+    "edges": "关系边",
+    "networkHint": "拖拽节点 · 滚轮缩放 · 点击选中",
+    "nodeDetail": "节点详情",
+    "entityType": "实体类型",
+    "weight": "权重",
+    "description": "描述",
+    "connectedNodes": "关联节点",
+    "noNodeSelected": "点击图中节点查看详情",
+    "noDescription": "暂无描述",
+    "legend": "图例"
   }
 }

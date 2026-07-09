@@ -227,9 +227,20 @@
     "delete": "Delete",
     "deleteSuccess": "Knowledge graph deleted",
     "deleteFailed": "Delete knowledge graph failed",
+    "deleteConfirmTitle": "Confirm Delete Knowledge Graph",
+    "deleteConfirmDescription": "The knowledge graph data cannot be recovered after deletion. Are you sure you want to delete it?",
     "empty": "No knowledge graph",
     "emptyHint": "Click \"Generate\" to extract entities and relations from documents",
     "nodes": "Entity Nodes",
-    "edges": "Relation Edges"
+    "edges": "Relation Edges",
+    "networkHint": "Drag nodes · Scroll to zoom · Click to select",
+    "nodeDetail": "Node Detail",
+    "entityType": "Entity Type",
+    "weight": "Weight",
+    "description": "Description",
+    "connectedNodes": "Connected Nodes",
+    "noNodeSelected": "Click a node to view details",
+    "noDescription": "No description",
+    "legend": "Legend"
   }
 }

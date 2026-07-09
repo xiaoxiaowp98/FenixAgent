@@ -183,9 +183,13 @@ export function ResourcePreviewDialog({ open, onOpenChange, resource, kbId }: Re
 
       case "image":
         return (
-          <div className="flex-1 flex items-center justify-center bg-surface-2 rounded-md p-4 min-h-0">
+          <div className="flex-1 flex items-center justify-center bg-[#f8fafc] rounded-md p-4 min-h-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={fileUrl} alt={resource.sourceName} className="max-w-full max-h-full object-contain rounded-md" />
+            <img
+              src={fileUrl}
+              alt={resource.sourceName}
+              className="max-w-full max-h-full object-contain rounded-lg shadow-md"
+            />
           </div>
         );
 
@@ -226,7 +230,7 @@ export function ResourcePreviewDialog({ open, onOpenChange, resource, kbId }: Re
         if (officeMode === "checking" || officeLoading) {
           return (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-text-muted">
-              <div className="h-8 w-8 rounded-full border-2 border-brand border-t-transparent animate-spin" />
+              <div className="h-10 w-10 rounded-full border-[3px] border-[#e2e8f0] border-t-[#6366f1] animate-spin shadow-sm" />
               <p className="text-sm">{t("preview.converting")}</p>
             </div>
           );
@@ -284,12 +288,12 @@ export function ResourcePreviewDialog({ open, onOpenChange, resource, kbId }: Re
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-[1000px] max-w-[1000px] h-[90vh] flex flex-col p-0 gap-0"
+        className="sm:max-w-[1000px] max-w-[1000px] h-[90vh] flex flex-col p-0 gap-0 rounded-2xl overflow-hidden shadow-2xl"
         showCloseButton={false}
       >
         {/* Header：标题 + 下载 + 关闭 */}
-        <DialogHeader className="flex-row items-center justify-between px-6 py-4 border-b border-border shrink-0">
-          <DialogTitle className="truncate flex-1 min-w-0">
+        <DialogHeader className="flex-row items-center justify-between px-6 py-4 border-b border-[#e8edf4] shrink-0 bg-gradient-to-r from-[#fafbfc] to-white">
+          <DialogTitle className="truncate flex-1 min-w-0 text-[15px] font-semibold text-[#0f172a]">
             {t("preview.title", { name: resource.sourceName })}
           </DialogTitle>
           <div className="flex items-center gap-2 shrink-0">
@@ -315,23 +319,35 @@ export function ResourcePreviewDialog({ open, onOpenChange, resource, kbId }: Re
 
 function MarkdownSkeleton() {
   return (
-    <div className="flex-1 p-6 space-y-3">
-      <Skeleton className="h-4 w-3/4 rounded" />
-      <Skeleton className="h-4 w-full rounded" />
-      <Skeleton className="h-4 w-5/6 rounded" />
-      <Skeleton className="h-4 w-2/3 rounded" />
+    <div className="flex-1 p-6 space-y-4">
+      <Skeleton className="h-5 w-2/3 rounded-lg" />
+      <Skeleton className="h-4 w-full rounded-lg" />
+      <Skeleton className="h-4 w-[90%] rounded-lg" />
+      <Skeleton className="h-4 w-[85%] rounded-lg" />
+      <Skeleton className="h-4 w-3/4 rounded-lg" />
+      <div className="pt-2 space-y-3">
+        <Skeleton className="h-4 w-[70%] rounded-lg" />
+        <Skeleton className="h-4 w-full rounded-lg" />
+        <Skeleton className="h-4 w-[80%] rounded-lg" />
+      </div>
     </div>
   );
 }
 
 function TextSkeleton() {
   return (
-    <div className="flex-1 p-6 space-y-2">
-      <Skeleton className="h-3 w-full rounded" />
-      <Skeleton className="h-3 w-5/6 rounded" />
-      <Skeleton className="h-3 w-full rounded" />
-      <Skeleton className="h-3 w-4/6 rounded" />
-      <Skeleton className="h-3 w-full rounded" />
+    <div className="flex-1 p-6 space-y-3">
+      <Skeleton className="h-3 w-full rounded-md" />
+      <Skeleton className="h-3 w-[85%] rounded-md" />
+      <Skeleton className="h-3 w-[92%] rounded-md" />
+      <Skeleton className="h-3 w-[70%] rounded-md" />
+      <Skeleton className="h-3 w-[78%] rounded-md" />
+      <div className="pt-2 space-y-3">
+        <Skeleton className="h-3 w-full rounded-md" />
+        <Skeleton className="h-3 w-[88%] rounded-md" />
+        <Skeleton className="h-3 w-[65%] rounded-md" />
+        <Skeleton className="h-3 w-[75%] rounded-md" />
+      </div>
     </div>
   );
 }

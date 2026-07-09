@@ -158,35 +158,54 @@ interface KbCardProps {
 
 function KbCard({ kb, onClick }: KbCardProps) {
   const color = pickAvatarColor(kb.name);
+  // 从头像颜色类名中提取色相用于顶部装饰条
+  const baseColor = color.split(" ")[0]?.replace("bg-", "").replace("-50", "") ?? "blue";
+  const accentMap: Record<string, string> = {
+    blue: "from-blue-400 to-indigo-500",
+    emerald: "from-emerald-400 to-teal-500",
+    violet: "from-violet-400 to-purple-500",
+    amber: "from-amber-400 to-orange-500",
+    rose: "from-rose-400 to-pink-500",
+    cyan: "from-cyan-400 to-sky-500",
+    indigo: "from-indigo-400 to-blue-500",
+    orange: "from-orange-400 to-red-500",
+  };
+  const accentGradient = accentMap[baseColor] ?? "from-blue-400 to-indigo-500";
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group relative flex w-full items-center gap-4 rounded-xl bg-white border border-[#e4e9f0] p-4 text-left transition-all duration-200 hover:border-[#c8d0dd] hover:shadow-[0_4px_16px_-4px_rgba(0,0,0,0.06),0_1px_4px_-1px_rgba(0,0,0,0.04)] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1677ff]/40"
+      className="group relative flex w-full flex-col rounded-2xl bg-white text-left shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] ring-1 ring-inset ring-[#e8edf4]/80 transition-all duration-300 hover:shadow-[0_1px_3px_rgba(0,0,0,0.06),0_12px_28px_rgba(0,0,0,0.06)] hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6366f1]/40 overflow-hidden"
     >
-      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-semibold ${color}`}>
-        {getInitial(kb.name)}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <h3 className="truncate text-[15px] font-semibold text-[#1a2944] group-hover:text-[#1677ff] transition-colors">
-            {kb.name}
-          </h3>
-          <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${getStatusDot(kb.status)}`} />
+      {/* 顶部彩色装饰条 */}
+      <div
+        className={`h-1 w-full bg-gradient-to-r ${accentGradient} opacity-80 group-hover:opacity-100 transition-opacity`}
+      />
+      <div className="flex w-full items-center gap-4 p-5 pt-4">
+        <div
+          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-[20px] font-bold bg-gradient-to-br from-${baseColor}-100 to-${baseColor}-50 ${color.split(" ")[1]} shadow-sm ring-1 ring-black/5`}
+        >
+          {getInitial(kb.name)}
         </div>
-
-        {kb.description && (
-          <p className="mt-1 line-clamp-1 text-[12px] leading-relaxed text-[#94a3b8]">{kb.description}</p>
-        )}
-
-        <div className="mt-2 flex items-center gap-3 text-[12px] text-[#94a3b8]">
-          <span className="flex items-center gap-1">
-            <File className="h-3.5 w-3.5" />
-            {kb.resourcesCount}
-          </span>
-          <span className="text-[#dbe1ea]">·</span>
-          <span>{formatTimestamp(kb.updatedAt)}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="truncate text-[15px] font-semibold text-[#0f172a] group-hover:text-[#6366f1] transition-colors duration-200">
+              {kb.name}
+            </h3>
+            <span
+              className={`inline-block h-2 w-2 shrink-0 rounded-full ${getStatusDot(kb.status)} ring-2 ring-white`}
+            />
+          </div>
+          {kb.description && (
+            <p className="mt-1 line-clamp-1 text-[12px] leading-relaxed text-[#94a3b8]">{kb.description}</p>
+          )}
+          <div className="mt-3 flex items-center gap-3 text-[11px] text-[#94a3b8]">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f1f5f9] px-2.5 py-1 text-[#64748b]">
+              <File className="h-3 w-3" />
+              {kb.resourcesCount}
+            </span>
+            <span>{formatTimestamp(kb.updatedAt)}</span>
+          </div>
         </div>
       </div>
     </button>
@@ -473,23 +492,30 @@ export function AgentKnowledgeBasesPage() {
   // 加载中骨架屏
   if (loading) {
     return (
-      <div className="min-h-full overflow-auto bg-[#f4f7fb] px-8 py-7 text-[#14213d]">
-        <div className="mb-6 flex items-end justify-between">
+      <div className="min-h-full overflow-auto bg-[#f7f8fa] px-6 py-6 text-[#0f172a]">
+        <div className="mb-8 flex items-end justify-between">
           <div>
-            <Skeleton className="h-[22px] w-28 rounded-md" />
-            <Skeleton className="mt-1.5 h-3 w-56 rounded-md" />
+            <Skeleton className="h-7 w-28 rounded-lg" />
+            <Skeleton className="mt-2 h-3.5 w-56 rounded-md" />
           </div>
-          <Skeleton className="h-9 w-[240px] rounded-lg" />
+          <Skeleton className="h-10 w-[260px] rounded-xl" />
         </div>
-        <div className="mb-5 h-px bg-[#e8edf4]" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="mb-6 h-px bg-gradient-to-r from-transparent via-[#e2e8f0] to-transparent" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {Array.from({ length: 8 }).map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholders
-            <div key={i} className="flex items-center gap-4 rounded-xl bg-white border border-[#e4e9f0] p-4">
-              <Skeleton className="h-12 w-12 rounded-xl" />
-              <div className="flex-1">
-                <Skeleton className="h-4 w-3/4 rounded-md mb-2" />
-                <Skeleton className="h-3 w-1/2 rounded-md" />
+            <div
+              key={i}
+              className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] ring-1 ring-inset ring-[#e8edf4]/80 overflow-hidden"
+            >
+              <div className="h-1 w-full bg-[#e2e8f0]" />
+              <div className="flex items-center gap-4 p-5 pt-4">
+                <Skeleton className="h-14 w-14 rounded-2xl" />
+                <div className="flex-1 space-y-2.5">
+                  <Skeleton className="h-4 w-3/4 rounded-md" />
+                  <Skeleton className="h-3 w-1/2 rounded-md" />
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                </div>
               </div>
             </div>
           ))}
@@ -514,64 +540,70 @@ export function AgentKnowledgeBasesPage() {
   };
 
   return (
-    <div className="min-h-full overflow-auto bg-[#f4f7fb] px-8 py-7 text-[#14213d]">
+    <div className="min-h-full overflow-auto bg-[#f7f8fa] px-6 py-6 text-[#0f172a]">
       {/* ===== 网格视图 ===== */}
       {!selectedDetail && (
         <>
           {/* 顶部栏：标题 + 搜索 + 新建按钮 */}
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="text-[22px] font-bold tracking-tight text-[#1a2944]">{t("title")}</h1>
-              <p className="mt-0.5 text-[12px] text-[#94a3b8]">{t("subtitle")}</p>
+              <h1 className="text-[26px] font-bold tracking-tight text-[#0f172a]">{t("title")}</h1>
+              <p className="mt-1.5 text-[13px] text-[#94a3b8]">{t("subtitle")}</p>
             </div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-3">
               <div className="relative">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#98a8bd]" />
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" />
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={t("searchPlaceholder")}
-                  className="h-9 w-[220px] rounded-lg border border-[#dce5ef] bg-white pl-10 pr-4 text-[13px] text-[#1a2944] outline-none transition-all duration-200 placeholder:text-[#99a8bc] focus:w-[280px] focus:border-[#1677ff] focus:ring-4 focus:ring-[#1677ff]/10"
+                  className="h-10 w-[260px] rounded-xl border border-[#e2e8f0] bg-white pl-10 pr-4 text-[13px] text-[#0f172a] shadow-sm outline-none transition-all duration-300 placeholder:text-[#a0aec0] focus:w-[320px] focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/8 focus:shadow-md"
                 />
               </div>
-              <Button onClick={openCreateDialog} className="h-9 gap-1.5 text-[13px]">
+              <Button
+                onClick={openCreateDialog}
+                className="h-10 gap-2 text-[13px] rounded-xl shadow-md shadow-[#6366f1]/20 bg-[#6366f1] hover:bg-[#5558e6] transition-all duration-200"
+              >
                 <Plus className="h-4 w-4" />
                 {t("btn.create")}
               </Button>
             </div>
           </div>
 
-          <div className="mb-5 h-px bg-[#e8edf4]" />
+          <div className="mb-6 h-px bg-gradient-to-r from-transparent via-[#e2e8f0] to-transparent" />
 
           {/* 知识库网格 */}
           {filteredItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <div className="flex flex-col items-center justify-center py-32 gap-5">
               {searchQuery.trim() ? (
                 <>
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#eef2f8]">
-                    <Search className="h-8 w-8 text-[#bcc5d0]" />
+                  <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-[#f1f5f9] to-[#e2e8f0] shadow-inner">
+                    <Search className="h-10 w-10 text-[#94a3b8]" />
                   </div>
-                  <p className="text-sm font-medium text-[#64748b]">
+                  <p className="text-[15px] font-medium text-[#64748b]">
                     {t("emptySearchMessage", { query: searchQuery })}
                   </p>
                   <button
                     type="button"
                     onClick={() => setSearchQuery("")}
-                    className="text-[12px] text-[#1677ff] hover:underline"
+                    className="text-[13px] font-medium text-[#6366f1] hover:underline underline-offset-4"
                   >
                     {t("emptyClearSearch")}
                   </button>
                 </>
               ) : (
                 <>
-                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-[#eef2f8]">
-                    <BookOpen className="h-10 w-10 text-[#bcc5d0]" />
+                  <div className="flex h-28 w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-50 via-blue-50 to-violet-50 shadow-inner ring-1 ring-[#6366f1]/10">
+                    <BookOpen className="h-12 w-12 text-[#6366f1]/50" />
                   </div>
-                  <p className="text-[15px] font-medium text-[#64748b]">{t("emptyTitle")}</p>
-                  <p className="text-[13px] text-[#94a3b8] max-w-[320px] text-center leading-relaxed">
+                  <p className="text-[17px] font-semibold text-[#334155]">{t("emptyTitle")}</p>
+                  <p className="text-[14px] text-[#94a3b8] max-w-[400px] text-center leading-relaxed">
                     {t("emptyDescription")}
                   </p>
-                  <Button onClick={openCreateDialog} className="mt-2 h-9 gap-1.5 text-[13px]">
+                  <Button
+                    onClick={openCreateDialog}
+                    className="mt-3 h-11 gap-2 text-[14px] rounded-xl shadow-md shadow-[#6366f1]/20 bg-[#6366f1] hover:bg-[#5558e6]"
+                  >
                     <Plus className="h-4 w-4" />
                     {t("emptyCreateBtn")}
                   </Button>
@@ -579,7 +611,7 @@ export function AgentKnowledgeBasesPage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {filteredItems.map((kb) => (
                 <KbCard key={kb.id} kb={kb} onClick={() => handleSelect(kb)} />
               ))}
@@ -596,13 +628,13 @@ export function AgentKnowledgeBasesPage() {
             <button
               type="button"
               onClick={handleBackToGrid}
-              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#64748b] hover:text-[#1a2944] transition-colors"
+              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#64748b] hover:text-[#0f172a] transition-all duration-150 rounded-lg px-2.5 py-1.5 -ml-2.5 hover:bg-[#f1f5f9]"
             >
               <ChevronLeft className="h-4 w-4" />
               <span>Back to Knowledge Bases</span>
             </button>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={openEditDialog} className="h-8 text-[12px]">
+              <Button size="sm" variant="outline" onClick={openEditDialog} className="h-8 text-[12px] rounded-lg">
                 {t("btn.edit")}
               </Button>
               <Button
@@ -613,73 +645,81 @@ export function AgentKnowledgeBasesPage() {
                   setDeleteTarget(found ?? null);
                   setConfirmOpen(true);
                 }}
-                className="h-8 text-[12px]"
+                className="h-8 text-[12px] rounded-lg"
               >
                 {t("btn.delete")}
               </Button>
             </div>
           </div>
 
-          <div className="h-px bg-[#e8edf4] mb-5" />
+          <div className="h-px bg-gradient-to-r from-transparent via-[#e2e8f0] to-transparent mb-5" />
 
           {/* 加载中 */}
           {detailLoading && (
             <div className="flex items-center justify-center h-64">
-              <div className="h-8 w-8 rounded-full border-2 border-[#1677ff] border-t-transparent animate-spin" />
+              <div className="flex flex-col items-center gap-3">
+                <div className="h-10 w-10 rounded-full border-[3px] border-[#e2e8f0] border-t-[#1677ff] animate-spin shadow-sm" />
+                <p className="text-[13px] text-[#94a3b8]">Loading...</p>
+              </div>
             </div>
           )}
 
           {!detailLoading && (
-            <div className="max-w-[900px] mx-auto space-y-6">
+            <div className="max-w-[960px] mx-auto space-y-6">
               {/* 详情头部卡片：头像 + 名称 + 元数据 + 配置 */}
-              <div className="rounded-xl bg-white border border-[#e4e9f0] overflow-hidden">
-                <div className="p-6 relative">
+              <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.04)] ring-1 ring-inset ring-[#e8edf4]/80 overflow-hidden">
+                {/* 顶部渐变装饰条 */}
+                <div className="h-1.5 w-full bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400" />
+                <div className="p-7 relative">
                   {/* 右上角知识图谱魔法棒按钮 */}
                   <button
                     type="button"
-                    className="absolute top-4 right-4 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] text-[#64748b] hover:text-[#1677ff] hover:bg-[#f0f6ff] transition-colors"
+                    className="absolute top-7 right-7 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-semibold bg-[#f0f4ff] text-[#6366f1] hover:bg-[#e4eaff] border border-[#d4dafc] transition-all duration-150 shadow-sm hover:shadow-md"
                     onClick={() => setShowGraphPanel(!showGraphPanel)}
                     title={t("retrieval.knowledgeGraphSection")}
                   >
                     <Sparkles className="h-3.5 w-3.5" />
                     {t("retrieval.knowledgeGraphSection")}
                   </button>
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-5">
                     {/* 头像 */}
                     <div
-                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold ${pickAvatarColor(
+                      className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-[22px] font-bold bg-gradient-to-br ${pickAvatarColor(
                         selectedDetail.name,
-                      )}`}
+                      ).replace(
+                        /bg-(\w+)-\d+ text-(\w+)-\d+/,
+                        "from-$1-100 to-$1-200 text-$2-600",
+                      )} shadow-sm ring-1 ring-black/5`}
                     >
                       {getInitial(selectedDetail.name)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2.5">
-                        <h2 className="text-xl font-bold text-[#1a2944] truncate">{selectedDetail.name}</h2>
+                        <h2 className="text-[22px] font-bold text-[#0f172a] truncate">{selectedDetail.name}</h2>
                         <span
-                          className={`inline-block h-2.5 w-2.5 rounded-full ${getStatusDot(selectedDetail.status)}`}
+                          className={`inline-block h-2.5 w-2.5 rounded-full ${getStatusDot(selectedDetail.status)} ring-2 ring-white`}
                         />
                       </div>
                       <p className="text-[12px] text-[#94a3b8] font-mono mt-0.5">{selectedDetail.slug}</p>
                       {selectedDetail.description && (
-                        <p className="mt-3 text-[13px] text-[#5c6b7e] leading-relaxed max-w-[600px]">
+                        <p className="mt-3 text-[13px] text-[#475569] leading-relaxed max-w-[640px]">
                           {selectedDetail.description}
                         </p>
                       )}
                       <div className="flex items-center gap-4 mt-4">
                         <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium tracking-wide uppercase ${getStatusBadge(
+                          className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold tracking-wide uppercase shadow-sm ${getStatusBadge(
                             selectedDetail.status,
                           )}`}
                         >
                           {selectedDetail.status}
                         </span>
-                        <span className="flex items-center gap-1.5 text-[12px] text-[#64748b]">
+                        <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#64748b] rounded-full bg-[#f1f5f9] px-3 py-1">
                           <File className="h-3.5 w-3.5" />
                           {t("card.resourcesUnit", { count: selectedDetail.resourcesCount })}
                         </span>
                         {selectedDetail.bindingsCount > 0 && (
-                          <span className="flex items-center gap-1.5 text-[12px] text-[#64748b]">
+                          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#64748b] rounded-full bg-[#f1f5f9] px-3 py-1">
                             <Braces className="h-3.5 w-3.5" />
                             {selectedDetail.bindingsCount} agent{selectedDetail.bindingsCount > 1 ? "s" : ""}
                           </span>
@@ -689,9 +729,9 @@ export function AgentKnowledgeBasesPage() {
                   </div>
 
                   {/* 创建时选定的配置（只读展示） */}
-                  <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-[#f0f3f8] pt-4">
+                  <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-5 border-t border-[#f0f3f8] pt-5">
                     <ConfigItem
-                      icon={<Cpu className="h-4 w-4 text-[#1677ff]" />}
+                      icon={<Cpu className="h-4 w-4 text-[#6366f1]" />}
                       label={t("detailConfig.embeddingModel")}
                     >
                       {selectedDetail.embeddingModel ?? t("detailConfig.notSet")}
@@ -714,7 +754,7 @@ export function AgentKnowledgeBasesPage() {
 
               {/* 知识图谱面板（点击魔法棒展开） */}
               {showGraphPanel && selectedDetail && (
-                <div className="rounded-xl bg-white border border-[#e4e9f0] p-5">
+                <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] ring-1 ring-inset ring-[#e8edf4]/80 p-6">
                   <KnowledgeGraphPanel knowledgeBaseId={selectedDetail.id} />
                 </div>
               )}
@@ -733,19 +773,19 @@ export function AgentKnowledgeBasesPage() {
                 <TabsContent value="documents" className="space-y-6">
                   {/* 外部链接 */}
                   {selectedDetail.remoteId && (
-                    <div className="rounded-xl bg-white border border-[#e4e9f0] p-4">
+                    <div className="rounded-xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] ring-1 ring-inset ring-[#e8edf4]/80 p-4">
                       <div className="flex items-center gap-2 text-[12px] text-[#64748b]">
-                        <Globe className="h-3.5 w-3.5" />
+                        <Globe className="h-3.5 w-3.5 text-[#6366f1]" />
                         <span>Remote ID: {selectedDetail.remoteId}</span>
                       </div>
                     </div>
                   )}
 
                   {/* 资源列表 — 表格形式 */}
-                  <div className="rounded-xl bg-white border border-[#e4e9f0] overflow-hidden">
+                  <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] ring-1 ring-inset ring-[#e8edf4]/80 overflow-hidden">
                     {/* 表头工具栏 */}
-                    <div className="flex items-center justify-between px-5 py-3 border-b border-[#e8edf4]">
-                      <h3 className="text-[13px] font-semibold text-[#1a2944]">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-[#eef2f6]">
+                      <h3 className="text-[14px] font-semibold text-[#0f172a]">
                         {t("resources.title", { count: resources.length })}
                       </h3>
                       <div className="flex items-center gap-2">
@@ -781,7 +821,7 @@ export function AgentKnowledgeBasesPage() {
                           variant="outline"
                           disabled={uploading}
                           onClick={() => fileInputRef.current?.click()}
-                          className="h-8 gap-1.5 text-[12px]"
+                          className="h-8 gap-1.5 text-[12px] rounded-lg border-[#e2e8f0] hover:border-[#6366f1] hover:text-[#6366f1] hover:bg-[#f0f4ff] transition-all duration-150"
                         >
                           <Upload className="h-3.5 w-3.5" />
                           {uploading ? t("btn.uploading") : t("btn.upload")}
@@ -790,7 +830,7 @@ export function AgentKnowledgeBasesPage() {
                     </div>
 
                     {/* 表头 */}
-                    <div className="flex items-center gap-3 border-b border-[#f0f3f8] bg-[#f8fafc] px-5 py-2.5 text-[11px] font-medium uppercase tracking-wider text-[#94a3b8]">
+                    <div className="flex items-center gap-3 border-b border-[#eef2f6] bg-[#f8fafc] px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#94a3b8]">
                       <div className="flex-[2] min-w-0">{t("columns.name")}</div>
                       <div className="w-[60px] shrink-0 text-center">{t("resources.colChunks")}</div>
                       <div className="w-[100px] shrink-0">{t("resources.colStatus")}</div>
@@ -804,12 +844,14 @@ export function AgentKnowledgeBasesPage() {
                       {resources.map((r) => (
                         <div
                           key={r.id}
-                          className="group flex items-center gap-3 px-5 py-3 hover:bg-[#f8fafc] transition-colors"
+                          className="group flex items-center gap-3 px-6 py-3.5 hover:bg-[#fafbfd] transition-all duration-150 border-l-[3px] border-l-transparent hover:border-l-[#6366f1]"
                         >
                           {/* 文件名 + 方法标签 */}
-                          <div className="flex-[2] min-w-0 flex items-center gap-2">
-                            <span className="shrink-0">{getFileIcon(r.sourceName)}</span>
-                            <span className="text-[13px] font-medium text-[#1a2944] truncate">{r.sourceName}</span>
+                          <div className="flex-[2] min-w-0 flex items-center gap-2.5">
+                            <span className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-[#f1f5f9] group-hover:bg-[#eef0ff] transition-colors">
+                              {getFileIcon(r.sourceName)}
+                            </span>
+                            <span className="text-[13px] font-semibold text-[#0f172a] truncate">{r.sourceName}</span>
                           </div>
 
                           {/* 分块数 */}
@@ -821,13 +863,13 @@ export function AgentKnowledgeBasesPage() {
                           <div className="w-[100px] shrink-0">
                             {r.runStatus === "RUNNING" && r.parseProgress != null ? (
                               <div className="flex items-center gap-1.5">
-                                <div className="flex-1 h-1 rounded-full bg-[#eef2f8]">
+                                <div className="flex-1 h-1.5 rounded-full bg-[#eef2f8] overflow-hidden">
                                   <div
-                                    className="h-full rounded-full bg-[#1677ff] transition-all"
+                                    className="h-full rounded-full bg-gradient-to-r from-[#1677ff] to-[#6366f1] shadow-[0_0_6px_rgba(99,102,241,0.3)] transition-all duration-500"
                                     style={{ width: `${Math.round(r.parseProgress * 100)}%` }}
                                   />
                                 </div>
-                                <span className="text-[10px] text-[#1677ff] shrink-0">
+                                <span className="text-[10px] font-medium text-[#6366f1] shrink-0">
                                   {Math.round(r.parseProgress * 100)}%
                                 </span>
                               </div>
@@ -906,11 +948,11 @@ export function AgentKnowledgeBasesPage() {
                       ))}
 
                       {resources.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-16 text-[#94a3b8] gap-3">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#eef2f8]">
-                            <File className="h-7 w-7 opacity-30" />
+                        <div className="flex flex-col items-center justify-center py-24 text-[#94a3b8] gap-5">
+                          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-[#f1f5f9] to-[#e2e8f0] shadow-inner">
+                            <File className="h-8 w-8 opacity-25" />
                           </div>
-                          <p className="text-[13px] font-medium">{t("resources.empty")}</p>
+                          <p className="text-[14px] font-medium">{t("resources.empty")}</p>
                         </div>
                       )}
                     </div>
@@ -1106,7 +1148,7 @@ export function AgentKnowledgeBasesPage() {
               {formParseMethod === "pipeline" && (
                 <FieldGroup label={t("form.pipeline")} hint={t("form.pipelineHint")}>
                   {(options?.pipelines?.length ?? 0) === 0 ? (
-                    <div className="rounded-lg border border-dashed border-[#d0d7e2] bg-[#f8fafc] px-4 py-4 text-center">
+                    <div className="rounded-xl border border-dashed border-[#cbd5e1] bg-[#f8fafc] px-5 py-5 text-center shadow-sm">
                       <p className="text-[13px] font-medium text-[#64748b]">{t("form.noPipelines")}</p>
                       <p className="mt-1 text-[12px] text-[#94a3b8]">{t("form.noPipelinesHint")}</p>
                     </div>
@@ -1235,11 +1277,13 @@ export function AgentKnowledgeBasesPage() {
 /** 详情头部配置项：图标 + 标签 + 值 */
 function ConfigItem({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
-    <div className="flex items-start gap-2.5">
-      <div className="mt-0.5 shrink-0">{icon}</div>
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5 shrink-0 flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#f1f5f9] to-[#f8fafc] ring-1 ring-inset ring-[#e2e8f0]/60">
+        {icon}
+      </div>
       <div className="min-w-0">
-        <p className="text-[11px] text-[#94a3b8]">{label}</p>
-        <p className="mt-0.5 text-[13px] font-medium text-[#1a2944] truncate">{children}</p>
+        <p className="text-[11px] font-semibold text-[#94a3b8] uppercase tracking-[0.06em]">{label}</p>
+        <p className="mt-0.5 text-[13px] font-semibold text-[#0f172a] truncate">{children}</p>
       </div>
     </div>
   );
@@ -1264,8 +1308,8 @@ function FieldGroup({
   return (
     <div>
       <div className="mb-1.5 flex items-center gap-1.5">
-        {icon && <span className="shrink-0">{icon}</span>}
-        <span className="text-[13px] font-medium text-[#1a2944]">{label}</span>
+        {icon && <span className="shrink-0 text-[#1677ff]">{icon}</span>}
+        <span className="text-[13px] font-semibold text-[#0f172a]">{label}</span>
         {required && <span className="text-[13px] text-red-500">*</span>}
       </div>
       {hint && <p className="mb-2 text-[12px] leading-relaxed text-[#94a3b8]">{hint}</p>}
